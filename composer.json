@@ -1,0 +1,50 @@
+{
+    "name": "wonder-image/ecommerce",
+    "description": "Modulo del negozio online per wonder-image/app: vetrina, carrello, checkout, account dei clienti. Richiede wonder-image/gestionale.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "wonder-image/app": "^2.4.0-beta.1 || dev-main",
+        "wonder-image/gestionale": "@dev"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../app",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../gestionale",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Wonder\\Plugin\\Ecommerce\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "extra": {
+        "wonder": {
+            "module": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.2.0"
+        },
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

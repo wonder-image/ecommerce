@@ -1,0 +1,8 @@
+/vendor/
+.DS_Store
+/storage/
+# Il lock non si traccia: il core e il gestionale arrivano da `repositories`
+# path, quindi la loro versione dipende dal branch della cartella accanto e il
+# lock non vale su un'altra macchina né in CI. Si tornerà a tracciarlo quando il
+# gestionale dichiarerà una `version` nel suo composer.json, come fa il core.
+/composer.lock

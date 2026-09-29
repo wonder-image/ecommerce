@@ -1,0 +1,29 @@
+<?php
+/** php tests/run.php — esegue tutti i test del modulo. */
+declare(strict_types=1);
+
+$failed = [];
+
+$files = glob(__DIR__.'/*Test.php') ?: [];
+
+// I test d'integrazione girano solo dove c'è il sito di prova con il suo database.
+if (is_dir('/Users/andreamarinoni/Developer/boilerplates/ecommerce-site')) {
+    $files = array_merge($files, glob(__DIR__.'/integrazione/*Test.php') ?: []);
+} else {
+    echo "Sito di prova assente: test d'integrazione saltati.\n";
+}
+
+foreach ($files as $file) {
+    echo basename($file)."\n";
+    passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg($file), $status);
+
+    if ($status !== 0) {
+        $failed[] = basename($file);
+    }
+}
+
+echo $failed === []
+    ? "\nTutti i test dell'ecommerce passano.\n"
+    : "\nFalliti: ".implode(', ', $failed)."\n";
+
+exit($failed === [] ? 0 : 1);

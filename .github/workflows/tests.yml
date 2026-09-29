@@ -1,0 +1,57 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unitari:
+    name: Unitari e convenzioni
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del modulo
+        uses: actions/checkout@v4
+        with:
+          path: ecommerce
+
+      # Il modulo vive accanto al core: il repository è pubblico.
+      - name: Checkout di wonder-image/app
+        uses: actions/checkout@v4
+        with:
+          repository: wonder-image/app
+          path: app
+
+      # Il negozio richiede il gestionale, che è un repository privato:
+      # `GITHUB_TOKEN` vale solo per questo repository, quindi serve un token
+      # personale con accesso in lettura al gestionale nel secret MODULI_TOKEN.
+      - name: Checkout di wonder-image/gestionale
+        uses: actions/checkout@v4
+        with:
+          repository: wonder-image/gestionale
+          token: ${{ secrets.MODULI_TOKEN }}
+          path: gestionale
+
+      - name: PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      # `update` e non `install`: il lock non è tracciato, perché il core e il
+      # gestionale arrivano da `repositories` path e la loro versione dipende
+      # dal branch della cartella accanto.
+      - name: Composer
+        working-directory: ecommerce
+        run: composer update --no-interaction --no-progress --prefer-dist
+
+      # I test d'integrazione restano fuori: vogliono il database del sito di prova.
+      - name: Test
+        working-directory: ecommerce
+        run: |
+          esito=0
+          for file in tests/*Test.php; do
+            echo "== $file"
+            php "$file" || esito=1
+          done
+          exit $esito
