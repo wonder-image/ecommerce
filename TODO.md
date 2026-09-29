@@ -46,9 +46,9 @@ lavoro: chi apre il modulo parte da qui.
 - [ ] 1.7b Test d'integrazione: database `ecommerce_site` con transazioni annullate, sul modello di `../gestionale/tests/integrazione/`. Serve dalla prima pagina che legge i dati del gestionale: per ora `tests/integrazione/` è vuota e `run.php` la salta
 - [x] 1.8 GitHub Actions: unitari copiati dal gestionale, con il checkout del core e del gestionale accanto al pacchetto, `config.platform.php` a 8.2
 - [x] 1.9 `README.md` e `CHANGELOG.md`: a cosa serve il modulo, come si installa, rimando a spec e TODO
-- [ ] 1.10 `git init`, primo commit, repository **privato** `wonder-image/ecommerce`, push su `main`
-- [ ] 1.11 Collegamento a `../../boilerplates/ecommerce-site`: nel `composer.json` del sito `require` solo `wonder-image/ecommerce: "@dev"` (toglie `wonder-image/gestionale`, che diventa transitivo) e `repositories` + path `../../packages/ecommerce`; in `custom/config/modules.php` **entrambi** i moduli abilitati
-- [ ] 1.12 Verifica: `php forge update`, `php forge config`, `php forge modules` senza errori, due moduli validi, la rotta di prova risponde nel browser
+- [x] 1.10 `git init`, primo commit, repository **privato** `wonder-image/ecommerce`, push su `main`
+- [x] 1.11 Collegamento a `../../boilerplates/ecommerce-site`: nel `composer.json` del sito `require` solo `wonder-image/ecommerce: "@dev"` (toglie `wonder-image/gestionale`, che diventa transitivo) e `repositories` + path `../../packages/ecommerce`; in `custom/config/modules.php` **entrambi** i moduli abilitati
+- [x] 1.12 Verifica: `php forge config` e `php forge update` senza errori, `php forge status:modules` con `gestionale` ed `ecommerce` validi e abilitati, `https://ecommerce.test/negozio/stato/` risponde 200 e vede il gestionale
 - [ ] 1.13 Secret `MODULI_TOKEN` nel repository (token personale con lettura su `wonder-image/gestionale`): senza quello la CI non riesce a fare il checkout del gestionale, che è privato. **Lo fa Andrea**
 
 ## Piano 2 — Guscio
