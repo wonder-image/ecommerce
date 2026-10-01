@@ -13,3 +13,14 @@ versionamento semantico.
   Actions con il core e il gestionale accanto al pacchetto.
 - Pagina di controllo `/negozio/stato/`: dice se il modulo è attivo e se vede
   il gestionale. Sparisce quando arrivano le pagine vere.
+- Pannello auth con registrazione in due passaggi, verifica email, login/logout,
+  recupero password e accesso federato Google; Apple resta disattivato per una
+  fase successiva.
+- reCAPTCHA Enterprise con verifica server-side sui form auth pubblici
+  tradizionali, senza bloccare l'accesso Google, e metadati SEO per le pagine
+  auth/account.
+- Cellulare obbligatorio e collegamento alla scheda cliente senza richiedere
+  fatturazione o regolamento di gioco.
+- Token colore auth dedicati, view auth sigillate e rendering coerente col tema
+  della pagina.
+- Impersonificazione cliente protetta da authority, token monouso, CSRF e audit.

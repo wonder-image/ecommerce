@@ -40,12 +40,22 @@ check('dipende dal modulo gestionale', fn () =>
     $manifest->dependencySlugs() === ['gestionale']
 );
 
-check('dichiara solo rotte frontend', fn () =>
+check('dichiara le rotte frontend e la sola azione backend di impersonificazione', fn () =>
     $manifest->routeFile('frontend') === dirname(__DIR__).'/config/routes/route.frontend.php'
     && is_file((string) $manifest->routeFile('frontend'))
-    && $manifest->routeFile('backend') === null
+    && $manifest->routeFile('backend') === dirname(__DIR__).'/config/routes/route.backend.php'
+    && is_file((string) $manifest->routeFile('backend'))
     && $manifest->routeFile('api') === null
 );
+
+check('le rotte backend del modulo ereditano il gruppo backend del core', function () use ($manifest) {
+    $source = file_get_contents((string) $manifest->routeFile('backend'));
+
+    return is_string($source)
+        && str_contains($source, "Route::name('ecommerce.')")
+        && !str_contains($source, "prefix('/backend')")
+        && !str_contains($source, "area('backend')");
+});
 
 // Il backend e le tabelle sono del gestionale: il negozio non aggiunge pagine
 // al pannello, tabelle sue o comandi forge (4.1 della spec di architettura).
@@ -56,7 +66,7 @@ check('non dichiara database né comandi', fn () =>
 
 check('il file dei permessi esiste', fn () =>
     is_file((string) $manifest->permissionsFile())
-    && is_array(require (string) $manifest->permissionsFile())
+    && (require (string) $manifest->permissionsFile()) instanceof \Wonder\App\Permission\PermissionRegistry
 );
 
 summary();

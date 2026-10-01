@@ -42,10 +42,17 @@ final class Ecommerce implements ModuleInterface
      */
     public static function viewPath(string $path): string
     {
+        $path = ltrim($path, '/');
         $root = (string) ($GLOBALS['ROOT'] ?? '');
-        $custom = $root.'/custom/modules/'.self::SLUG.'/view/'.ltrim($path, '/');
+        $custom = $root.'/custom/modules/'.self::SLUG.'/view/'.$path;
 
-        return $root !== '' && is_file($custom) ? $custom : self::root().'/view/'.ltrim($path, '/');
+        foreach (self::sealedViews() as $sealed) {
+            if ($path === $sealed || str_starts_with($path, rtrim($sealed, '/').'/')) {
+                return self::root().'/view/'.$path;
+            }
+        }
+
+        return $root !== '' && is_file($custom) ? $custom : self::root().'/view/'.$path;
     }
 
     public static function langPath(): string
@@ -106,5 +113,16 @@ final class Ecommerce implements ModuleInterface
     public static function forgetConfig(): void
     {
         self::$config = null;
+    }
+
+    /** @return list<string> */
+    public static function sealedViews(): array
+    {
+        $manifest = json_decode((string) file_get_contents(self::manifestPath()), true);
+
+        return array_values(array_filter(
+            (array) ($manifest['views']['sealed'] ?? []),
+            static fn (mixed $path): bool => is_string($path) && trim($path) !== ''
+        ));
     }
 }

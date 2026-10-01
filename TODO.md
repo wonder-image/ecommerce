@@ -1,78 +1,127 @@
 # wonder-image/ecommerce — TODO
 
-Modulo del negozio online del gestionale Wonder Image. Questo file è lo stato del
-lavoro: chi apre il modulo parte da qui.
+Stato operativo del modulo. In questo progetto di prova non viene introdotto
+un `PRODUCT.md`: decisioni e prove restano qui e nella documentazione tecnica.
 
-## Come si lavora qui
+Stati: `[ ]` da fare · `[~]` in corso · `[x]` completato. Un'attività è chiusa
+solo quando ha una prova automatica o una verifica descritta.
 
-- **Spec di questa fetta (E1a):** `../gestionale/docs/superpowers/specs/2026-09-29-negozio-online-guscio-design.md` — approvata il 2026-09-29
-- **Architettura del progetto:** `../gestionale/docs/superpowers/specs/2026-09-11-gestionale-ecommerce-architettura-design.md`
-- **Piani:** `../gestionale/docs/superpowers/plans/`
-- **Mappa generale del progetto:** `../gestionale/TODO.md`
-- Il modulo si sviluppa in parallelo su più agenti: **aggiorna questo file nello
-  stesso commit del lavoro**, non dopo. Compito chiuso, compito aggiunto, compito
-  riaperto: sempre qui.
-- Stati: `[ ]` da fare · `[~]` in corso, con chi ce l'ha tra parentesi · `[x]` fatto.
-- Un compito è chiuso quando ha una prova: un test che passa, o la verifica descritta
-  accanto al compito.
-- Convenzioni del codice e dei commit: quelle del gestionale (`../gestionale`), test
-  compresi.
+## Decisioni confermate
 
-## Decisioni aperte
+- Registrazione in due passaggi: identità e consensi ecommerce, verifica email,
+  poi cellulare obbligatorio e password.
+- Google è il primo flusso federato attivo. Apple resta predisposto nel core ma
+  verrà integrato in una fase successiva. Per un account federato il cellulare
+  è obbligatorio, la password locale no.
+- Fatturazione e regolamento di gioco non appartengono alla registrazione.
+- Checkout ospite previsto, ma disabilitato per default e attivabile soltanto da
+  configurazione backend.
+- Checkout e area cliente completa attendono la conclusione di G4 nel gestionale.
+- Impersonificazione autorizzata come estensione generica del core.
+- I `FormField` usano il tema della pagina: non forzare mai `render('wonder')`.
 
-| Cosa | Chi decide | Cosa blocca |
-|---|---|---|
-| Campi della registrazione: minimo, minimo + telefono, o scheda fiscale completa | Andrea | 3.3, 3.4 |
-| Sigillatura di vetrina, catalogo e scheda prodotto | si decide in E1b | niente in E1a |
+## Fase A — Fondazioni condivise (`wonder-image/app`)
 
-## Fuori da E1a — non farlo adesso
+- [x] A1 Token auth (`--auth-bg-color`, `--auth-tx-color`,
+  `--auth-form-bg-color`, `--auth-form-tx-color`, `--auth-form-border-color`)
+  integrati in model, resource, seed e generazione CSS del core.
+- [x] A2 Token monouso con selector/validator, hash del validator, scadenza,
+  revoca e consumo atomico.
+- [x] A3 Recupero password costruito sui token monouso.
+- [x] A4 Verifica ID token OIDC Google/Apple con firma JWK, issuer, audience,
+  scadenza e nonce.
+- [x] A5 Rigenerazione dell'ID sessione dopo login locale, federato e cambi di
+  identità per impersonificazione.
+- [x] A6 Impersonificazione generica: authority esplicite, attore backend,
+  soggetto solo frontend, token breve, CSRF, audit, banner e ritorno all'attore.
+- [x] A7 Correzione persistenza `provider_email_verified` come booleano SQL sia
+  al collegamento sia agli accessi successivi.
+- [x] A8 Test fondazioni auth e regressione autorizzazioni HTTP.
 
-- Header, footer, menu, logo: sono del sito, il modulo non li tocca.
-- Componenti da innestare nell'header e nel footer (mini-carrello, ricerca, voce
-  dell'account, avvisi): fetta a sé dopo E1a, va prima organizzata.
-- Vetrina, catalogo pubblico, scheda prodotto: E1b.
-- Carrello, checkout, pagamenti, ordini e resi nell'area cliente: E1c, dopo G4.
-- `account/auth/impersonate/`: fetta a sé dopo il rilascio.
+## Fase B — Pannello auth (`wonder-image/ecommerce`)
 
-## Piano 1 — Pacchetto e collegamento
+- [x] B1 Permission `client`, hook separati di validazione, scrittura e lettura,
+  verifica email obbligatoria.
+- [x] B2 Layout auth sigillato e pagine login, logout POST, registrazione in due
+  passaggi, verifica email, recupero e ripristino password.
+- [x] B3 Presentazione basata sui componenti correnti e sul tema della pagina,
+  senza helper legacy di apertura/chiusura markup e senza tema forzato.
+- [x] B4 Registrazione senza `formBilling(...)` e senza `game_rules`, anche nella
+  validazione e nel collegamento backend al contatto.
+- [x] B5 Cellulare obbligatorio nel secondo passaggio; password obbligatoria nel
+  locale e facoltativa per un'identità federata.
+- [x] B6 Login Google con nonce, email verificata e consensi ecommerce per i
+  nuovi account; Apple è disattivato nella configurazione del modulo.
+- [x] B7 Redirect interni validati per ritorno ad account/checkout.
+- [x] B8 Collegamento sicuro a `gst_contacts`: riuso per utente/email non ancora
+  collegata, rifiuto del conflitto con altro account, creazione senza dati fiscali.
+- [x] B9 Configurazione `checkout.guest_enabled=false` predisposta; nessun flusso
+  ospite implementato prima del checkout.
+- [x] B10 Route backend/frontend dell'impersonificazione subordinate al flag
+  `impersonation.enabled` e alle authority configurate.
+- [x] B11 Test unitari di validazione/manifest/configurazione e test transazionali
+  di account federato, registrazione locale, reset password, contatti e
+  impersonificazione, con rollback verificato.
+- [ ] B12 E2E locale completo con consegna email di test: registrazione, verifica,
+  login, logout e password reset. Dipende da un trasporto mail di test configurato.
+- [ ] B13 Callback reale Google su `ecommerce.test`. Dipende dal Client ID e
+  dall'origine JavaScript locale autorizzata nel progetto Google. Apple resta
+  una fase successiva separata.
+- [x] B14 Test browser dell'impersonificazione da sessione backend reale: conferma,
+  avvio, banner responsive e stop con ripristino dell'amministratore verificati su
+  `ecommerce.test`.
+- [ ] B15 Rifinitura responsive/accessibilità sui browser target e regressione con
+  combinazioni dei cinque token auth configurate dal pannello colori.
+- [x] B16 `publish:module` nel core salta con avviso file e cartelle dichiarati
+  `sealed`, anche per richieste puntuali e `--force`; verificato dal sito con
+  `pages/auth/login.php`.
+- [ ] B17 Definire slot auth solo dove emerge una personalizzazione reale del
+  sito; `config.slots` è predisposto ma non viene ancora consumato.
+- [ ] B18 Test browser della revoca o disattivazione dell'attore durante una
+  sessione impersonata; la validazione applicativa resta coperta dai test del core.
+- [x] B19 reCAPTCHA Enterprise con action dedicate e verifica server-side sui
+  form auth pubblici tradizionali; la callback Google resta indipendente dal
+  CAPTCHA ed è protetta da CSRF, nonce e ID token. SEO auth/account e alert
+  CAPTCHA di pagina verificati su `ecommerce.test`.
 
-- [x] 1.1 `composer.json`: `wonder-image/ecommerce`, php `^8.2`, `wonder-image/app ^2.4.0-beta.1 || dev-main`, `wonder-image/gestionale @dev`; `repositories` path `../app` e `../gestionale` con symlink; psr-4 `Wonder\Plugin\Ecommerce\` → `src/`, `files: src/helpers.php`; platform php 8.2.0
-- [x] 1.2 `module.json`: slug `ecommerce`, namespace, entrypoint `Wonder\Plugin\Ecommerce\Ecommerce`, `dependencies.modules: ["gestionale"]`, `paths`, `routes` (solo `frontend`), `permissions`
-- [x] 1.3 `src/Ecommerce.php`: classe di ingresso sul modello di `../gestionale/src/Gestionale.php` e di `../immobili/src/Immobili.php` (`root()`, `viewPath()`, `layout()`, `config()`)
-- [x] 1.4 Albero delle cartelle: `src/{Frontend,Http,Support,Extensions,Seeding}`, `http/`, `view/{layout,components,pages,emails}`, `lang/`, `config/`, `tests/`
-- [x] 1.5 `lang/it/` con la prima voce e il meccanismo dei testi
-- [x] 1.6 `config/routes/route.frontend.php` con una rotta di prova che risponde (si toglie con il piano 2)
-- [x] 1.7 `tests/`: harness del gestionale, `php tests/run.php`, `ManifestTest` (manifest valido per il core, dipendenza dal gestionale, solo rotte frontend, niente database né comandi) ed `EcommerceTest` (percorsi, `viewPath()`, configurazione) — 10 test verdi
-- [ ] 1.7b Test d'integrazione: database `ecommerce_site` con transazioni annullate, sul modello di `../gestionale/tests/integrazione/`. Serve dalla prima pagina che legge i dati del gestionale: per ora `tests/integrazione/` è vuota e `run.php` la salta
-- [x] 1.8 GitHub Actions: unitari copiati dal gestionale, con il checkout del core e del gestionale accanto al pacchetto, `config.platform.php` a 8.2
-- [x] 1.9 `README.md` e `CHANGELOG.md`: a cosa serve il modulo, come si installa, rimando a spec e TODO
-- [x] 1.10 `git init`, primo commit, repository **privato** `wonder-image/ecommerce`, push su `main`
-- [x] 1.11 Collegamento a `../../boilerplates/ecommerce-site`: nel `composer.json` del sito `require` solo `wonder-image/ecommerce: "@dev"` (toglie `wonder-image/gestionale`, che diventa transitivo) e `repositories` + path `../../packages/ecommerce`; in `custom/config/modules.php` **entrambi** i moduli abilitati
-- [x] 1.12 Verifica: `php forge config` e `php forge update` senza errori, `php forge status:modules` con `gestionale` ed `ecommerce` validi e abilitati, `https://ecommerce.test/negozio/stato/` risponde 200 e vede il gestionale
-- [ ] 1.13 Secret `MODULI_TOKEN` nel repository (token personale con lettura su `wonder-image/gestionale`): senza quello la CI non riesce a fare il checkout del gestionale, che è privato. **Lo fa Andrea**
+## Fase C — Area cliente
 
-## Piano 2 — Guscio
+- [x] C0 Layout account responsive con riepilogo, navigazione laterale, stato
+  attivo e logout; ordini e coupon restano fuori dal menu fino alla loro fase.
+- [x] C1 Profilo cliente e aggiornamento del cellulare.
+- [x] C2 Indirizzi di spedizione e fatturazione separati dalla registrazione.
+- [ ] C3 Consultazione consensi e cambio password.
+- [ ] C4 Integrazione della navigazione già predisposta con ordini, resi e coupon.
+- [ ] C5 Collegare “Metodi di pagamento” al Billing Portal Stripe quando il
+  gestionale esporrà in modo verificato il customer id; fino ad allora il
+  percorso resta visibile ma non apre sessioni Stripe.
 
-- [ ] 2.1 `view/layout/frontend/ecommerce.shop.php`: chaina `frontend.main` del sito (modello: `../immobili/view/layout/frontend/immobili.main.php`)
-- [ ] 2.2 `view/layout/frontend/ecommerce.checkout.php`: chaina `frontend.main`
-- [ ] 2.3 `view/layout/frontend/ecommerce.auth.php`: chaina `frontend.minimal`
-- [ ] 2.4 Asset e dati JS del negozio nei layout: dove stanno nel pacchetto e come si pubblicano
-- [ ] 2.5 `module.json`: `views.sealed` con `pages/cart`, `pages/checkout`, `pages/account`, `pages/auth`
-- [ ] 2.6 `Ecommerce::viewPath()` che **non** consulta `custom/modules/ecommerce/view/` per i percorsi sigillati, + test: override ignorato su una view sigillata, rispettato su una non sigillata
-- [ ] 2.7 Slot: meccanismo (dichiarazione nella view, riempimento dalla configurazione del modulo) e i primi slot delle pagine di autenticazione e dell'area cliente
-- [ ] 2.8 Core `wonder-image/app`: `publish:module` legge `views.sealed` e salta quei file con un avviso, + test. PR a sé su `../app`
-- [ ] 2.9 `docs/` del modulo: elenco dei layout, degli slot e degli hook — è contratto pubblico, i cambi vanno nel changelog
+La fase C resta sospesa in attesa delle strutture definitive del gestionale.
 
-## Piano 3 — Account dei clienti
+## Fase D — Checkout (dopo G4)
 
-Rotte esattamente quelle di `clients/spingy/projects/spingy-it/account/auth/`.
+- [ ] D1 Congelare il contratto gestionale per ordini, righe, prezzi, imposte,
+  indirizzi, spedizioni, pagamenti e stati.
+- [ ] D2 Implementare carrello persistente e merge controllato al login, evitando
+  dipendenze da contenuti o configurazioni di `elenajossifov-com`.
+- [ ] D3 Identificazione cliente con login, registrazione e ritorno al checkout.
+- [ ] D4 Implementare acquisto ospite soltanto quando il flag backend è attivo;
+  definire conversione/collegamento successivo a un account.
+- [ ] D5 Raccolta fatturazione e spedizione, riepilogo e creazione ordine.
+- [ ] D6 Adapter dei provider pagamento, idempotenza callback e gestione esiti in
+  ambiente test senza addebiti reali.
+- [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di
+  attribuire cause alla lentezza percepita del riferimento legacy.
+- [ ] D8 E2E su `ecommerce.test`: carrello conservato attraverso auth, account e
+  ospite abilitato/disabilitato, success/failure/cancel pagamento, responsive e
+  regressioni.
+- [ ] D9 Aggiungere i layout `ecommerce.shop` e `ecommerce.checkout` insieme alle
+  rispettive pagine; non crearli come gusci vuoti prima della fase funzionale.
 
-- [ ] 3.1 `config/permissions.php`: `frontend.client` con `link`, `function` (`creation`, `modify`, `info`, `validate`) e `verification('email', required: true)`
-- [ ] 3.2 Hook `validateClient`, `client`, `infoClient` in `src/Frontend/`
-- [ ] 3.3 Pagine: `login/`, `logout/`, `signup/request/`, `signup/completion/` — **bloccate dai campi della registrazione**
-- [ ] 3.4 Pagine: `email-verification/send/` e `verify/`, `password/restore/`, `recovery/`, `set/`
-- [ ] 3.5 Email di verifica e di recupero: `view/emails/` e testi in `lang/`
-- [ ] 3.6 Segmenti degli URL in `lang/`, presi con `__u()` come in spingy
-- [ ] 3.7 Collegamento a `gst_contacts` alla verifica dell'email: scheda mancante → creata; scheda senza `user_id` → collegata; scheda con un altro `user_id` → account senza scheda e caso in "Da controllare"
-- [ ] 3.8 Area cliente: profilo, indirizzi (`gst_contact_addresses`), consensi, cambio password, con la sua navigazione interna
-- [ ] 3.9 Test: giro completo registrazione → verifica → accesso → uscita → recupero password; i tre casi del collegamento alla scheda
+## Infrastruttura e rilascio
+
+- [ ] I1 Configurare il secret CI `MODULI_TOKEN` per il gestionale privato.
+- [ ] I2 Eseguire la matrice CI con i tre pacchetti su PHP 8.2 e versione runtime
+  corrente prima del rilascio.
+- [ ] I3 Documentare configurazione provider e mail del sito di produzione senza
+  salvare segreti nel repository.

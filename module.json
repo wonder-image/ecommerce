@@ -27,9 +27,18 @@
         "tests": "tests"
     },
     "routes": {
-        "frontend": "config/routes/route.frontend.php"
+        "frontend": "config/routes/route.frontend.php",
+        "backend": "config/routes/route.backend.php"
     },
     "permissions": {
         "definitions": "config/permissions.php"
+    },
+    "views": {
+        "sealed": [
+            "pages/cart",
+            "pages/checkout",
+            "pages/account",
+            "pages/auth"
+        ]
     }
 }
