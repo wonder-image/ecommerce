@@ -22,14 +22,11 @@ jobs:
           repository: wonder-image/app
           path: app
 
-      # Il negozio richiede il gestionale, che è un repository privato:
-      # `GITHUB_TOKEN` vale solo per questo repository, quindi serve un token
-      # personale con accesso in lettura al gestionale nel secret MODULI_TOKEN.
+      # Anche il gestionale, che il negozio richiede, è pubblico.
       - name: Checkout di wonder-image/gestionale
         uses: actions/checkout@v4
         with:
           repository: wonder-image/gestionale
-          token: ${{ secrets.MODULI_TOKEN }}
           path: gestionale
 
       - name: PHP 8.2
