@@ -10,6 +10,6 @@ Ecommerce::layout('auth', ['title' => (string) __t('ecommerce.auth.restore.title
     <?=FormField::key('password')->password()->label((string) __t('ecommerce.auth.fields.password'))->required()?>
     <?=FormField::key('password_confirmation')->password()->label((string) __t('ecommerce.auth.fields.password_confirmation'))->required()?>
     <?=FormField::key('recaptcha')->recaptcha('ecommerce_password_restore')?>
-    <button class="btn btn-primary wi-submit w-100" type="submit"><?=e(__t('ecommerce.auth.restore.submit'))?></button>
+    <button class="btn btn-primary wi-input-submit wi-submit w-100" type="submit"><?=e(__t('ecommerce.auth.restore.submit'))?></button>
 </form>
 <?php View::end(); ?>

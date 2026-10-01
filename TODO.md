@@ -50,8 +50,9 @@ solo quando ha una prova automatica o una verifica descritta.
   validazione e nel collegamento backend al contatto.
 - [x] B5 Cellulare obbligatorio nel secondo passaggio; password obbligatoria nel
   locale e facoltativa per un'identità federata.
-- [x] B6 Login Google con nonce, email verificata e consensi ecommerce per i
-  nuovi account; Apple è disattivato nella configurazione del modulo.
+- [x] B6 Login Google con nonce ed email verificata; il consenso informato è
+  gestito dalla schermata OAuth di Google e non blocca il flusso federato.
+  Apple è disattivato nella configurazione del modulo.
 - [x] B7 Redirect interni validati per ritorno ad account/checkout.
 - [x] B8 Collegamento sicuro a `gst_contacts`: riuso per utente/email non ancora
   collegata, rifiuto del conflitto con altro account, creazione senza dati fiscali.
@@ -96,18 +97,23 @@ solo quando ha una prova automatica o una verifica descritta.
   gestionale esporrà in modo verificato il customer id; fino ad allora il
   percorso resta visibile ma non apre sessioni Stripe.
 
-La fase C resta sospesa in attesa delle strutture definitive del gestionale.
+Ordini e coupon della fase C restano sospesi in attesa delle rispettive
+strutture definitive del gestionale.
 
-## Fase D — Checkout (dopo G4)
+## Fase D — Carrello e checkout
 
-- [ ] D1 Congelare il contratto gestionale per ordini, righe, prezzi, imposte,
-  indirizzi, spedizioni, pagamenti e stati.
-- [ ] D2 Implementare carrello persistente e merge controllato al login, evitando
+- [x] D1 Verificato il contratto G4 del gestionale per carrello, righe, prezzi,
+  imposte, indirizzi, creazione ordine, prenotazione stock e pagamento aperto.
+  Tariffe e metodi di spedizione dipendono ancora dalla conclusione di G7.
+- [x] D2 Implementare carrello persistente e merge controllato al login, evitando
   dipendenze da contenuti o configurazioni di `elenajossifov-com`.
-- [ ] D3 Identificazione cliente con login, registrazione e ritorno al checkout.
-- [ ] D4 Implementare acquisto ospite soltanto quando il flag backend è attivo;
-  definire conversione/collegamento successivo a un account.
-- [ ] D5 Raccolta fatturazione e spedizione, riepilogo e creazione ordine.
+- [x] D3 Identificazione cliente con login, registrazione e ritorno al checkout;
+  anche il completamento federato conserva la destinazione.
+- [~] D4 Il percorso ospite è subordinato a `checkout.guest_enabled` e protetto
+  da reCAPTCHA; restano l'impostazione nel backend e la decisione sulla
+  conversione/collegamento successivo a un account.
+- [~] D5 Raccolta fatturazione e spedizione, riepilogo e creazione ordine sono
+  operative per i metodi manuali. Costi e scelta della spedizione attendono G7.
 - [ ] D6 Adapter dei provider pagamento, idempotenza callback e gestione esiti in
   ambiente test senza addebiti reali.
 - [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di
@@ -115,8 +121,8 @@ La fase C resta sospesa in attesa delle strutture definitive del gestionale.
 - [ ] D8 E2E su `ecommerce.test`: carrello conservato attraverso auth, account e
   ospite abilitato/disabilitato, success/failure/cancel pagamento, responsive e
   regressioni.
-- [ ] D9 Aggiungere i layout `ecommerce.shop` e `ecommerce.checkout` insieme alle
-  rispettive pagine; non crearli come gusci vuoti prima della fase funzionale.
+- [x] D9 Layout `ecommerce.shop` e `ecommerce.checkout`, pagine carrello,
+  checkout e conferma collegate al flusso funzionale.
 
 ## Infrastruttura e rilascio
 

@@ -9,8 +9,8 @@ Ecommerce::layout('auth', ['title' => (string) __t('ecommerce.auth.recovery.titl
     <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
     <?=FormField::key('email')->email()->label((string) __t('ecommerce.auth.fields.email'))->render()?>
     <?=FormField::key('recaptcha')->recaptcha('ecommerce_password_recovery')?>
-    <button class="btn btn-primary wi-submit w-100" type="submit"><?=e(__t('ecommerce.auth.recovery.submit'))?></button>
+    <button class="btn btn-primary wi-input-submit wi-submit w-100" type="submit"><?=e(__t('ecommerce.auth.recovery.submit'))?></button>
 </form>
 <?php endif; ?>
-<p class="text-small a-c mt-5"><a href="<?=e(__r('ecommerce.auth.login'))?>"><?=e(__t('ecommerce.auth.back_login'))?></a></p>
+<div class="text-small a-c mt-5"><a href="<?=e(__r('ecommerce.auth.login'))?>"><?=e(__t('ecommerce.auth.back_login'))?></a></div>
 <?php View::end(); ?>

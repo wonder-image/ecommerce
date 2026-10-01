@@ -2,6 +2,55 @@
     "module": {
         "name": "Negozio online"
     },
+    "cart": {
+        "title": "Carrello",
+        "seo": "Controlla i prodotti nel carrello prima di procedere al checkout.",
+        "count": "{{count}} articoli",
+        "empty_title": "Il carrello è vuoto",
+        "empty_text": "Aggiungi un prodotto per iniziare il tuo acquisto.",
+        "sku": "Codice: {{sku}}",
+        "quantity": "Quantità",
+        "update": "Aggiorna",
+        "remove": "Rimuovi",
+        "summary": "Riepilogo",
+        "products_total": "Prodotti",
+        "discount": "Sconto",
+        "total": "Totale",
+        "checkout": "Vai al checkout",
+        "add": "Aggiungi al carrello",
+        "added": "Prodotto aggiunto al carrello.",
+        "updated": "Quantità aggiornata.",
+        "removed": "Prodotto rimosso dal carrello.",
+        "error": "Non è stato possibile aggiornare il carrello.",
+        "notice_title": "Carrello aggiornato",
+        "error_title": "Controlla il carrello"
+    },
+    "checkout": {
+        "title": "Checkout",
+        "seo": "Completa i dati di consegna e scegli come pagare il tuo ordine.",
+        "contact": "Contatti",
+        "billing": "Indirizzo di fatturazione",
+        "shipping": "Indirizzo di spedizione",
+        "payment": "Pagamento",
+        "payment_method": "Metodo di pagamento",
+        "note": "Note per l’ordine",
+        "notice_title": "Checkout aggiornato",
+        "error_title": "Controlla i dati del checkout",
+        "no_payment_methods": "Non sono disponibili metodi di pagamento online.",
+        "place_order": "Conferma ordine",
+        "back_to_cart": "Torna al carrello",
+        "errors": {
+            "empty": "Il carrello è vuoto.",
+            "payment_method": "Scegli un metodo di pagamento disponibile.",
+            "provider_pending": "Il pagamento online non è ancora disponibile. Scegli un altro metodo di pagamento.",
+            "generic": "Non è stato possibile completare l’ordine. Controlla i dati e riprova."
+        },
+        "completed": {
+            "title": "Ordine ricevuto",
+            "text": "Il tuo ordine {{number}} è stato registrato.",
+            "account": "Vai al tuo account"
+        }
+    },
     "auth": {
         "fields": {
             "name": "Nome",
@@ -63,7 +112,8 @@
             "separator": "oppure continua con",
             "apple": "Continua con Apple",
             "failed": "L’accesso con Google non è riuscito.",
-            "signup_required": "Per creare un nuovo account con Google, apri la pagina di registrazione e accetta i consensi richiesti."
+            "use_google": "Questo account utilizza Google. Accedi con il pulsante «Accedi con Google».",
+            "use_apple": "Questo account utilizza Apple. Accedi con il pulsante «Accedi con Apple»."
         },
         "seo": {
             "login": "Accedi al tuo account per gestire dati, indirizzi e acquisti.",

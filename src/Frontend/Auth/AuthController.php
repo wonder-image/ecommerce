@@ -42,9 +42,24 @@ final class AuthController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::requireCsrf();
-            if (self::verifyRecaptcha('ecommerce_login')
-                && \authenticateUserLogin($_POST['email'] ?? '', $_POST['password'] ?? '', 'frontend', 'client')) {
-                self::redirect(SafeRedirect::fromRequest($_POST['continue'] ?? '', '/account/'));
+            if (self::verifyRecaptcha('ecommerce_login')) {
+                $users = new EcommerceUserAccountGateway();
+                $user = $users->findUserByEmail((string) ($_POST['email'] ?? ''));
+                $provider = is_array($user) && !$users->hasLocalPassword((int) ($user['id'] ?? 0))
+                    ? self::federatedProviderForUser((int) ($user['id'] ?? 0))
+                    : null;
+
+                if ($provider !== null) {
+                    self::render('login', [
+                        'alert' => $ALERT ?? null,
+                        'federated_error' => 'use_federated_login_'.$provider,
+                    ]);
+                    return;
+                }
+
+                if (\authenticateUserLogin($_POST['email'] ?? '', $_POST['password'] ?? '', 'frontend', 'client')) {
+                    self::redirect(SafeRedirect::fromRequest($_POST['continue'] ?? '', '/account/'));
+                }
             }
         }
 
@@ -60,7 +75,7 @@ final class AuthController
 
     private static function signupRequest(): void
     {
-        global $ALERT;
+        global $ALERT, $PAGE;
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -73,6 +88,10 @@ final class AuthController
             $errors = AuthValidator::signupRequest($_POST);
 
             if ($errors === []) {
+                $continue = SafeRedirect::fromRequest($_POST['continue'] ?? '', '/account/');
+                if (isset($PAGE) && is_object($PAGE)) {
+                    $PAGE->redirectBase64 = base64_encode($continue);
+                }
                 $payload = array_merge($_POST, [
                     'area' => 'frontend',
                     'authority' => 'client',
@@ -267,14 +286,6 @@ final class AuthController
                 throw new \RuntimeException('federated_email_not_verified');
             }
 
-            if ($newAccount && AuthValidator::signupRequest(array_merge($_POST, [
-                    'name' => $identity->name,
-                    'surname' => $identity->surname,
-                    'email' => $identity->email,
-                ])) !== []) {
-                throw new \RuntimeException('federated_consents_required');
-            }
-
             $result = (new FederatedLoginService($users, $identities))
                 ->authenticate($identity, 'frontend', ['client']);
 
@@ -283,7 +294,6 @@ final class AuthController
             }
 
             if ($newAccount) {
-                \registerUserConsents($result->userId, $_POST, ['surface' => 'ecommerce_federated_signup']);
                 CustomerAccount::linkContact($result->userId);
             }
 
@@ -313,6 +323,18 @@ final class AuthController
         self::redirect(($result->success ?? false)
             ? SafeRedirect::fromRequest($result->continue_url, '/')
             : self::route('ecommerce.auth.login'));
+    }
+
+    private static function federatedProviderForUser(int $userId): ?string
+    {
+        foreach ((new FederatedIdentityRepository())->findByUserId($userId) as $identity) {
+            $provider = strtolower(trim((string) ($identity['provider'] ?? '')));
+            if ($provider !== '') {
+                return $provider;
+            }
+        }
+
+        return null;
     }
 
     private static function stopImpersonation(): void

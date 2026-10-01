@@ -54,7 +54,8 @@ final class AuthValidationAlert
 
         if (trim((string) $federatedError) !== '') {
             $messages[] = (string) \__t(match ($federatedError) {
-                'federated_consents_required' => 'ecommerce.auth.federated.signup_required',
+                'use_federated_login_google' => 'ecommerce.auth.federated.use_google',
+                'use_federated_login_apple' => 'ecommerce.auth.federated.use_apple',
                 default => 'ecommerce.auth.federated.failed',
             });
         }
