@@ -1,5 +1,54 @@
 {
     "module": { "name": "Online store" },
+    "cart": {
+        "title": "Cart",
+        "seo": "Review the products in your cart before checkout.",
+        "count": "{{count}} items",
+        "empty_title": "Your cart is empty",
+        "empty_text": "Add a product to start your purchase.",
+        "sku": "SKU: {{sku}}",
+        "quantity": "Quantity",
+        "update": "Update",
+        "remove": "Remove",
+        "summary": "Summary",
+        "products_total": "Products",
+        "discount": "Discount",
+        "total": "Total",
+        "checkout": "Go to checkout",
+        "add": "Add to cart",
+        "added": "Product added to the cart.",
+        "updated": "Quantity updated.",
+        "removed": "Product removed from the cart.",
+        "error": "The cart could not be updated.",
+        "notice_title": "Cart updated",
+        "error_title": "Check your cart"
+    },
+    "checkout": {
+        "title": "Checkout",
+        "seo": "Enter delivery details and choose how to pay for your order.",
+        "contact": "Contact details",
+        "billing": "Billing address",
+        "shipping": "Shipping address",
+        "payment": "Payment",
+        "payment_method": "Payment method",
+        "note": "Order notes",
+        "notice_title": "Checkout updated",
+        "error_title": "Check your checkout details",
+        "no_payment_methods": "No online payment methods are available.",
+        "place_order": "Place order",
+        "back_to_cart": "Back to cart",
+        "errors": {
+            "empty": "Your cart is empty.",
+            "payment_method": "Choose an available payment method.",
+            "provider_pending": "Online payment is not available yet. Choose a different payment method.",
+            "generic": "The order could not be completed. Check the details and try again."
+        },
+        "completed": {
+            "title": "Order received",
+            "text": "Your order {{number}} has been recorded.",
+            "account": "Go to your account"
+        }
+    },
     "auth": {
         "fields": { "name": "First name", "surname": "Last name", "email": "Email", "prefix": "Prefix", "mobile": "Mobile phone", "password": "Password", "password_optional": "Local password (optional)", "password_confirmation": "Confirm password" },
         "validation": {
@@ -23,7 +72,7 @@
         "email": { "sent_title": "Check your email", "sent_text": "We sent you a link to verify your address and continue registration.", "invalid": "The verification link is invalid or expired.", "reset_subject": "Reset your password", "reset_body": "Open this link to choose a new password: {{url}}" },
         "recovery": { "title": "Recover password", "text": "Enter the email for your account.", "sent": "If the address belongs to an account, you will receive a reset link.", "submit": "Send link" },
         "restore": { "title": "Choose a new password", "submit": "Save password" },
-        "federated": { "separator": "or continue with", "apple": "Continue with Apple", "failed": "Google sign-in failed.", "signup_required": "To create a new account with Google, open the sign-up page and accept the required consents." },
+        "federated": { "separator": "or continue with", "apple": "Continue with Apple", "failed": "Google sign-in failed.", "use_google": "This account uses Google. Sign in with the “Sign in with Google” button.", "use_apple": "This account uses Apple. Sign in with the “Sign in with Apple” button." },
         "seo": {
             "login": "Sign in to manage your details, addresses and purchases.",
             "signup": "Create your ecommerce account in two simple steps.",

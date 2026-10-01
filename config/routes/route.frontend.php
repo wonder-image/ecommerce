@@ -3,11 +3,40 @@
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 
-// Le pagine del negozio arrivano con i piani 2 e 3. Per ora una sola rotta,
-// che serve a vedere se il modulo è installato e risponde.
+// Rotte pubbliche del negozio e pagina di riferimento dei suoi componenti.
 Route::area('frontend')
     ->response('html')
     ->group(function () {
+
+        Route::get(
+            '/ecommerce/product-cards/',
+            Ecommerce::viewPath('pages/frontend/product-cards.php')
+        )->name('ecommerce.catalog.product-cards');
+
+        Route::name('ecommerce.cart.')
+            ->prefix('/cart')
+            ->group(function () {
+                $handler = Ecommerce::handlerPath('frontend/cart.php');
+
+                Route::get('/', $handler, ['cart_action' => 'index'])->name('index');
+                Route::post('/add/', $handler, ['cart_action' => 'add'])->name('add');
+                Route::post('/items/{id}/quantity/', $handler, ['cart_action' => 'quantity'])
+                    ->where('id', '[0-9]+')
+                    ->name('quantity');
+                Route::post('/items/{id}/remove/', $handler, ['cart_action' => 'remove'])
+                    ->where('id', '[0-9]+')
+                    ->name('remove');
+            });
+
+        Route::name('ecommerce.checkout.')
+            ->prefix('/checkout')
+            ->group(function () {
+                $handler = Ecommerce::handlerPath('frontend/checkout.php');
+
+                Route::get('/', $handler, ['checkout_action' => 'index'])->name('index');
+                Route::post('/', $handler, ['checkout_action' => 'place'])->name('place');
+                Route::get('/completed/', $handler, ['checkout_action' => 'completed'])->name('completed');
+            });
 
         Route::name('ecommerce.auth.')
             ->prefix('/account/auth')

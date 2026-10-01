@@ -110,16 +110,40 @@ check('tutti i form auth pubblici richiedono una action reCAPTCHA dedicata', fun
         && str_contains($controller, "withService('ecommerce-auth')");
 });
 
-check('Google federato conserva csrf e consensi senza dipendere da reCAPTCHA', function () use ($root) {
+check('Google federato conserva csrf senza dipendere da consensi o reCAPTCHA', function () use ($root) {
     $component = (string) file_get_contents($root.'/view/components/auth/federated.php');
     $controller = (string) file_get_contents($root.'/src/Frontend/Auth/AuthController.php');
 
     return str_contains($component, 'accounts.google.com/gsi/client')
-        && str_contains($component, "'accept_privacy_policy'")
         && str_contains($controller, 'self::requireCsrf();')
+        && !str_contains($component, 'accept_privacy_policy')
+        && !str_contains($component, 'accept_terms_conditions')
+        && !str_contains($controller, 'federated_consents_required')
+        && !str_contains($controller, 'registerUserConsents($result->userId')
         && !str_contains($component, 'g-recaptcha-token')
         && !str_contains($controller, '$recaptchaAction')
         && !str_contains($component, 'AppleID');
+});
+
+check('il login manuale indirizza gli account senza password al provider federato', function () use ($root) {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Auth/AuthController.php');
+    $alerts = (string) file_get_contents($root.'/src/Frontend/Auth/AuthValidationAlert.php');
+    $translations = (string) file_get_contents($root.'/lang/it/ecommerce.json');
+
+    return str_contains($controller, 'hasLocalPassword')
+        && str_contains($controller, 'federatedProviderForUser')
+        && str_contains($controller, "'use_federated_login_'.\$provider")
+        && str_contains($alerts, 'use_federated_login_google')
+        && str_contains($translations, 'use_google');
+});
+
+check('il campo cellulare usa prefisso breve e numero esteso anche nel profilo', function () use ($root) {
+    $profile = (string) file_get_contents($root.'/view/pages/account/profile.php');
+
+    return str_contains($profile, 'd-grid col-4 col-p-1 gap-4')
+        && str_contains($profile, '<div class="col-3 col-p-1">')
+        && str_contains($profile, "FormField::key('phone_prefix')->phonePrefix()")
+        && str_contains($profile, "FormField::key('phone')->phone()");
 });
 
 check('auth e account valorizzano i metadati SEO', function () use ($root) {

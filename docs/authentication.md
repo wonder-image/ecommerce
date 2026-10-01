@@ -20,12 +20,18 @@ La registrazione non raccoglie né valida fatturazione e non richiede il
 regolamento di gioco. La scheda cliente viene collegata o creata senza quei
 dati; fatturazione e indirizzi saranno raccolti nell'area cliente o checkout.
 
-Google verifica l'ID token nel server. Per un nuovo account richiede email
-verificata e i consensi ecommerce; per questo la creazione federata parte dalla
-pagina di registrazione. Il completamento richiede il cellulare, ma non impone
-una password locale. Un account già collegato viene autenticato direttamente
-quando il cellulare è presente. Apple resta disattivato finché non verrà
-affrontato come fase separata.
+Google verifica l'ID token nel server. Per un nuovo account richiede un'email
+verificata, ma non i checkbox del flusso locale: il collegamento alle policy
+mostrato da Google non viene salvato come accettazione esplicita nel database.
+Il completamento richiede il cellulare, ma non impone una password locale. Un
+account già collegato viene autenticato direttamente quando il cellulare è
+presente. Apple resta disattivato finché non verrà affrontato come fase
+separata.
+
+Il gestionale mostra per ogni cliente i metodi di accesso disponibili (email e
+password, Google e in futuro Apple). Se un account possiede soltanto
+un'identità federata, il tentativo di login con email e password viene fermato
+dopo reCAPTCHA e l'alert di pagina indica il provider da usare.
 
 I POST dei form pubblici tradizionali sono protetti da CSRF e reCAPTCHA
 Enterprise con action distinte. La callback Google non dipende da reCAPTCHA:

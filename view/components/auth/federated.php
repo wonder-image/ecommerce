@@ -12,22 +12,6 @@ if ($google_client_id === '') { return; }
 <script>
 (() => {
     const googleContainer = document.getElementById('ecommerce-google-signin');
-    const canUseGoogle = () => {
-        if (<?=js_e($auth_surface)?> !== 'signup') return true;
-
-        return ['accept_privacy_policy', 'accept_terms_conditions'].every(name => {
-            const consent = document.querySelector(`[name="${name}"]`);
-            return consent && consent.checked;
-        });
-    };
-    const updateGoogleAvailability = () => {
-        const enabled = canUseGoogle();
-        googleContainer.style.pointerEvents = enabled ? 'auto' : 'none';
-        googleContainer.style.opacity = enabled ? '1' : '.55';
-        googleContainer.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-    };
-    document.addEventListener('change', updateGoogleAvailability);
-    updateGoogleAvailability();
 
     const postToken = token => {
         const form = document.createElement('form');
@@ -39,11 +23,7 @@ if ($google_client_id === '') { return; }
             csrf_token: <?=js_e($csrf_token)?>,
             auth_surface: <?=js_e($auth_surface)?>
         };
-        [
-            'accept_privacy_policy',
-            'accept_terms_conditions',
-            'continue'
-        ].forEach(name => {
+        ['continue'].forEach(name => {
             const source = document.querySelector(`[name="${name}"]`);
             if (source && (source.type !== 'checkbox' || source.checked)) values[name] = source.value;
         });
@@ -68,7 +48,6 @@ if ($google_client_id === '') { return; }
             googleContainer,
             {theme: 'outline', size: 'large', width: googleButtonWidth}
         );
-        updateGoogleAvailability();
     };
     document.head.appendChild(googleScript);
 })();
