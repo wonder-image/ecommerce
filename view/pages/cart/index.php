@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\App\ResourceSchema\FormField;
+use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\View\View;
@@ -19,7 +20,7 @@ Ecommerce::layout('shop', compact('errors', 'notice'));
         <?php endif; ?>
     </div>
     <?php if ($items !== []): ?>
-        <div class="a-r a-p-l"><a class="btn btn-primary" href="<?=e(__r('ecommerce.checkout.index'))?>"><?=e(__t('ecommerce.cart.checkout'))?></a></div>
+        <div class="a-r a-p-l"><?=Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.checkout'))->variant('primary')?></div>
     <?php endif; ?>
 </div>
 
@@ -52,7 +53,7 @@ Ecommerce::layout('shop', compact('errors', 'notice'));
                             <form id="cart_quantity_<?=e((string) ($item['id'] ?? 0))?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => (int) ($item['id'] ?? 0)]))?>" class="d-flex gap-2">
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
                                 <div class="w-25"><?=FormField::key('quantity')->number()->label((string) __t('ecommerce.cart.quantity'))->required()->value(CartPresenter::quantity($item['quantity'] ?? 1))?></div>
-                                <button class="btn btn-primary btn-sm" type="submit"><?=e(__t('ecommerce.cart.update'))?></button>
+                                <?=Button::make((string) __t('ecommerce.cart.update'))->type('submit')->variant('primary')->size('sm')?>
                             </form>
                             <form id="cart_remove_<?=e((string) ($item['id'] ?? 0))?>" method="post" action="<?=e(__r('ecommerce.cart.remove', ['id' => (int) ($item['id'] ?? 0)]))?>">
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
@@ -79,7 +80,7 @@ Ecommerce::layout('shop', compact('errors', 'notice'));
                 <span class="fw-700"><?=e(__t('ecommerce.cart.total'))?></span>
                 <strong class="a-r"><?=e(CartPresenter::money($order['total'] ?? 0, $currency))?></strong>
             </div>
-            <a class="btn btn-primary w-100 mt-5" href="<?=e(__r('ecommerce.checkout.index'))?>"><?=e(__t('ecommerce.cart.checkout'))?></a>
+            <?=Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.checkout'))->variant('primary')->class('w-100 mt-5')?>
         </aside>
     </div>
 <?php endif; ?>

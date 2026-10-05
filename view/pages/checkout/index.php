@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\App\ResourceSchema\FormField;
+use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\View\View;
@@ -62,7 +63,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                 <span class="fw-700"><?=e(__t('ecommerce.cart.total'))?></span>
                 <strong class="a-r"><?=e(CartPresenter::money($order['total'] ?? 0, $currency))?></strong>
             </div>
-            <button class="btn btn-primary w-100 mt-5 wi-input-submit wi-submit" type="submit"<?=$payment_methods === [] ? ' disabled' : ''?>><?=e(__t('ecommerce.checkout.place_order'))?></button>
+            <?=Button::make((string) __t('ecommerce.checkout.place_order'))->type('submit')->variant('primary')->class('w-100 mt-5 wi-input-submit wi-submit')->disabled($payment_methods === [])?>
             <a class="d-block a-c text-small mt-4" href="<?=e(__r('ecommerce.cart.index'))?>"><?=e(__t('ecommerce.checkout.back_to_cart'))?></a>
         </aside>
     </div>
