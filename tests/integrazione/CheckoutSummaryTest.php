@@ -115,6 +115,27 @@ check('l\'anteprima dà importi formattati e un solo metodo di spedizione già s
         && $p['items'][0]['line_total_display'] === '10,00 €';
 }));
 
+check('le righe dell\'anteprima sono gli articoli: spedizione e commissione stanno solo nei totali', fn () => prova(static function (): bool {
+    standard();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    $p = CheckoutSummary::payload($cart, modulo());
+    $tipi = array_map(static fn (array $riga): string => (string) $riga['type'], $p['items']);
+
+    return $tipi === ['product'] && (float) $p['order']['shipping_total'] === 8.0;
+}));
+
+check('la prima anteprima lascia le scelte già sul carrello', fn () => prova(static function (): bool {
+    $italia = zona('Italia', [['IT', '']]);
+    listino(metodo('Standard'), $italia, [[5, 8.0]]);
+    $veloce = metodo('Express');
+    listino($veloce, $italia, [[5, 12.0]]);
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    CheckoutSummary::payload($cart, modulo(['shipping_method_id' => $veloce]));
+    $p = CheckoutSummary::payload($cart, modulo(), null, true);
+
+    return $p['shipping_methods']['selected'] === $veloce && $p['fulfillment']['type'] === 'shipping';
+}));
+
 check('un metodo gratuito dice «Gratis»', fn () => prova(static function (): bool {
     $metodo = metodo('Gratis');
     listino($metodo, zona('Italia Gratis', [['IT', '']]), [[5, 0.0]]);

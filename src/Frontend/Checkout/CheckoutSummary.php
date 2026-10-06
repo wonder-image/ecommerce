@@ -12,17 +12,27 @@ final class CheckoutSummary
 {
     /**
      * @param array<string, mixed> $post
+     * @param bool $keepCart se il modulo non porta le scelte di consegna e pagamento (prima visita, coupon senza JavaScript), restano quelle del carrello
      * @return array<string, mixed>
      */
-    public static function payload(int $cartId, array $post, ?object $user = null): array
+    public static function payload(int $cartId, array $post, ?object $user = null, bool $keepCart = false): array
     {
-        $preview = Checkout::preview($cartId, CheckoutForm::data($post, $user));
+        $data = CheckoutForm::data($post, $user);
+
+        if ($keepCart) {
+            unset($data['fulfillment_type'], $data['shipping_method_id'], $data['location_id'], $data['payment_method_id']);
+        }
+
+        $preview = Checkout::preview($cartId, $data);
         $valuta = (string) $preview['order']['currency'];
 
         $preview['display'] = [];
         foreach (['products_total', 'discount_total', 'shipping_total', 'fees_total', 'total'] as $chiave) {
             $preview['display'][$chiave] = CartPresenter::money($preview['order'][$chiave], $valuta);
         }
+
+        // Spedizione e commissione stanno nei totali, non tra gli articoli.
+        $preview['items'] = CartPresenter::lines($preview['items']);
 
         foreach ($preview['items'] as $i => $riga) {
             $preview['items'][$i]['line_total_display'] = CartPresenter::money($riga['line_total'] ?? 0, $valuta);
@@ -45,7 +55,7 @@ final class CheckoutSummary
      * @param array<string, mixed> $post
      * @return array<string, mixed>
      */
-    public static function coupon(int $cartId, string $action, string $code, array $post, ?object $user = null): array
+    public static function coupon(int $cartId, string $action, string $code, array $post, ?object $user = null, bool $keepCart = false): array
     {
         $errore = '';
 
@@ -55,6 +65,6 @@ final class CheckoutSummary
             $errore = $e->getMessage();
         }
 
-        return self::payload($cartId, $post, $user) + ['error' => $errore];
+        return self::payload($cartId, $post, $user, $keepCart) + ['error' => $errore];
     }
 }

@@ -7,7 +7,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\View\View;
 
 $order = (array) ($cart['order'] ?? []);
-$items = array_values((array) ($cart['items'] ?? []));
+$items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
 $currency = (string) ($order['currency'] ?? 'EUR');
 
 Ecommerce::layout('shop', compact('errors', 'notice'));

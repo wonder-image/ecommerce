@@ -191,4 +191,16 @@ check('checkout.js scarta le risposte vecchie, aspetta una pausa e racconta a GT
         && str_contains($js, 'window.ecommerceCheckout');
 });
 
+check('una modifica del cliente scarta le risposte in viaggio e la prima visita tiene le scelte del carrello', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+
+    return preg_match('/schedule\(\) \{\s*\/\/[^\n]*\n\s*this\.sequence\+\+;/', $js) === 1
+        && str_contains($js, 'this.submit(this.latest)')
+        && str_contains($c, "\$flash['values'] === []")
+        && str_contains($c, 'CartSession::user(), !$json)')
+        && str_contains($view, 'CartPresenter::lines(');
+});
+
 summary();

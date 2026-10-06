@@ -49,7 +49,10 @@ final class CheckoutController
         $flash = self::pullFlash();
         $values = self::defaults($flash['values']);
         $methods = self::fallbackMethods();
-        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values);
+        // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
+        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $flash['values'] === []);
+        // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
+        $cart = CartSession::current(false);
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.index'));
         View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
@@ -75,10 +78,10 @@ final class CheckoutController
      * @param array<string, string> $values
      * @return array<string, mixed>|null
      */
-    private static function initialSummary(int $cartId, array $values): ?array
+    private static function initialSummary(int $cartId, array $values, bool $keepCart): ?array
     {
         try {
-            return CheckoutSummary::payload($cartId, $values, CartSession::user());
+            return CheckoutSummary::payload($cartId, $values, CartSession::user(), $keepCart);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.index');
 
@@ -163,7 +166,8 @@ final class CheckoutController
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
 
         try {
-            $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user());
+            // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
+            $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user(), !$json);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.coupon');
 
@@ -171,7 +175,7 @@ final class CheckoutController
                 self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
             }
 
-            self::flash([(string) __t('ecommerce.checkout.errors.generic')], $_POST);
+            self::flash([(string) __t('ecommerce.checkout.errors.generic')], []);
             self::redirect(self::route('ecommerce.checkout.index'));
         }
 
@@ -179,7 +183,7 @@ final class CheckoutController
             self::json(['success' => $payload['error'] === ''] + $payload);
         }
 
-        self::flash($payload['error'] !== '' ? [$payload['error']] : [], $_POST);
+        self::flash($payload['error'] !== '' ? [$payload['error']] : [], []);
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 

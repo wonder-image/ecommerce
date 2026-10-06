@@ -13,7 +13,9 @@ class Checkout {
         this.latest = JSON.parse(this.form.dataset.initial || 'null');
         this.bind();
 
-        if (!this.latest) {
+        if (this.latest) {
+            this.submit(this.latest);
+        } else {
             this.refresh();
         }
     }
@@ -38,6 +40,8 @@ class Checkout {
     }
 
     schedule() {
+        // Una risposta già in viaggio non deve riportare indietro quello che il cliente ha appena cambiato.
+        this.sequence++;
         clearTimeout(this.timer);
         this.timer = setTimeout(() => this.refresh(), 300);
     }
