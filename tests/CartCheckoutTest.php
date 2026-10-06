@@ -24,11 +24,30 @@ check('le route pubbliche espongono carrello e checkout con mutazioni POST', fun
 
     return str_contains($routes, "Route::name('ecommerce.cart.')")
         && str_contains($routes, "Route::post('/add/'")
+        && str_contains($routes, "Route::get('/preview/'")
         && str_contains($routes, "['cart_action' => 'quantity']")
         && str_contains($routes, "['cart_action' => 'remove']")
         && str_contains($routes, "Route::name('ecommerce.checkout.')")
         && str_contains($routes, "['checkout_action' => 'place']")
         && str_contains($routes, "['checkout_action' => 'completed']");
+});
+
+check('il mini-carrello usa le utility del design system e conserva il fallback HTML', function () use ($root) {
+    $shell = (string) file_get_contents($root.'/view/components/cart/mini-cart.php');
+    $body = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+    $add = (string) file_get_contents($root.'/view/components/cart/add.php');
+    $script = (string) file_get_contents($root.'/resources/assets/js/mini-cart.js');
+
+    return str_contains($shell, 'id="cart-offpage"')
+        && str_contains($shell, 'class="p-f top end full-page no-interaction intro"')
+        && str_contains($shell, "__r('ecommerce.cart.preview')")
+        && str_contains($shell, "__r('ecommerce.cart.index')")
+        && str_contains($add, 'data-ecommerce-add-to-cart')
+        && str_contains($script, '[data-ecommerce-cart-trigger]')
+        && str_contains($script, 'class Cart')
+        && str_contains($script, 'HTMLFormElement.prototype.submit.call(form)')
+        && !str_contains($shell.$body.$add, "render('wonder')")
+        && !is_file($root.'/resources/assets/css/mini-cart.css');
 });
 
 check('il cookie ospite è isolato dai carrelli collegati a un cliente', function () use ($root) {
@@ -75,14 +94,14 @@ check('il checkout non finge il completamento dei provider online non collegati'
 });
 
 check('login, registrazione e Google conservano il ritorno al checkout', function () use ($root) {
-    $login = (string) file_get_contents($root.'/view/pages/auth/login.php');
-    $signup = (string) file_get_contents($root.'/view/pages/auth/signup-request.php');
-    $federated = (string) file_get_contents($root.'/view/components/auth/federated.php');
-    $controller = (string) file_get_contents($root.'/src/Frontend/Auth/AuthController.php');
+    $core = dirname((new ReflectionClass(\Wonder\Auth\Frontend\AuthProfile::class))->getFileName(), 4);
+    $form = (string) file_get_contents($core.'/app/view/components/frontend/account/auth-form.php');
+    $federated = (string) file_get_contents($core.'/app/view/components/frontend/account/federated.php');
+    $controller = (string) file_get_contents($core.'/class/Auth/Frontend/AuthController.php');
 
-    return str_contains($login, "FormField::key('continue')->hidden()")
-        && str_contains($signup, "FormField::key('continue')->hidden()")
-        && str_contains($federated, "['continue'].forEach")
+    return str_contains($form, "FormField::key('continue')->hidden()")
+        && str_contains($federated, 'values[name] = source.value')
+        && str_contains($federated, '#login [name], #sign_up [name]')
         && str_contains($controller, '$PAGE->redirectBase64 = base64_encode($continue)');
 });
 

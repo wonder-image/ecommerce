@@ -8,9 +8,9 @@ $variants = array_slice((array) ($product['variants'] ?? []), 0, 5);
 <article class="product-card product-card--grid w-100 h-100">
     <<?=$tag?> class="product-card__media p-r d-block f-1-1 bg-light o-hidden"<?=$link?>>
         <?php if (($product['image'] ?? '') !== ''): ?>
-            <img src="<?=e($product['image'])?>" alt="<?=e($product['image_alt'] ?? '')?>" class="p-a top start w-100 h-100 bg bg-cover" loading="lazy">
+            <img src="<?=e($product['image'])?>" alt="<?=e($product['image_alt'] ?? '')?>" class="bg bg-cover" loading="lazy">
         <?php else: ?>
-            <span class="p-a top start w-100 h-100 center tx-secondary" aria-hidden="true"><i class="bi bi-image"></i></span>
+            <span class="center tx-secondary" aria-hidden="true"><i class="bi bi-image"></i></span>
         <?php endif; ?>
         <?php if (($product['badge'] ?? '') !== ''): ?>
             <span class="product-card__badge badge badge-primary p-a top start m-2"><?=e($product['badge'])?></span>
@@ -34,7 +34,7 @@ $variants = array_slice((array) ($product['variants'] ?? []), 0, 5);
                         <?php if ($variantTag === 'a'): ?>href="<?=e($variant['url'])?>"<?php endif; ?>
                     >
                         <?php if (($variant['image'] ?? '') !== ''): ?>
-                            <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" class="p-a top start w-100 h-100 bg bg-cover" loading="lazy">
+                            <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" class="bg bg-cover" loading="lazy">
                         <?php else: ?>
                             <span class="center text-small"><?=e(mb_substr((string) ($variant['name'] ?? ''), 0, 1))?></span>
                         <?php endif; ?>

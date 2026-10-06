@@ -17,6 +17,7 @@ final class CartController
     {
         match ($action) {
             'index' => self::index(),
+            'preview' => self::preview(),
             'add' => self::add(),
             'quantity' => self::quantity((int) ($parameters['id'] ?? 0)),
             'remove' => self::remove((int) ($parameters['id'] ?? 0)),
@@ -48,6 +49,11 @@ final class CartController
         }, (string) __t('ecommerce.cart.added'), true);
     }
 
+    private static function preview(): never
+    {
+        self::json(self::payload(CartSession::current(false)));
+    }
+
     private static function quantity(int $itemId): void
     {
         self::mutate(
@@ -71,18 +77,28 @@ final class CartController
     private static function mutate(callable $mutation, string $notice, bool $createCart = false): never
     {
         self::requirePost();
+        $wantsJson = self::wantsJson();
         self::requireCsrf();
+
+        $errors = [];
+        $cart = null;
 
         try {
             $current = CartSession::current($createCart);
-            $mutation((int) ($current['order']['id'] ?? 0));
-            self::flash([], $notice);
+            $cart = $mutation((int) ($current['order']['id'] ?? 0));
         } catch (UserError $error) {
-            self::flash([$error->getMessage()]);
+            $errors[] = $error->getMessage();
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.cart.mutate');
-            self::flash([(string) __t('ecommerce.cart.error')]);
+            $errors[] = (string) __t('ecommerce.cart.error');
         }
+
+        if ($wantsJson) {
+            $cart = is_array($cart) ? $cart : CartSession::current(false);
+            self::json(self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors));
+        }
+
+        self::flash($errors, $errors === [] ? $notice : '');
 
         self::redirect(SafeRedirect::fromRequest(
             $_POST['continue'] ?? '',
@@ -99,10 +115,19 @@ final class CartController
 
     private static function requireCsrf(): void
     {
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
-            http_response_code(419);
-            exit('CSRF token invalid');
+        if (AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            return;
         }
+
+        if (self::wantsJson()) {
+            self::json([
+                'success' => false,
+                'errors' => [(string) __t('ecommerce.cart.error')],
+            ], 419);
+        }
+
+        http_response_code(419);
+        exit('CSRF token invalid');
     }
 
     private static function flash(array $errors = [], string $notice = ''): void
@@ -128,6 +153,40 @@ final class CartController
     private static function number(mixed $value): float
     {
         return (float) str_replace(',', '.', trim((string) $value));
+    }
+
+    /** @param array<string, mixed> $cart */
+    private static function payload(array $cart, bool $success = true, string $notice = '', array $errors = []): array
+    {
+        $items = array_values((array) ($cart['items'] ?? []));
+
+        return [
+            'success' => $success,
+            'notice' => $notice,
+            'errors' => array_values(array_filter(array_map('strval', $errors))),
+            'count' => CartPresenter::count($items),
+            'empty' => $items === [],
+            'html' => View::component(Ecommerce::viewPath('components/cart/mini-cart-body.php'), [
+                'cart' => $cart,
+                'csrf_token' => AuthSession::csrfToken(),
+                'notice' => $notice,
+                'errors' => $errors,
+            ]),
+        ];
+    }
+
+    private static function wantsJson(): bool
+    {
+        return strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+            || str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+    }
+
+    private static function json(array $payload, int $status = 200): never
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
     }
 
     private static function seo(): void

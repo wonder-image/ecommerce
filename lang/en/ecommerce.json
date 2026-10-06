@@ -1,5 +1,47 @@
 {
     "module": { "name": "Online store" },
+    "catalog": {
+        "breadcrumb_label": "Page path",
+        "breadcrumb_home": "Home",
+        "breadcrumb_products": "Products",
+        "listing": {
+            "all": { "title": "All products", "description": "Discover all products available in the catalogue." },
+            "offers": { "title": "Offers", "description": "Discover the products currently on offer." },
+            "new": { "title": "New arrivals", "description": "Discover the latest products added to the catalogue." },
+            "collection": { "title": "Collection", "description": "Explore the selected collection." },
+            "brand": { "description": "Discover all products from this brand." },
+            "category": { "description": "Explore all products in this category." },
+            "search": { "title": "Search", "description": "Search products by name, code or description." },
+            "results": "{{count}} products",
+            "empty": "No products match the selected filters"
+        },
+        "filters": {
+            "label": "Product filters",
+            "brand": "Brand",
+            "any_brand": "All brands",
+            "price": "Price",
+            "price_placeholder": "e.g. 20-100, 50+ or -80",
+            "any_value": "All",
+            "apply": "Apply filters",
+            "reset": "Reset filters",
+            "order": {
+                "label": "Sort",
+                "default": "Featured",
+                "newest": "Newest",
+                "price_asc": "Price: low to high",
+                "price_desc": "Price: high to low",
+                "name_asc": "Name: A to Z",
+                "name_desc": "Name: Z to A"
+            }
+        },
+        "pagination": { "label": "Product pages" },
+        "variants": "Variants",
+        "options": "Options",
+        "description": "Description",
+        "price_range": "From {{min}} to {{max}}",
+        "availability": { "in_stock": "Available", "out_of_stock": "Unavailable" },
+        "details": { "title": "Details", "weight": "Weight", "length": "Length", "width": "Width", "height": "Height" }
+    },
     "cart": {
         "title": "Cart",
         "seo": "Review the products in your cart before checkout.",
@@ -21,7 +63,14 @@
         "removed": "Product removed from the cart.",
         "error": "The cart could not be updated.",
         "notice_title": "Cart updated",
-        "error_title": "Check your cart"
+        "error_title": "Check your cart",
+        "mini": {
+            "loading": "Loading your cart…",
+            "empty": "There are no products in your cart",
+            "continue_shopping": "Continue shopping",
+            "view_cart": "View cart",
+            "remove_item": "Remove {{name}} from cart"
+        }
     },
     "checkout": {
         "title": "Checkout",

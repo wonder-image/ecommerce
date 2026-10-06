@@ -1,0 +1,102 @@
+<?php
+/** php tests/ProductPageTest.php */
+declare(strict_types=1);
+
+require __DIR__.'/../vendor/autoload.php';
+require __DIR__.'/harness.php';
+
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
+use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
+
+$product = ProductDetail::make([
+    'id' => 7,
+    'name' => 'Dinosauro Sacchetta <Verde>',
+    'url' => 'https://shop.test/prodotto/dinosauro-sacchetta-verde/',
+    'short_description' => '<p>Sacchetta con cordino 34x44 cm</p>',
+    'description_html' => '<p>Cotone 100%</p>',
+    'brand' => 'Elena & Co.',
+    'category' => 'Asilo',
+    'variant' => 'Verde',
+    'currency' => 'EUR',
+    'images' => [
+        ['url' => 'https://shop.test/media/dinosauro.jpg', 'alt' => 'Dinosauro verde'],
+    ],
+    'offers' => [[
+        'product_id' => 42,
+        'item_id' => '42',
+        'name' => 'Standard',
+        'sku' => 'SKU-42',
+        'gtin' => '1234567890123',
+        'mpn' => 'DINO-VERDE',
+        'regular_price' => 18,
+        'sale_price' => 14,
+        'available' => true,
+    ]],
+]);
+
+check('lo schema Product e valido e coincide con prezzo, valuta e disponibilita visibili', function () use ($product) {
+    $schema = $product->schemaOrg();
+    $json = json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
+
+    return is_string($json)
+        && json_decode($json, true, flags: JSON_THROW_ON_ERROR)['@type'] === 'Product'
+        && $schema['offers']['price'] === 14.0
+        && $schema['offers']['priceCurrency'] === 'EUR'
+        && $schema['offers']['availability'] === 'https://schema.org/InStock'
+        && $schema['productID'] === '42'
+        && $schema['sku'] === 'SKU-42'
+        && $schema['gtin'] === '1234567890123'
+        && $schema['description'] === 'Sacchetta con cordino 34x44 cm';
+});
+
+check('view_product usa identificativo e numeri coerenti con schema e carrello', function () use ($product) {
+    $event = $product->viewProductEvent();
+    $item = $event['ecommerce']['items'][0];
+
+    return $event['event'] === 'view_product'
+        && $event['product']['id'] === '42'
+        && $event['product']['price'] === 14.0
+        && $event['product']['discount'] === 4.0
+        && $item['item_id'] === '42'
+        && $item['item_category'] === 'Asilo'
+        && $item['item_variant'] === 'Verde'
+        && $product->data()['selected_product_id'] === 42;
+});
+
+check('il dataLayer e inizializzato, anonimizza gli ospiti e resetta ecommerce', function () use ($product) {
+    $script = DataLayer::script([
+        'type' => 'product',
+        'language' => 'it',
+        'currency' => 'EUR',
+    ], $product->viewProductEvent());
+
+    return str_contains($script, 'window.dataLayer = window.dataLayer || [];')
+        && str_contains($script, 'window.dataLayer.push({ ecommerce: null });')
+        && str_contains($script, '"user":{"id":null}')
+        && str_contains($script, '"event":"view_product"')
+        && str_contains($script, '\\u003CVerde\\u003E')
+        && !str_contains($script, '<Verde>');
+});
+
+check('la pagina espone route, SEO, breadcrumb visibile e JSON-LD senza duplicare BreadcrumbList', function () {
+    $root = dirname(__DIR__);
+    $route = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Catalog/ProductController.php');
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+
+    foreach (['title', 'description', 'url', 'image', 'robots', 'breadcrumb'] as $property) {
+        if (!str_contains($controller, '$SEO->'.$property)) {
+            return false;
+        }
+    }
+
+    return str_contains($route, "'/prodotto/{slug}/'")
+        && str_contains($route, "name('ecommerce.catalog.product')")
+        && str_contains($view, '<script type="application/ld+json">')
+        && str_contains($view, '<nav aria-label=')
+        && str_contains($view, 'aria-current="page"')
+        && substr_count($view, '<h1') === 1
+        && !str_contains($view, 'BreadcrumbList');
+});
+
+summary();

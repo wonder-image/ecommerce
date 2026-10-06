@@ -7,7 +7,9 @@ ordini): questo modulo aggiunge solo le pagine pubbliche e richiede
 
 Il modulo non porta header, footer e grafica del sito: le sue pagine passano
 dai tre layout sottili `ecommerce.shop`, `ecommerce.checkout` e
-`ecommerce.auth`, che chainano sui layout del sito.
+`ecommerce.auth`, che chainano sui layout del sito. Auth e pannello account
+riutilizzano ora le viste del core, tramite profili estendibili: vedere
+`docs/authentication.md`.
 
 ## Installazione in sviluppo
 

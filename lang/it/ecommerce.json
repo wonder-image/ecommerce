@@ -2,6 +2,57 @@
     "module": {
         "name": "Negozio online"
     },
+    "catalog": {
+        "breadcrumb_label": "Percorso della pagina",
+        "breadcrumb_home": "Home",
+        "breadcrumb_products": "Prodotti",
+        "listing": {
+            "all": { "title": "Tutti i prodotti", "description": "Scopri tutti i prodotti disponibili nel catalogo." },
+            "offers": { "title": "Offerte", "description": "Scopri i prodotti attualmente in offerta." },
+            "new": { "title": "Novità", "description": "Scopri gli ultimi prodotti arrivati nel catalogo." },
+            "collection": { "title": "Collezione", "description": "Esplora la collezione selezionata." },
+            "brand": { "description": "Scopri tutti i prodotti di questo marchio." },
+            "category": { "description": "Esplora tutti i prodotti di questa categoria." },
+            "search": { "title": "Cerca", "description": "Cerca prodotti per nome, codice o descrizione." },
+            "results": "{{count}} prodotti",
+            "empty": "Nessun prodotto corrisponde ai filtri selezionati"
+        },
+        "filters": {
+            "label": "Filtri prodotti",
+            "brand": "Marca",
+            "any_brand": "Tutte le marche",
+            "price": "Prezzo",
+            "price_placeholder": "es. 20-100, 50+ o -80",
+            "any_value": "Tutti",
+            "apply": "Applica filtri",
+            "reset": "Azzera filtri",
+            "order": {
+                "label": "Ordina",
+                "default": "In evidenza",
+                "newest": "Più recenti",
+                "price_asc": "Prezzo crescente",
+                "price_desc": "Prezzo decrescente",
+                "name_asc": "Nome dalla A alla Z",
+                "name_desc": "Nome dalla Z alla A"
+            }
+        },
+        "pagination": { "label": "Pagine dei prodotti" },
+        "variants": "Varianti",
+        "options": "Opzioni",
+        "description": "Descrizione",
+        "price_range": "Da {{min}} a {{max}}",
+        "availability": {
+            "in_stock": "Disponibile",
+            "out_of_stock": "Non disponibile"
+        },
+        "details": {
+            "title": "Dettagli",
+            "weight": "Peso",
+            "length": "Lunghezza",
+            "width": "Larghezza",
+            "height": "Altezza"
+        }
+    },
     "cart": {
         "title": "Carrello",
         "seo": "Controlla i prodotti nel carrello prima di procedere al checkout.",
@@ -23,7 +74,14 @@
         "removed": "Prodotto rimosso dal carrello.",
         "error": "Non è stato possibile aggiornare il carrello.",
         "notice_title": "Carrello aggiornato",
-        "error_title": "Controlla il carrello"
+        "error_title": "Controlla il carrello",
+        "mini": {
+            "loading": "Caricamento del carrello…",
+            "empty": "Nessun prodotto nel carrello",
+            "continue_shopping": "Continua lo shopping",
+            "view_cart": "Vai al carrello",
+            "remove_item": "Rimuovi {{name}} dal carrello"
+        }
     },
     "checkout": {
         "title": "Checkout",

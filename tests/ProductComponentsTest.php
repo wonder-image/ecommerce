@@ -47,11 +47,19 @@ check('la card normalizza i dati nel formato corrente', function () use ($produc
 });
 
 check('la griglia rende card sicure e classi responsive', function () use ($products) {
-    $html = ProductList::make($products)->columns(5, 3, 1)->gap(4)->renderGrid();
+    $html = ProductList::make($products)
+        ->title('Prodotti')
+        ->columns(5, 3, 1)
+        ->gap(4)
+        ->renderGrid();
 
     return str_contains($html, 'product-list--grid')
-        && str_contains($html, 'col-5 col-t-3 col-p-1 gap-4')
+        && str_contains($html, 'product-list--grid w-100 d-grid col-5 col-t-3 col-p-1 gap-4')
+        && str_contains($html, '<div class="product-list__header mb-6 w-100')
+        && !str_contains($html, '<header')
         && str_contains($html, 'product-card__media p-r d-block f-1-1')
+        && str_contains($html, 'class="bg bg-cover"')
+        && !str_contains($html, 'class="p-a top start w-100 h-100 bg bg-cover"')
         && !str_contains($html, 'product-card product-card--grid wi-box')
         && str_contains($html, 'T-shirt &lt;Blu&gt;')
         && str_contains($html, '29,90 €')
@@ -63,6 +71,7 @@ check('la lista usa la card orizzontale e conserva gli id mostrati', function ()
     $html = $list->renderList();
 
     return str_contains($html, 'product-list--list')
+        && str_contains($html, 'product-list--list d-grid gap-4 w-100')
         && str_contains($html, 'product-card--list')
         && str_contains($html, 'product-card__media p-r d-block f-1-1')
         && !str_contains($html, 'product-card product-card--list wi-box')
@@ -112,22 +121,21 @@ check('la vista swiper rende card e configurazione responsive del core', functio
         ->renderSwiper();
 
     return str_contains($html, 'product-list--swiper')
+        && str_contains($html, 'swiper w-100')
         && str_contains($html, 'swiper-slide')
         && str_contains($html, 'slidesPerView: 1.25')
         && str_contains($html, '720')
         && str_contains($html, 'navigation');
 });
 
-check('la pagina dimostrativa espone tutte le viste e i relativi esempi', function () {
+check('la pagina dimostrativa non e esposta dalle route pubbliche', function () {
     $root = dirname(__DIR__);
-    $page = (string) file_get_contents($root.'/view/pages/frontend/product-cards.php');
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $docs = (string) file_get_contents($root.'/docs/product-cards.md');
 
-    return str_contains($routes, "'/ecommerce/product-cards/'")
-        && str_contains($routes, "name('ecommerce.catalog.product-cards')")
-        && str_contains($page, '->renderGrid()')
-        && str_contains($page, '->renderSwiper()')
-        && str_contains($page, '->renderList()');
+    return !is_file($root.'/view/pages/frontend/product-cards.php')
+        && !str_contains($routes, '/ecommerce/product-cards/')
+        && str_contains($docs, 'demo/product-cards.php');
 });
 
 check('il catalogo non contiene compatibilita con i campi legacy', function () {
@@ -135,7 +143,6 @@ check('il catalogo non contiene compatibilita con i campi legacy', function () {
     $sources = implode("\n", [
         (string) file_get_contents($root.'/src/Frontend/Catalog/ProductCard.php'),
         (string) file_get_contents($root.'/docs/product-cards.md'),
-        (string) file_get_contents($root.'/view/pages/frontend/product-cards.php'),
     ]);
 
     foreach (['fullName', 'imageS', 'prettyPrice', 'prettySale'] as $legacyField) {

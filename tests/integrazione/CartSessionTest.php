@@ -9,6 +9,7 @@ $GLOBALS['ROOT'] = SITE;
 require SITE.'/vendor/autoload.php';
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
+require __DIR__.'/dns-fixture.php';
 
 use Wonder\App\Models\User\User;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;

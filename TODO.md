@@ -54,7 +54,7 @@ solo quando ha una prova automatica o una verifica descritta.
   gestito dalla schermata OAuth di Google e non blocca il flusso federato.
   Apple è disattivato nella configurazione del modulo.
 - [x] B7 Redirect interni validati per ritorno ad account/checkout.
-- [x] B8 Collegamento sicuro a `gst_contacts`: riuso per utente/email non ancora
+- [x] B8 Collegamento sicuro a `contacts`: riuso per utente/email non ancora
   collegata, rifiuto del conflitto con altro account, creazione senza dati fiscali.
 - [x] B9 Configurazione `checkout.guest_enabled=false` predisposta; nessun flusso
   ospite implementato prima del checkout.
@@ -86,6 +86,40 @@ solo quando ha una prova automatica o una verifica descritta.
   CAPTCHA di pagina verificati su `ecommerce.test`.
 
 ## Fase C — Area cliente
+
+- [x] C0a Estrarre auth in `app/class/Auth/Frontend` e le viste nel core;
+  configurare `auth.profile`, mantenendo URL e token di completamento ecommerce.
+- [x] C0b Condividere layout, navigazione e righe stile Elena tramite
+  `AccountPanel`; estendere nav, riepilogo e campi personali con validazione e
+  salvataggio espliciti. Test core indipendente e rendering transazionale.
+- [x] C0c Spostare nel core i modelli di `gst_contacts`,
+  `gst_contact_addresses`, `gst_external_references` e il collegamento account;
+  usare `contacts`, `contact_addresses`, `external_references` con migrazione
+  conservativa dei nomi `gst_*`; conservare ID, FK e namespace del gestionale.
+  Listini e condizioni commerciali restano estensioni del modulo.
+- [x] C0f Correggere label e default del prefisso negli indirizzi account;
+  comporre la griglia responsive con `AccountAddressForm` e `Container` del core.
+- [x] C0g Eliminare wrapper flottanti annidati, rendere condizionali le celle
+  aziendali e aggiornare la lib per paese/provincia con select e text-list
+  legacy, richieste concorrenti ed errori. Test browser dei renderer reali a
+  1280/768/390px e API locale; nessun bypass dell'autenticazione.
+- [x] C0h Validare salvataggi indirizzi completi lato server, inclusi campi
+  omessi e provincia/paese, con etichetta opzionale; mostrare i dettagli nell'alert di pagina
+  e riusare il modal del core per aggiunta/modifica, con fallback senza JS.
+- [x] C0i Predisporre Resource backend generiche del core per contatti e
+  indirizzi, senza API pubbliche, con permessi admin/administrator e CSRF.
+  Menu nascosto quando un modulo offre un pannello contatti più completo;
+  lookup per tabella conserva il modulo. Eliminazione non abilitata.
+- [x] C0k Etichetta spedizione opzionale anche lato server; modal account
+  resi in `page_modals` dopo `main`, non nella colonna dei contenuti/form.
+- [x] C0j Completare nella lib l'accessibilità di `modal()` (focus, Esc e
+  campi non raggiungibili nei modal chiusi), mantenendo compatibilità;
+  i Button usano `opensModal()` secondo il tema, senza onclick nelle viste.
+- [ ] C0d Verificare visualmente account autenticato desktop/mobile e varianti
+  colore su altri siti; completare E2E Google/email con credenziali di test.
+- [x] C0e Verificare seed/import ed eseguire `forge update --local` nel sito
+  demo autorizzato: completato (94 tabelle, nessun reset dei contatti), poi
+  `forge start --driver=herd`. Sync API esterna non disponibile.
 
 - [x] C0 Layout account responsive con riepilogo, navigazione laterale, stato
   attivo e logout; ordini e coupon restano fuori dal menu fino alla loro fase.
