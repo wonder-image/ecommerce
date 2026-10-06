@@ -24,3 +24,8 @@ versionamento semantico.
 - Token colore auth dedicati, view auth sigillate e rendering coerente col tema
   della pagina.
 - Impersonificazione cliente protetta da authority, token monouso, CSRF e audit.
+- Checkout con consegna: spedizione o ritiro in sede, metodi di spedizione,
+  sedi, coupon e riepilogo che si ricalcola mentre si compila (`checkout.js`,
+  rotte `summary` e `coupon`); `place` accetta i pagamenti manuali
+  `bank_transfer` e `cash` e passa consegna, metodo e sede al gestionale; eventi
+  `begin_checkout`, `add_shipping_info` e `add_payment_info`.
