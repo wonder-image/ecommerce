@@ -4,12 +4,14 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 
 use Throwable;
 use Wonder\App\ResourceSchema\FormField;
+use Wonder\Auth\Frontend\AccountAddressForm;
+use Wonder\Auth\Frontend\AccountAddressValidation;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
-use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
+use Wonder\App\Models\Contacts\Contact;
+use Wonder\App\Models\Contacts\ContactAddress;
 use Wonder\View\View;
 
 final class AccountController
@@ -36,7 +38,7 @@ final class AccountController
 
         self::render('index', [
             'title' => (string) __t('ecommerce.account.overview_title'),
-            'rows' => [
+            'rows' => self::panel()->overviewRows([
                 [
                     'label' => (string) __t('ecommerce.account.personal.label'),
                     'value' => self::compactLines([
@@ -65,7 +67,7 @@ final class AccountController
                     'href' => self::route('ecommerce.account.shipping'),
                     'action' => (string) __t('ecommerce.account.actions.manage'),
                 ],
-            ],
+            ], $user),
         ]);
     }
 
@@ -93,8 +95,9 @@ final class AccountController
                 $errors[] = (string) __t('ecommerce.auth.validation.errors.phone_not_unique');
             }
 
+            $errors = array_merge($errors, self::panel()->validatePersonal($_POST, $user));
             if ($errors === []) {
-                $result = \user([
+                $result = \user(array_merge(self::panel()->personalUserValues($_POST, $user), [
                     'name' => $name,
                     'surname' => $surname,
                     'phone_prefix' => (string) ($_POST['phone_prefix'] ?? ''),
@@ -103,9 +106,10 @@ final class AccountController
                     '_ecommerce_link_contact' => true,
                     'area' => 'frontend',
                     'authority' => 'client',
-                ], (int) $user->id);
+                ]), (int) $user->id);
 
                 if (empty($ALERT) && ($result->user->exists ?? false)) {
+                    self::panel()->afterPersonalSaved($_POST, $result->user);
                     self::redirect(self::route('ecommerce.account.profile').'?saved=1');
                 }
                 $errors[] = (string) __t('ecommerce.account.errors.save');
@@ -142,25 +146,26 @@ final class AccountController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::requireCsrf();
             $values = self::whitelist($_POST, array_keys(Contact::billing()->labels()));
-            $result = Contact::update($values, (int) ($contact['id'] ?? 0));
+            $errors = AccountAddressValidation::validate(Contact::billing(), $values);
+            $result = $errors === [] ? Contact::update($values, (int) ($contact['id'] ?? 0)) : null;
 
             if ($result->success ?? false) {
                 self::redirect(self::route('ecommerce.account.billing').'?saved=1');
             }
-            $errors[] = (string) __t('ecommerce.account.errors.save');
+            if ($errors === []) { $errors = self::saveErrors($result, Contact::billing()->labels()); }
         }
 
         self::render('address-form', [
             'title' => (string) __t('ecommerce.account.billing.title'),
             'active' => 'billing',
             'intro' => (string) __t('ecommerce.account.billing.intro'),
-            'fields' => self::fields(Contact::billing()->formSchema(), $_POST ?: $contact),
+            'fields' => AccountAddressForm::fields(Contact::billing(), $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $contact, $_SERVER['REQUEST_METHOD'] === 'POST'),
             'errors' => $errors,
             'notice' => isset($_GET['saved']) ? (string) __t('ecommerce.account.saved') : '',
         ]);
     }
 
-    private static function shipping(): void
+    private static function shipping(array $editor = []): void
     {
         $contact = self::ensureContact((int) self::user()->id);
 
@@ -173,9 +178,23 @@ final class AccountController
             return;
         }
 
+        $addresses = self::addresses((int) $contact['id']);
+        $forms = [0 => self::shippingFields(
+            ($editor['id'] ?? -1) === 0 ? $editor['values'] : array_intersect_key($contact, array_flip(['name', 'surname', 'phone_prefix', 'phone'])),
+            ($editor['id'] ?? -1) === 0
+        )];
+        foreach ($addresses as $address) {
+            $id = (int) $address['id'];
+            $submitted = ($editor['id'] ?? -1) === $id;
+            $forms[$id] = self::shippingFields($submitted ? $editor['values'] : $address, $submitted);
+        }
         self::render('shipping', [
             'title' => (string) __t('ecommerce.account.shipping.title'),
-            'addresses' => self::addresses((int) ($contact['id'] ?? 0)),
+            'addresses' => $addresses,
+            'address_forms' => $forms,
+            'editor' => $editor,
+            'errors' => $editor['errors'] ?? [],
+            'contact' => $contact,
         ]);
     }
 
@@ -201,25 +220,30 @@ final class AccountController
             self::requireCsrf();
             $keys = array_merge(['label'], array_keys(ContactAddress::address()->labels()));
             $values = self::whitelist($_POST, $keys) + ['contact_id' => $contactId];
-            $result = $addressId > 0
+            $errors = AccountAddressValidation::validate(ContactAddress::address(), $values);
+            $result = $errors !== [] ? null : ($addressId > 0
                 ? ContactAddress::update($values, $addressId)
-                : ContactAddress::create($values + ['position' => count(self::addresses($contactId)) + 1]);
+                : ContactAddress::create($values + ['position' => count(self::addresses($contactId)) + 1]));
 
             if ($result->success ?? false) {
                 self::redirect(self::route('ecommerce.account.shipping'));
             }
-            $errors[] = (string) __t('ecommerce.account.errors.save');
+            if ($errors === []) { $errors = self::saveErrors($result, ContactAddress::address()->labels()); }
+            self::shipping(['id' => $addressId, 'values' => $values, 'errors' => $errors]);
+            return;
         }
 
-        $schema = [
-            'label' => FormField::key('label')->text()->label((string) __t('ecommerce.account.shipping.address_label'))->required(),
-            ...ContactAddress::address()->formSchema(),
-        ];
+        $submitted = $_SERVER['REQUEST_METHOD'] === 'POST';
+        $values = $submitted ? $_POST : (is_array($address) ? $address : []);
+        if (!$submitted && $addressId === 0) {
+            $values = array_intersect_key($contact, array_flip(['name', 'surname', 'phone_prefix', 'phone']));
+        }
+        $schema = self::shippingFields($values, $submitted);
         self::render('address-form', [
             'title' => (string) __t($addressId > 0 ? 'ecommerce.account.shipping.edit_title' : 'ecommerce.account.shipping.create_title'),
             'active' => 'shipping',
             'intro' => (string) __t('ecommerce.account.shipping.intro'),
-            'fields' => self::fields($schema, $_POST ?: (is_array($address) ? $address : [])),
+            'fields' => $schema,
             'errors' => $errors,
         ]);
     }
@@ -292,28 +316,44 @@ final class AccountController
             : (string) __t('ecommerce.account.shipping.many', ['count' => $count]);
     }
 
-    private static function fields(array $schema, array $values): array
-    {
-        foreach ($schema as $key => $field) {
-            if (is_object($field)
-                && method_exists($field, 'value')
-                && array_key_exists($key, $values)
-                && trim((string) $values[$key]) !== '') {
-                $field->value((string) ($values[$key] ?? ''));
-            }
-        }
-
-        return array_values($schema);
-    }
-
     private static function whitelist(array $input, array $keys): array
     {
         return array_intersect_key($input, array_flip($keys));
     }
 
+    private static function saveErrors(?object $result, array $labels): array
+    {
+        $errors = [];
+        foreach ((array) ($result->response ?? []) as $key => $validation) {
+            if (isset($validation->valid) && !$validation->valid) {
+                $errors[] = (string) __t('account.validation.invalid', ['field' => (string) ($labels[$key] ?? $key)]);
+            }
+        }
+        return $errors ?: [(string) __t('ecommerce.account.errors.save')];
+    }
+
+    private static function shippingFields(array $values, bool $submitted): array
+    {
+        return [
+            'label' => FormField::key('label')->text()
+                ->label((string) __t('ecommerce.account.shipping.address_label'))
+                ->value(is_scalar($values['label'] ?? null) ? (string) $values['label'] : ''),
+            ...AccountAddressForm::fields(ContactAddress::address(), $values, $submitted),
+        ];
+    }
+
     private static function user(): object
     {
         return \infoUser((int) ($_SESSION['user_id'] ?? 0), 'id');
+    }
+
+    private static function panel(): \Wonder\Auth\Frontend\AccountPanel
+    {
+        $class = Ecommerce::config('account.panel', EcommerceAccountPanel::class);
+        if (!is_a($class, \Wonder\Auth\Frontend\AccountPanel::class, true)) {
+            throw new \LogicException('Invalid ecommerce account panel');
+        }
+        return new $class();
     }
 
     private static function render(string $page, array $data = []): void
@@ -335,6 +375,9 @@ final class AccountController
         $SEO->robots = 'NOINDEX,NOFOLLOW';
 
         View::make(Ecommerce::viewPath('pages/account/'.$page.'.php'), $data + [
+            'account_panel' => self::panel(),
+            'user' => self::user(),
+            'logout_url' => self::route('ecommerce.auth.logout'),
             'csrf_token' => AuthSession::csrfToken(),
             'errors' => [],
             'notice' => '',

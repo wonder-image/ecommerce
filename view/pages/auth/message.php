@@ -1,7 +1,6 @@
 <?php
-use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\View\View;
-Ecommerce::layout('auth', ['title' => (string) __t('ecommerce.auth.message.title'), 'text' => (string) __t($message_key)]);
-?>
-<p class="mt-5"><a class="btn btn-primary w-100" href="<?=e(__r('ecommerce.auth.login'))?>"><?=e(__t('ecommerce.auth.back_login'))?></a></p>
-<?php View::end(); ?>
+// Compatibility entrypoint; authentication presentation belongs to app.
+$auth_profile ??= new \Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile();
+$surface ??= 'message';
+$fields ??= $auth_profile->fields($surface, $values ?? [], $password_required ?? true);
+include $auth_profile->viewPath('message');

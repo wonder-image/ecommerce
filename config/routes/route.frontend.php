@@ -3,15 +3,38 @@
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 
-// Rotte pubbliche del negozio e pagina di riferimento dei suoi componenti.
+// Rotte pubbliche del negozio. Le demo dei componenti non sono esposte dal modulo.
 Route::area('frontend')
     ->response('html')
     ->group(function () {
 
+        $catalog = Ecommerce::handlerPath('frontend/catalog.php');
+        Route::get('/prodotti/', $catalog, ['catalog_action' => 'index'])
+            ->name('ecommerce.catalog.index');
+
+        $categoryPath = '/prodotti';
+        $categoryDepth = max(1, min(12, (int) Ecommerce::config('catalog.category_max_depth', 8)));
+        for ($depth = 1; $depth <= $categoryDepth; $depth++) {
+            $categoryPath .= '/{category_'.$depth.'}';
+            Route::get($categoryPath.'/', $catalog, ['catalog_action' => 'category'])
+                ->name('ecommerce.catalog.category.'.$depth);
+        }
+
+        Route::get('/offerte/', $catalog, ['catalog_action' => 'offers'])
+            ->name('ecommerce.catalog.offers');
+        Route::get('/novita/', $catalog, ['catalog_action' => 'new'])
+            ->name('ecommerce.catalog.new');
+        Route::get('/collezione/', $catalog, ['catalog_action' => 'collection'])
+            ->name('ecommerce.catalog.collection');
+        Route::get('/marchi/{marca}/', $catalog, ['catalog_action' => 'brand'])
+            ->name('ecommerce.catalog.brand');
+        Route::get('/cerca/', $catalog, ['catalog_action' => 'search'])
+            ->name('ecommerce.catalog.search');
+
         Route::get(
-            '/ecommerce/product-cards/',
-            Ecommerce::viewPath('pages/frontend/product-cards.php')
-        )->name('ecommerce.catalog.product-cards');
+            '/prodotto/{slug}/',
+            Ecommerce::handlerPath('frontend/product.php')
+        )->name('ecommerce.catalog.product');
 
         Route::name('ecommerce.cart.')
             ->prefix('/cart')
@@ -19,6 +42,7 @@ Route::area('frontend')
                 $handler = Ecommerce::handlerPath('frontend/cart.php');
 
                 Route::get('/', $handler, ['cart_action' => 'index'])->name('index');
+                Route::get('/preview/', $handler, ['cart_action' => 'preview'])->name('preview');
                 Route::post('/add/', $handler, ['cart_action' => 'add'])->name('add');
                 Route::post('/items/{id}/quantity/', $handler, ['cart_action' => 'quantity'])
                     ->where('id', '[0-9]+')
@@ -38,34 +62,11 @@ Route::area('frontend')
                 Route::get('/completed/', $handler, ['checkout_action' => 'completed'])->name('completed');
             });
 
-        Route::name('ecommerce.auth.')
-            ->prefix('/account/auth')
-            ->group(function () {
-                $handler = Ecommerce::handlerPath('frontend/auth.php');
-
-                foreach ([
-                    'login' => '/login/',
-                    'signup.request' => '/signup/request/',
-                    'signup.completion' => '/signup/completion/',
-                    'email.sent' => '/email-verification/send/',
-                    'email.verify' => '/email-verification/verify/',
-                    'password.recovery' => '/password/recovery/',
-                    'password.restore' => '/password/restore/',
-                ] as $action => $path) {
-                    Route::get($path, $handler, ['auth_action' => $action])->name($action);
-                    Route::post($path, $handler, ['auth_action' => $action]);
-                }
-
-                Route::post('/logout/', $handler, ['auth_action' => 'logout'])->name('logout');
-                Route::post('/federated/{provider}/', $handler, ['auth_action' => 'federated'])
-                    ->name('federated');
-                if (Ecommerce::config('impersonation.enabled', true)) {
-                    Route::get('/impersonate/', $handler, ['auth_action' => 'impersonation.start'])
-                        ->name('impersonation.start');
-                    Route::post('/impersonate/stop/', $handler, ['auth_action' => 'impersonation.stop'])
-                        ->name('impersonation.stop');
-                }
-            });
+        $authProfileClass = Ecommerce::config('auth.profile', \Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile::class);
+        if (!is_a($authProfileClass, \Wonder\Auth\Frontend\AuthProfile::class, true)) {
+            throw new \LogicException('Invalid ecommerce auth profile');
+        }
+        \Wonder\Auth\Frontend\AuthRoutes::register(new $authProfileClass());
 
         Route::name('ecommerce.account.')
             ->prefix('/account')

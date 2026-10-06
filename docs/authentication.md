@@ -2,10 +2,12 @@
 
 ## Responsabilità
 
-- `wonder-image/app` fornisce token monouso, reset password, verifica OIDC,
-  session login federato, impersonificazione e token colore generici.
-- `wonder-image/ecommerce` definisce il cliente, i flussi, le route, le view
-  sigillate, i consensi ecommerce e il collegamento a `gst_contacts`.
+- `wonder-image/app` possiede flussi/controller/view auth, registrazione delle
+  route opt-in, profili estendibili, token, OIDC, sessioni, impersonificazione,
+  layout account e token colore generici (`Wonder\Auth\Frontend`).
+- `wonder-image/ecommerce` definisce `EcommerceAuthProfile`, il cliente, i
+  consensi ecommerce, il cellulare obbligatorio e il collegamento a
+  `contacts`; `EcommerceAccountPanel` personalizza la navigazione del core.
 - Il sito configura credenziali, colori, testi consentiti dagli slot e flag del
   modulo. Non duplica controller o logica account.
 
@@ -43,6 +45,14 @@ sono mostrati nell'alert di pagina.
 `config/module.php` espone:
 
 - `auth.completion_token_ttl` e `auth.password_reset_ttl`;
+- `auth.profile`: classe che estende `EcommerceAuthProfile`; configurare
+  `fields()`, `validate()`, `validationMessages()`, `userValues()` e
+  `afterUserSaved()` insieme, non solo il campo visibile. La policy Google è
+  separata (`validateFederated()` / `requiresCompletion()`).
+- `account.panel`: classe che estende `EcommerceAccountPanel` per navigazione,
+  riepilogo e dati personali (campi, validazione e whitelist backend);
+- `account.navigation`: override per chiave (`label`, `icon`, `route`, `href`)
+  o `false` per nascondere una voce; nascondere non cambia le autorizzazioni;
 - `auth.federated.google` e `auth.federated.apple`;
 - `impersonation.enabled`, `actor_authorities` e `token_ttl`;
 - `checkout.guest_enabled`, attualmente solo contratto per la fase checkout e
@@ -50,13 +60,15 @@ sono mostrati nell'alert di pagina.
 
 Il Client ID Google arriva dal sistema credenziali del core o dalla variabile
 d'ambiente `GOOGLE_OAUTH_CLIENT_ID`. Nel backend è disponibile la scheda
-"Login con Google"; per l'ambiente locale l'applicazione web Google deve
-autorizzare l'origine JavaScript `https://ecommerce.test`. Il flusso popup
-Google Identity Services non usa Client Secret o redirect URI.
+"Google Auth Platform*". Google non accetta domini privati `.test`: usare
+localhost consentito o un dominio pubblico di sviluppo autorizzato. Il flusso
+popup Google Identity Services non usa Client Secret o redirect URI; vedere
+`app/docs/app/servizi/configurazione/google-sign-in-oauth.md` nel core.
 
 reCAPTCHA Enterprise usa le credenziali Google Cloud già gestite dal core:
 site key, project ID e API key server. I metadati SEO di auth e account vengono
-impostati dal modulo (titolo, descrizione, canonical e breadcrumb vuoto). Il
+impostati dal controller del core per auth e dal modulo per account (titolo,
+descrizione, canonical e breadcrumb vuoto). Il
 core accetta inoltre `$SEO->robots`: auth usa `NOINDEX,FOLLOW`, mentre l'area
 privata usa `NOINDEX,NOFOLLOW`; le altre pagine mantengono `INDEX,FOLLOW`.
 
@@ -70,6 +82,44 @@ Il pannello usa i token del core con fallback ai colori globali:
 
 Input, focus, pulsanti ed errori continuano a usare i token condivisi. I campi
 chiamano `render()` senza specificare un tema: il renderer segue la pagina.
+
+Il riferimento visivo è `elenajossifov-com/account`: nav laterale senza box
+annidati, menu orizzontale su telefono, righe compatte con separatore, dati a
+sinistra e azioni a destra. Non ne vengono copiati helper, query o CSS float.
+I componenti sono `frontend.account.navigation` / `frontend.account.row`;
+ordini e coupon li potranno riutilizzare quando saranno disponibili i flussi.
+
+La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
+modelli del core `Wonder\App\Models\Contacts` / `Models\System`.
+I nomi SQL sono `contacts`, `contact_addresses`, `external_references`, con
+migrazione conservativa dei vecchi nomi `gst_*`; i namespace del gestionale sono
+subclass compatibili e conservano le sole estensioni commerciali.
+Gli indirizzi usano `AccountAddressForm` per label tradotte, default paese e
+prefisso, e griglia responsive con i Container del framework. I POST falliti
+mantengono anche i campi svuotati e gli errori restano nell'alert di pagina.
+Stripe rimane un'integrazione server-side da completare, non un link pubblico
+costruito con un customer id. La guida del core è
+`docs/app/concetti/utenti/auth-frontend.md`.
+
+Gli indirizzi completi sono validati da `AccountAddressValidation` prima dei
+write: campi omessi, vuoti e provincia incompatibile con il paese non vengono
+salvati. Il destinatario è richiesto per la spedizione; l'etichetta è opzionale. I dati
+fiscali non diventano obbligatori nella registrazione. I campi required usano
+l'asterisco del renderer. Il submit resta disponibile per mostrare tutti gli
+errori nell'alert di pagina, senza blocchi silenziosi o messaggi inline.
+
+La lista spedizioni apre aggiunta/modifica in `AccountAddressModal`, basato su
+`Modal::frontend()` e su `Button::opensModal()` secondo il tema della pagina.
+La lib mantiene `modal()` per compatibilità e gestisce Esc, focus, Tab e campi
+inert quando il dialogo è chiuso. I POST rimangono
+protetti da CSRF e ownership; un errore torna alla lista con alert e conserva
+i valori nel modal corrispondente. Le route editor rimangono come fallback
+senza JavaScript. I modal sono passati a `page_modals` e resi dopo il `main`
+dal layout del core, non dentro la colonna dei contenuti o un altro form.
+Il core offre Resource generiche `ContactResource` / `ContactAddressResource`
+su `/backend/contacts/` e `/backend/contact-addresses/`, riservate agli
+amministratori. Il gestionale conserva il suo pannello più completo e la
+precedenza nei link per tabella. Vedi la documentazione contatti del core.
 
 ## Impersonificazione
 
