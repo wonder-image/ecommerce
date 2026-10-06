@@ -207,4 +207,25 @@ check('un ordine col ritiro nasce senza riga di spedizione, nella sede scelta', 
         && (int) Order::findById($cart)['location_id'] === $sede;
 }));
 
+check('un\'anteprima senza scelte tiene quelle del carrello', fn () => prova(static function (): bool {
+    $italia = zona('Italia', [['IT', '']]);
+    listino(metodo('Standard'), $italia, [[5, 8.0]]);
+    $veloce = metodo('Express');
+    listino($veloce, $italia, [[5, 12.0]]);
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    CheckoutSummary::payload($cart, modulo(['shipping_method_id' => $veloce]));
+    $p = CheckoutSummary::payload($cart, ['customer_note' => 'x']);
+
+    return $p['shipping_methods']['selected'] === $veloce && (float) $p['order']['shipping_total'] === 12.0;
+}));
+
+check('l\'email dell\'utente non sostituisce quella scritta al passo Spedizione', fn () => prova(static function (): bool {
+    standard();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    CheckoutSummary::payload($cart, modulo(['email' => 'c@example.com']));
+    CheckoutSummary::payload($cart, modulo(), (object) ['email' => 'altro@example.com']);
+
+    return Order::findById($cart)['email'] === 'c@example.com';
+}));
+
 summary();

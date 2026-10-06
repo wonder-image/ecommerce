@@ -12,15 +12,25 @@ final class CheckoutSummary
 {
     /**
      * @param array<string, mixed> $post
-     * @param bool $keepCart se il modulo non porta le scelte di consegna e pagamento (prima visita, coupon senza JavaScript), restano quelle del carrello
+     * @param bool $keepCart se il modulo non porta le scelte di consegna e pagamento (prima visita, coupon senza JavaScript), restano quelle del carrello; anche senza, le scelte che il modulo non porta restano quelle del carrello
      * @return array<string, mixed>
      */
     public static function payload(int $cartId, array $post, ?object $user = null, bool $keepCart = false): array
     {
         $data = CheckoutForm::data($post, $user);
 
-        if ($keepCart) {
-            unset($data['fulfillment_type'], $data['shipping_method_id'], $data['location_id'], $data['payment_method_id']);
+        // Arriva al gestionale solo ciò che il modulo porta: il Pagamento non
+        // ripete i campi della Spedizione e non deve azzerarli.
+        foreach (['fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id'] as $chiave) {
+            if ($keepCart || !array_key_exists($chiave, $post)) {
+                unset($data[$chiave]);
+            }
+        }
+
+        foreach (['email', 'phone'] as $chiave) {
+            if (!array_key_exists($chiave, $post) || $data[$chiave] === '') {
+                unset($data[$chiave]);
+            }
         }
 
         $preview = Checkout::preview($cartId, $data);
