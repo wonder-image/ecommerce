@@ -278,4 +278,18 @@ check('il passo Spedizione salva contatto e consegna e porta al Pagamento', func
         && substr_count($view, '<h1') === 1;
 });
 
+check('checkout.js lavora a passi, clona i template e non manda due volte', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+
+    return str_contains($js, "querySelector('[data-checkout]')")
+        && str_contains($js, 'dataset.step')
+        && str_contains($js, '[data-checkout-line]')
+        && str_contains($js, '[data-checkout-choice]')
+        && str_contains($js, 'querySelectorAll(\'[data-checkout-lines]\')')
+        && str_contains($js, 'data-checkout-toggle')
+        && str_contains($js, "'pageshow'")
+        && str_contains($js, 'data-checkout-locked')
+        && str_contains($js, '.content.cloneNode(true)');
+});
+
 summary();

@@ -40,6 +40,7 @@ foreach (['free', 'no_shipping', 'shipping_total', 'fees_total', 'coupon_remove'
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
+$labels['sku'] = (string) __t('ecommerce.cart.sku', ['sku' => ':sku']);
 
 $gaItems = array_map(static fn (array $item): array => [
     'item_id' => (string) ($item['sku'] ?? $item['product_id'] ?? ''),

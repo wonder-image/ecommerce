@@ -11,12 +11,13 @@ $items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
 $currency = (string) ($order['currency'] ?? 'EUR');
 $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
 $labels = [];
-foreach (['coupon_remove', 'updating', 'summary_error'] as $key) {
+foreach (['coupon_remove', 'updating', 'summary_error', 'fees_total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.checkout.'.$key);
 }
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
+$labels['sku'] = (string) __t('ecommerce.cart.sku', ['sku' => ':sku']);
 
 Ecommerce::layout('checkout', compact('errors', 'notice'));
 ?>

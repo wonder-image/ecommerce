@@ -29,6 +29,9 @@ foreach (['coupon_remove', 'submit_manual', 'submit_online', 'updating', 'summar
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
+$labels['sku'] = (string) __t('ecommerce.cart.sku', ['sku' => ':sku']);
+// Senza pagamenti il bottone resta spento anche quando il browser riapre la pagina dalla cache.
+$lock = static fn (Button $button): Button => $payments === [] ? $button->disabled(true)->attr('data-checkout-locked', '') : $button;
 $field = static fn (string $key): string => trim((string) ($order[$key] ?? ''));
 $delivery = '';
 if ($pickup) {
@@ -59,6 +62,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
 <div class="d-grid col-3 col-t-1 gap-6">
     <form id="checkout" class="col-2 col-t-1 d-grid col-1 gap-6" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
         data-checkout data-step="payment"
+        data-shipping="<?=Gestionale::feature('shipping') ? 'on' : 'off'?>"
         data-coupons="<?=$coupons ? 'on' : 'off'?>"
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
@@ -118,10 +122,10 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         <?php if ($guest): ?>
             <?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?>
         <?php endif; ?>
-        <?=Button::make($submit)->type('submit')->attr('data-checkout-submit', '')->attr('data-checkout-inline-submit', '')->variant('primary')->class('w-100 pc-none wi-input-submit wi-submit')->disabled($payments === [])?>
+        <?=$lock(Button::make($submit)->type('submit')->attr('data-checkout-submit', '')->attr('data-checkout-inline-submit', '')->variant('primary')->class('w-100 pc-none wi-input-submit wi-submit'))?>
     </form>
     <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), $aside + [
-        'button' => (string) Button::make($submit)->type('submit')->attr('form', 'checkout')->attr('data-checkout-submit', '')->variant('primary')->class('w-100 mt-5 wi-input-submit wi-submit')->disabled($payments === []),
+        'button' => (string) $lock(Button::make($submit)->type('submit')->attr('form', 'checkout')->attr('data-checkout-submit', '')->variant('primary')->class('w-100 mt-5 wi-input-submit wi-submit')),
     ])?>
 </div>
 <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== ''): ?>

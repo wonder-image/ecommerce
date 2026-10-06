@@ -1,29 +1,43 @@
 class Checkout {
-    constructor(selector = '#checkout') {
-        this.form = document.querySelector(selector);
+    constructor() {
+        this.root = document.querySelector('[data-checkout]');
         this.sequence = 0;
         this.timer = null;
         this.latest = null;
 
-        if (!this.form || !this.form.dataset.summaryUrl) {
+        if (!this.root || !this.root.dataset.summaryUrl) {
             return;
         }
 
-        this.labels = JSON.parse(this.form.dataset.labels || '{}');
-        this.latest = JSON.parse(this.form.dataset.initial || 'null');
+        this.form = this.root.tagName === 'FORM' ? this.root : null;
+        this.step = this.root.dataset.step;
+        this.labels = JSON.parse(this.root.dataset.labels || '{}');
+        this.latest = JSON.parse(this.root.dataset.initial || 'null');
         this.bind();
 
         if (this.latest) {
             this.submit(this.latest);
-        } else {
+        } else if (this.form) {
+            // Sul Carrello non si chiede il riepilogo: per l'ospite porterebbe al login.
             this.refresh();
         }
     }
 
     bind() {
-        const watch = 'select, input[name^="billing_"], input[name^="shipping_"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
+        document.querySelectorAll('[data-checkout-coupon]').forEach((form) => form.addEventListener('submit', (event) => this.coupon(event)));
+
+        if (!this.form) {
+            return;
+        }
+
+        // Sul Pagamento l'anteprima tiene già contatto e consegna: conta solo il metodo scelto.
+        const watch = this.step === 'payment'
+            ? '[name="payment_method_id"]'
+            : 'select, [name^="shipping_"], [name="fulfillment_type"], [name="location_id"]';
 
         this.form.addEventListener('change', (event) => {
+            this.toggles();
+
             if (!event.target.matches(watch)) {
                 return;
             }
@@ -32,11 +46,12 @@ class Checkout {
             this.schedule();
         });
         this.form.addEventListener('input', (event) => {
-            if (event.target.matches('input[name^="billing_"], input[name^="shipping_"]')) {
+            if (event.target.matches('input[type="text"], input:not([type])') && event.target.matches(watch)) {
                 this.schedule();
             }
         });
-        document.querySelector('#checkout-coupon')?.addEventListener('submit', (event) => this.coupon(event));
+        this.toggles();
+        this.guardSubmit();
     }
 
     schedule() {
@@ -47,7 +62,20 @@ class Checkout {
     }
 
     body(extra = null) {
-        const data = new FormData(this.form);
+        let data;
+
+        if (this.form && this.step !== 'payment') {
+            data = new FormData(this.form);
+        } else {
+            const method = this.form?.querySelector('[name="payment_method_id"]:checked');
+
+            data = new FormData();
+            data.set('csrf_token', document.querySelector('[name="csrf_token"]')?.value || '');
+
+            if (method) {
+                data.set('payment_method_id', method.value);
+            }
+        }
 
         if (extra) {
             Object.entries(extra).forEach(([key, value]) => data.set(key, value));
@@ -94,7 +122,7 @@ class Checkout {
     }
 
     async refresh() {
-        const payload = await this.request(this.form.dataset.summaryUrl, this.body());
+        const payload = await this.request(this.root.dataset.summaryUrl, this.body());
 
         if (payload && payload.success !== false) {
             this.render(payload);
@@ -110,8 +138,9 @@ class Checkout {
         const data = this.body({
             action: event.submitter?.value || 'apply',
             code: couponForm.querySelector('[name="code"]')?.value || '',
+            return: couponForm.querySelector('[name="return"]')?.value || '',
         });
-        const payload = await this.request(this.form.dataset.couponUrl, data);
+        const payload = await this.request(this.root.dataset.couponUrl, data);
 
         if (payload) {
             this.render(payload);
@@ -123,7 +152,7 @@ class Checkout {
     }
 
     busy(on) {
-        this.form.setAttribute('aria-busy', String(on));
+        this.root.setAttribute('aria-busy', String(on));
     }
 
     render(payload) {
@@ -140,22 +169,51 @@ class Checkout {
     }
 
     lines(payload) {
-        const box = document.querySelector('[data-checkout-lines]');
+        const template = document.querySelector('template[data-checkout-line]');
 
-        if (!box) {
+        if (!template) {
             return;
         }
 
-        box.replaceChildren(...payload.items.map((item) => this.row(`${item.quantity_display} × ${item.name}`, item.line_total_display)));
+        document.querySelectorAll('[data-checkout-lines]').forEach((box) => {
+            box.replaceChildren(...payload.items.map((item) => this.line(template, item)));
+        });
+    }
+
+    line(template, item) {
+        const node = template.content.cloneNode(true).firstElementChild;
+        const image = node.querySelector('[data-line-image]');
+        const sku = node.querySelector('[data-line-sku]');
+
+        if (image && item.image) {
+            image.src = item.image;
+        } else {
+            image?.remove();
+        }
+
+        this.text(node, '[data-line-quantity]', item.quantity_display);
+        this.text(node, '[data-line-name]', item.name);
+        this.text(node, '[data-line-total]', item.line_total_display);
+
+        if (sku) {
+            sku.textContent = item.sku ? (this.labels.sku || ':sku').replace(':sku', item.sku) : '';
+            sku.hidden = !item.sku;
+        }
+
+        return node;
+    }
+
+    text(node, selector, value) {
+        const target = node.querySelector(selector);
+
+        if (target) {
+            target.textContent = value ?? '';
+        }
+
+        return target;
     }
 
     totals(payload) {
-        const box = document.querySelector('[data-checkout-totals]');
-
-        if (!box) {
-            return;
-        }
-
         const d = payload.display;
         const rows = [[this.labels.products_total, d.products_total]];
 
@@ -163,7 +221,7 @@ class Checkout {
             rows.push([this.labels.discount, d.discount_total]);
         }
 
-        if (this.form.dataset.shipping === 'on' && payload.fulfillment.type === 'shipping') {
+        if (this.step !== 'cart' && this.root.dataset.shipping !== 'off' && payload.fulfillment.type === 'shipping') {
             rows.push([this.labels.shipping_total, d.shipping_total]);
         }
 
@@ -172,7 +230,12 @@ class Checkout {
         }
 
         rows.push([this.labels.total, d.total, true]);
-        box.replaceChildren(...rows.map(([label, value, strong]) => this.row(label, value, strong)));
+        document.querySelectorAll('[data-checkout-totals]').forEach((box) => {
+            box.replaceChildren(...rows.map(([label, value, strong]) => this.row(label, value, strong)));
+        });
+        document.querySelectorAll('[data-checkout-total]').forEach((total) => {
+            total.textContent = d.total;
+        });
     }
 
     row(label, value, strong = false) {
@@ -181,6 +244,7 @@ class Checkout {
         const amount = document.createElement(strong ? 'strong' : 'span');
 
         line.className = 'd-grid col-2 gap-3';
+        name.className = strong ? 'fw-700' : '';
         amount.className = 'a-r';
         name.textContent = label;
         amount.textContent = value;
@@ -202,31 +266,40 @@ class Checkout {
             radio.checked = radio.value === payload.fulfillment.type;
 
             if (radio.value === 'pickup') {
+                radio.disabled = !pickup;
                 radio.closest('label')?.toggleAttribute('hidden', !pickup);
             }
         });
         document.querySelector('[data-checkout-shipping]')?.toggleAttribute('hidden', payload.fulfillment.type === 'pickup');
     }
 
-    choices(container, name, options, selected, build) {
-        if (!container) {
+    // Le scelte nascono dal template della Choice: titolo, testo e prezzo vanno nelle loro parti.
+    choices(container, name, options, selected, parts) {
+        const template = document.querySelector('template[data-checkout-choice]');
+
+        if (!container || !template) {
             return;
         }
 
-        container.replaceChildren(...options.map((option) => {
-            const label = document.createElement('label');
-            const input = document.createElement('input');
-            const text = document.createElement('span');
+        const group = container.querySelector('[data-choice-list]') || container;
 
-            input.type = 'radio';
+        group.replaceChildren(...options.map((option) => {
+            const node = template.content.cloneNode(true).firstElementChild;
+            const input = node.querySelector('[data-choice-input]');
+            const [title, text, aside] = parts(option);
+
             input.name = name;
             input.value = String(option.value);
             input.checked = option.value === selected;
-            text.textContent = build(option);
-            label.className = 'd-flex gap-3';
-            label.append(input, text);
+            [['[data-choice-title]', title], ['[data-choice-text]', text], ['[data-choice-aside]', aside]].forEach(([selector, value]) => {
+                const target = this.text(node, selector, value);
 
-            return label;
+                if (target) {
+                    target.hidden = !value;
+                }
+            });
+
+            return node;
         }));
     }
 
@@ -235,10 +308,10 @@ class Checkout {
         const options = payload.shipping_methods.options.map((o) => ({ ...o, value: o.method_id }));
         const warning = document.querySelector('[data-checkout-notice]');
 
-        this.choices(box, 'shipping_method_id', options, payload.shipping_methods.selected, (o) => [o.name, o.description, o.price_display].filter(Boolean).join(' — '));
+        this.choices(box, 'shipping_method_id', options, payload.shipping_methods.selected, (o) => [o.name, o.description, o.price_display]);
 
         if (warning) {
-            const missing = options.length === 0 && this.form.dataset.shipping === 'on';
+            const missing = options.length === 0 && this.root.dataset.shipping === 'on';
 
             warning.textContent = missing ? this.labels.no_shipping : '';
             warning.toggleAttribute('hidden', !missing);
@@ -250,44 +323,46 @@ class Checkout {
         const options = payload.pickup_locations.options.map((o) => ({ ...o, value: o.id }));
 
         section?.toggleAttribute('hidden', payload.fulfillment.type !== 'pickup');
-        this.choices(document.querySelector('[data-checkout-pickup-locations]'), 'location_id', options, payload.pickup_locations.selected, (o) => `${o.name} — ${o.address}`);
+        this.choices(document.querySelector('[data-checkout-pickup-locations]'), 'location_id', options, payload.pickup_locations.selected, (o) => [o.name, o.address, '']);
     }
 
     payments(payload) {
         const box = document.querySelector('[data-checkout-payments]');
 
-        if (!box || payload.payment_methods.options.length === 0) {
+        if (this.step !== 'payment' || !box || payload.payment_methods.options.length === 0) {
             return;
         }
 
         const options = payload.payment_methods.options.map((o) => ({ ...o, value: o.id }));
 
-        this.choices(box, 'payment_method_id', options, payload.payment_methods.selected, (o) => (o.instructions ? `${o.name} — ${o.instructions}` : o.name));
+        this.choices(box, 'payment_method_id', options, payload.payment_methods.selected, (o) => [o.name, o.instructions, '']);
     }
 
     couponBox(payload) {
-        const form = document.querySelector('#checkout-coupon');
-
-        if (!form) {
-            return;
-        }
-
         const code = payload.coupon?.code || '';
-        const input = form.querySelector('[name="code"]');
 
-        if (input && !(payload.error && code === '')) {
-            input.value = code;
-        }
+        document.querySelectorAll('[data-checkout-coupon]').forEach((form) => {
+            const input = form.querySelector('[name="code"]');
 
-        form.querySelector('[data-checkout-coupon-remove]')?.toggleAttribute('hidden', code === '');
+            if (input && !(payload.error && code === '')) {
+                input.value = code;
+            }
+
+            form.querySelector('[data-checkout-coupon-remove]')?.toggleAttribute('hidden', code === '');
+        });
     }
 
     submit(payload) {
-        const button = document.querySelector('[data-checkout-submit]');
+        if (this.step !== 'payment') {
+            return;
+        }
+
         const chosen = payload.payment_methods.options.find((o) => o.id === payload.payment_methods.selected);
 
-        if (button && chosen) {
-            button.textContent = chosen.manual ? this.labels.submit_manual : this.labels.submit_online;
+        if (chosen) {
+            document.querySelectorAll('[data-checkout-submit]').forEach((button) => {
+                button.textContent = chosen.manual ? this.labels.submit_manual : this.labels.submit_online;
+            });
         }
     }
 
@@ -307,6 +382,30 @@ class Checkout {
 
             return p;
         }));
+    }
+
+    // I pannelli si aprono e chiudono con le caselle: «nome:on», «nome:off» o «nome:valore».
+    toggles() {
+        this.root.querySelectorAll('[data-checkout-toggle]').forEach((panel) => {
+            const [name, want] = (panel.dataset.checkoutToggle || '').split(':');
+            if (!name) {
+                panel.hidden = false;
+                return;
+            }
+            const inputs = [...this.root.querySelectorAll(`[name="${name}"]`)];
+            const on = inputs.some((input) => input.checked && (want === 'on' || want === 'off' || input.value === want));
+            panel.hidden = want === 'off' ? on : !on;
+        });
+    }
+
+    // Un clic solo: il bottone si spegne all'invio e torna acceso se il browser riapre la pagina dalla cache.
+    guardSubmit() {
+        this.form.addEventListener('submit', () => {
+            setTimeout(() => document.querySelectorAll('[data-checkout-submit]').forEach((button) => { button.disabled = true; }), 0);
+        });
+        window.addEventListener('pageshow', () => {
+            document.querySelectorAll('[data-checkout-submit]:not([data-checkout-locked])').forEach((button) => { button.disabled = false; });
+        });
     }
 
     announce(name) {
