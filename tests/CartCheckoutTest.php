@@ -231,4 +231,24 @@ check('il passo Carrello usa il layout del checkout, i passi e il coupon che tor
         && !str_contains($cart.$parts, "render('wonder')");
 });
 
+check('il passo Spedizione salva contatto e consegna e porta al Pagamento', function () use ($root) {
+    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $view = (string) @file_get_contents($root.'/view/pages/checkout/shipping.php');
+
+    return str_contains($routes, "['checkout_action' => 'shipping']")
+        && str_contains($c, 'CheckoutSteps::shippingErrors(')
+        && str_contains($c, "\$post['shipping_phone']")
+        && str_contains($c, "self::route('ecommerce.checkout.payment')")
+        && str_contains($view, 'id="checkout"')
+        && str_contains($view, 'data-step="shipping"')
+        && str_contains($view, 'id="contatto"')
+        && str_contains($view, 'id="consegna"')
+        && str_contains($view, "__r('ecommerce.checkout.shipping')")
+        && str_contains($view, 'ChoiceGroup::make(')
+        && str_contains($view, 'data-checkout-choice')
+        && str_contains($view, 'data-checkout-inline-submit')
+        && substr_count($view, '<h1') === 1;
+});
+
 summary();

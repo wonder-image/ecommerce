@@ -10,6 +10,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartController;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
@@ -29,6 +30,7 @@ final class CheckoutController
         match ($action) {
             'index' => self::index(),
             'place' => self::place(),
+            'shipping' => self::shipping(),
             'summary' => self::summary(),
             'coupon' => self::coupon(),
             'completed' => self::completed(),
@@ -48,27 +50,61 @@ final class CheckoutController
         }
 
         $flash = self::pullFlash();
-        $values = self::defaults($flash['values']);
-        $methods = self::fallbackMethods();
+        $fromCart = array_filter(CheckoutSteps::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
+        $values = $flash['values'] !== [] ? self::defaults($flash['values']) : $fromCart + self::defaults([]);
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
         $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $flash['values'] === []);
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
         $cart = CartSession::current(false);
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.index'));
-        View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
+        View::make(Ecommerce::viewPath('pages/checkout/shipping.php'), [
             'cart' => $cart,
-            'billing_fields' => self::fields(Order::billingAddress()->formSchema($values['billing_country'] ?? null), $values),
-            'shipping_fields' => self::fields(Order::shippingAddress()->formSchema($values['shipping_country'] ?? null), $values),
-            'payment_field' => self::paymentField($methods, $values),
-            'payment_methods' => $methods,
+            'shipping_fields' => self::fields(array_diff_key(
+                Order::shippingAddress()->formSchema($values['shipping_country'] ?? null),
+                array_flip(['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'])
+            ), $values),
             'guest' => !CartSession::authenticated(),
             'csrf_token' => AuthSession::csrfToken(),
             'errors' => $flash['errors'],
-            'notice' => '',
+            'notice' => $flash['notice'],
             'values' => $values,
             'summary' => $summary,
         ])->render();
+    }
+
+    /** Il passo Spedizione: salva contatto e consegna sul carrello, poi va al Pagamento. */
+    private static function shipping(): never
+    {
+        $cartId = self::guardPage();
+        $post = $_POST;
+        // Il telefono del contatto è anche quello del corriere.
+        $post['shipping_phone'] = (string) ($post['phone'] ?? '');
+
+        // Col ritiro non resta un indirizzo vecchio sull'ordine.
+        if ((string) ($post['fulfillment_type'] ?? '') === 'pickup') {
+            foreach (Order::shippingAddress()->keys() as $key) {
+                if (!in_array($key, ['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'], true)) {
+                    $post[$key] = '';
+                }
+            }
+        }
+
+        try {
+            $summary = CheckoutSummary::payload($cartId, $post, CartSession::user());
+            $errors = CheckoutSteps::shippingErrors((array) Order::findById($cartId), $summary, Gestionale::feature('shipping'));
+            $messages = array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $errors);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.shipping');
+            $messages = [(string) __t('ecommerce.checkout.errors.generic')];
+        }
+
+        if ($messages !== []) {
+            self::flash($messages, $post);
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
+        self::redirect(self::route('ecommerce.checkout.payment'));
     }
 
     /**
