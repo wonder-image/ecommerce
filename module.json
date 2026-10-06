@@ -38,7 +38,8 @@
             "pages/cart",
             "pages/checkout",
             "pages/account",
-            "pages/auth"
+            "pages/auth",
+            "components/checkout"
         ]
     }
 }

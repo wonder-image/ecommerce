@@ -8,6 +8,7 @@ use Wonder\App\ResourceSchema\FormField;
 use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartController;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
@@ -161,9 +162,16 @@ final class CheckoutController
 
     private static function coupon(): void
     {
+        $return = in_array($_POST['return'] ?? '', ['cart', 'payment'], true) ? (string) $_POST['return'] : 'checkout';
         $json = self::wantsJson();
-        $cartId = $json ? self::guardJson() : self::guardPage();
+        // Il coupon si prova già dal carrello, prima del login.
+        $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart');
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+        $back = match ($return) {
+            'cart' => self::route('ecommerce.cart.index'),
+            'payment' => self::route('ecommerce.checkout.payment'),
+            default => self::route('ecommerce.checkout.index'),
+        };
 
         try {
             // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
@@ -175,20 +183,21 @@ final class CheckoutController
                 self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
             }
 
-            self::flash([(string) __t('ecommerce.checkout.errors.generic')], []);
-            self::redirect(self::route('ecommerce.checkout.index'));
+            $payload = ['error' => (string) __t('ecommerce.checkout.errors.generic')];
         }
 
         if ($json) {
             self::json(['success' => $payload['error'] === ''] + $payload);
         }
 
-        self::flash($payload['error'] !== '' ? [$payload['error']] : [], []);
-        self::redirect(self::route('ecommerce.checkout.index'));
+        $errors = $payload['error'] !== '' ? [$payload['error']] : [];
+        $notice = $errors === [] ? (string) __t('ecommerce.checkout.'.($action === 'remove' ? 'coupon_removed' : 'coupon_applied')) : '';
+        $return === 'cart' ? CartController::flash($errors, $notice) : self::flash($errors, [], $notice);
+        self::redirect($back);
     }
 
     /** Le guardie delle rotte JSON: POST, CSRF, login; ridà l'id del carrello. */
-    private static function guardJson(): int
+    private static function guardJson(bool $login = true): int
     {
         self::requirePost();
 
@@ -196,7 +205,7 @@ final class CheckoutController
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
 
-        if (!self::guestAllowed() && !CartSession::authenticated()) {
+        if ($login && !self::guestAllowed() && !CartSession::authenticated()) {
             self::json(['success' => false, 'redirect' => self::loginUrl()], 401);
         }
 
@@ -208,12 +217,12 @@ final class CheckoutController
     }
 
     /** Le stesse guardie per la pagina senza JavaScript. */
-    private static function guardPage(): int
+    private static function guardPage(bool $login = true): int
     {
         self::requirePost();
         self::requireCsrf();
 
-        if (!self::guestAllowed() && !CartSession::authenticated()) {
+        if ($login && !self::guestAllowed() && !CartSession::authenticated()) {
             self::redirect(self::loginUrl());
         }
 
@@ -380,7 +389,7 @@ final class CheckoutController
         return self::route('ecommerce.auth.login').'?continue='.rawurlencode(self::route('ecommerce.checkout.index'));
     }
 
-    private static function flash(array $errors, array $values = []): void
+    private static function flash(array $errors, array $values = [], string $notice = ''): void
     {
         unset(
             $values['csrf_token'],
@@ -390,10 +399,11 @@ final class CheckoutController
         $_SESSION[self::FLASH] = [
             'errors' => array_values(array_filter(array_map('strval', $errors))),
             'values' => $values,
+            'notice' => trim($notice),
         ];
     }
 
-    /** @return array{errors: list<string>, values: array<string, mixed>} */
+    /** @return array{errors: list<string>, values: array<string, mixed>, notice: string} */
     private static function pullFlash(): array
     {
         $flash = (array) ($_SESSION[self::FLASH] ?? []);
@@ -402,6 +412,7 @@ final class CheckoutController
         return [
             'errors' => array_values(array_filter(array_map('strval', (array) ($flash['errors'] ?? [])))),
             'values' => is_array($flash['values'] ?? null) ? $flash['values'] : [],
+            'notice' => trim((string) ($flash['notice'] ?? '')),
         ];
     }
 

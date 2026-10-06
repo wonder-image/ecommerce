@@ -38,7 +38,9 @@ final class CheckoutSummary
 
         $preview['display'] = [];
         foreach (['products_total', 'discount_total', 'shipping_total', 'fees_total', 'total'] as $chiave) {
-            $preview['display'][$chiave] = CartPresenter::money($preview['order'][$chiave], $valuta);
+            // Lo sconto si legge col meno, come nel riepilogo disegnato dal server.
+            $importo = $chiave === 'discount_total' ? -abs((float) $preview['order'][$chiave]) : $preview['order'][$chiave];
+            $preview['display'][$chiave] = CartPresenter::money($importo, $valuta);
         }
 
         // Spedizione e commissione stanno nei totali, non tra gli articoli.

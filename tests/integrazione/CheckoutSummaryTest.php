@@ -15,6 +15,7 @@ $supporto = dirname(__DIR__, 3).'/gestionale/tests/integrazione/supporto';
 require $supporto.'/compra.php';
 require $supporto.'/spedizioni.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutForm;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Gestionale\Models\Locations\Location;
@@ -157,6 +158,16 @@ check('il coupon si applica e si toglie; uno sconosciuto dà il messaggio del ge
     return $su['error'] === '' && $su['coupon']['code'] === $codice && (float) $su['order']['discount_total'] > 0
         && $giu['error'] === '' && $giu['coupon']['code'] === ''
         && $no['error'] !== '' && $no['coupon']['code'] === '';
+}));
+
+check('lo sconto mostrato ha il meno, come nel riepilogo della pagina', fn () => prova(static function (): bool {
+    standard();
+    $codice = coupon();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+
+    $su = CheckoutSummary::coupon($cart, 'apply', $codice, modulo());
+
+    return $su['display']['discount_total'] === CartPresenter::money(-abs((float) $su['order']['discount_total']), (string) ($su['order']['currency'] ?? 'EUR'));
 }));
 
 check('con i coupon spenti l\'applicazione dà un errore e il carrello non cambia', fn () => prova(static function (): bool {

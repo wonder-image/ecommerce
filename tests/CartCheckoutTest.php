@@ -9,6 +9,14 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 
 $root = dirname(__DIR__);
 
+/** Le pagine e i parziali del checkout, uniti: i ganci possono stare in un parziale. */
+function checkoutViews(string $root): string
+{
+    $files = array_merge(glob($root.'/view/pages/checkout/*.php') ?: [], glob($root.'/view/components/checkout/*.php') ?: []);
+
+    return implode("\n", array_map(static fn (string $file): string => (string) file_get_contents($file), $files));
+}
+
 check('il presenter formatta totali e quantità senza dipendere dalla view', fn () =>
     CartPresenter::money(1234.5) === '1.234,50 €'
     && CartPresenter::quantity(2.500) === '2,5'
@@ -151,7 +159,7 @@ check('la pagina del checkout ha i ganci per consegna, sedi, coupon e il solo fo
 });
 
 check('i testi usati dalla pagina del checkout esistono in italiano e in inglese', function () use ($root) {
-    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $view = checkoutViews($root)."\n".(string) file_get_contents($root.'/view/pages/cart/index.php');
     preg_match_all("/__t\('ecommerce\.([a-z_.]+)'\)/", $view, $found);
 
     foreach (['it', 'en'] as $lang) {
@@ -201,6 +209,26 @@ check('una modifica del cliente scarta le risposte in viaggio e la prima visita 
         && str_contains($c, "\$flash['values'] === []")
         && str_contains($c, 'CartSession::user(), !$json)')
         && str_contains($view, 'CartPresenter::lines(');
+});
+
+check('il passo Carrello usa il layout del checkout, i passi e il coupon che torna al carrello', function () use ($root) {
+    $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $parts = checkoutViews($root);
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $manifest = json_decode((string) file_get_contents($root.'/module.json'), true);
+
+    return str_contains($cart, "Ecommerce::layout('checkout'")
+        && str_contains($cart, 'data-checkout-cart')
+        && str_contains($cart, "'step' => 'cart'")
+        && str_contains($parts, 'Steps::make(')
+        && str_contains($parts, 'wi-thumb')
+        && str_contains($parts, '<template data-checkout-line>')
+        && str_contains($parts, "FormField::key('return')->hidden()")
+        && str_contains($parts, '<details')
+        && str_contains($controller, "'coupon_applied'")
+        && str_contains($controller, 'CartController::flash(')
+        && in_array('components/checkout', $manifest['views']['sealed'] ?? [], true)
+        && !str_contains($cart.$parts, "render('wonder')");
 });
 
 summary();
