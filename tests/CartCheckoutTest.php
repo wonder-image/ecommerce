@@ -84,7 +84,7 @@ check('tutte le mutazioni del carrello e del checkout verificano il CSRF', funct
 check('il checkout ospite resta disattivato per default e usa reCAPTCHA se abilitato', function () use ($root) {
     $config = require $root.'/config/module.php';
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
-    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $view = checkoutViews($root);
 
     return $config['checkout']['guest_enabled'] === false
         && str_contains($controller, "Ecommerce::config('checkout.guest_enabled', false)")
@@ -110,7 +110,7 @@ check('summary e coupon hanno le guardie in JSON e place usa CheckoutForm', func
         && str_contains($c, "'error' => (string) __t('ecommerce.checkout.summary_error')], 419)")
         && str_contains($c, "'redirect' => self::loginUrl()], 401)")
         && str_contains($c, "'redirect' => self::route('ecommerce.cart.index')], 409)")
-        && str_contains($c, 'CheckoutForm::data($_POST')
+        && str_contains($c, 'CheckoutForm::data(')
         && !str_contains($c, "'shipping_method_id' => 0");
 });
 
@@ -128,7 +128,7 @@ check('login, registrazione e Google conservano il ritorno al checkout', functio
 
 check('carrello e checkout hanno layout sigillati e form identificabili da GTM', function () use ($root) {
     $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
-    $checkout = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $checkout = checkoutViews($root);
     $manifest = json_decode((string) file_get_contents($root.'/module.json'), true);
 
     return in_array('pages/cart', $manifest['views']['sealed'] ?? [], true)
@@ -141,10 +141,11 @@ check('carrello e checkout hanno layout sigillati e form identificabili da GTM',
 });
 
 check('la pagina del checkout ha i ganci per consegna, sedi, coupon e il solo form di invio', function () use ($root) {
-    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $view = checkoutViews($root);
     $hooks = ['data-checkout-fulfillment', 'data-checkout-shipping-methods', 'data-checkout-pickup-locations',
         'data-checkout-payments', 'data-checkout-lines', 'data-checkout-totals', 'data-checkout-notices',
-        'data-summary-url', 'data-coupon-url', 'data-initial', 'data-checkout-submit', 'id="checkout-coupon"'];
+        'data-summary-url', 'data-coupon-url', 'data-initial', 'data-checkout-submit', "'id' => 'checkout-coupon'",
+        'data-checkout-line', 'data-checkout-toggle', 'data-checkout-total'];
 
     foreach ($hooks as $hook) {
         if (!str_contains($view, $hook)) {
@@ -152,8 +153,13 @@ check('la pagina del checkout ha i ganci per consegna, sedi, coupon e il solo fo
         }
     }
 
-    return substr_count($view, '<h1') === 1
-        && str_contains($view, "->attr('form', 'checkout')")
+    foreach (glob($root.'/view/pages/checkout/*.php') as $page) {
+        if (substr_count((string) file_get_contents($page), '<h1') !== 1) {
+            return false;
+        }
+    }
+
+    return str_contains($view, "->attr('form', 'checkout')")
         && str_contains($view, "module_asset('ecommerce', 'js/checkout.js')")
         && str_contains($view, "'event' => 'begin_checkout'");
 });
@@ -202,7 +208,7 @@ check('checkout.js scarta le risposte vecchie, aspetta una pausa e racconta a GT
 check('una modifica del cliente scarta le risposte in viaggio e la prima visita tiene le scelte del carrello', function () use ($root) {
     $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
     $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
-    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $view = checkoutViews($root);
 
     return preg_match('/schedule\(\) \{\s*\/\/[^\n]*\n\s*this\.sequence\+\+;/', $js) === 1
         && str_contains($js, 'this.submit(this.latest)')
@@ -229,6 +235,27 @@ check('il passo Carrello usa il layout del checkout, i passi e il coupon che tor
         && str_contains($controller, 'CartController::flash(')
         && in_array('components/checkout', $manifest['views']['sealed'] ?? [], true)
         && !str_contains($cart.$parts, "render('wonder')");
+});
+
+check('il Pagamento chiede la Spedizione completa e place ordina dal carrello', function () use ($root) {
+    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $view = (string) @file_get_contents($root.'/view/pages/checkout/payment.php');
+
+    return str_contains($routes, "['checkout_action' => 'payment']")
+        && !is_file($root.'/view/pages/checkout/index.php')
+        && str_contains($c, 'CheckoutSteps::shippingComplete(')
+        && str_contains($c, 'CheckoutSteps::fromCart(')
+        && str_contains($c, 'CheckoutSteps::paymentErrors(')
+        && str_contains($c, 'registerBaseConsents(')
+        && str_contains($c, "'ecommerce.checkout.errors.shipping_incomplete'")
+        && str_contains($view, 'data-step="payment"')
+        && str_contains($view, "__r('ecommerce.checkout.place')")
+        && str_contains($view, "Choice::make('same_as_shipping'")
+        && str_contains($view, "Choice::make('invoice'")
+        && str_contains($view, '->acceptDocument(')
+        && str_contains($view, "#contatto")
+        && str_contains($view, "#consegna");
 });
 
 check('il passo Spedizione salva contatto e consegna e porta al Pagamento', function () use ($root) {

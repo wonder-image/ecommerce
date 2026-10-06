@@ -4,7 +4,6 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
-use Wonder\App\ResourceSchema\FormField;
 use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
@@ -31,6 +30,7 @@ final class CheckoutController
             'index' => self::index(),
             'place' => self::place(),
             'shipping' => self::shipping(),
+            'payment' => self::payment(),
             'summary' => self::summary(),
             'coupon' => self::coupon(),
             'completed' => self::completed(),
@@ -148,8 +148,23 @@ final class CheckoutController
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
             }
 
+            $cartId = (int) ($cart['order']['id'] ?? 0);
+            [, $order] = self::shippingDone($cartId) ?? self::backToShipping();
             $user = CartSession::user();
-            $data = CheckoutForm::data($_POST, $user);
+            $userId = (int) ($user->id ?? 0);
+            $asked = CheckoutSteps::askedConsents($userId);
+            $billing = CheckoutSteps::billing($_POST, $order);
+            $missing = CheckoutSteps::paymentErrors($_POST, $billing, $asked);
+            if ($missing !== []) {
+                self::flash(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $_POST);
+                self::redirect(self::route('ecommerce.checkout.payment'));
+            }
+
+            // L'ordine nasce dal carrello (Spedizione) più i campi del Pagamento.
+            $data = CheckoutForm::data([
+                'payment_method_id' => (string) ($_POST['payment_method_id'] ?? ''),
+                'customer_note' => (string) ($_POST['customer_note'] ?? ''),
+            ] + $billing + CheckoutSteps::fromCart($order), $user);
             $method = self::method($data['payment_method_id']);
             if (!is_array($method)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
@@ -158,11 +173,20 @@ final class CheckoutController
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.provider_pending'));
             }
 
-            $result = Checkout::place((int) ($cart['order']['id'] ?? 0), $data + [
+            $result = Checkout::place($cartId, $data + [
                 'customer_id' => CartSession::customerId(),
                 'source' => 'ecommerce',
-                'user_id' => (int) ($user->id ?? 0),
+                'user_id' => $userId,
             ]);
+
+            if ($userId > 0 && $asked !== []) {
+                try {
+                    consentService()->registerBaseConsents($userId, $_POST, ['required_document_types' => $asked, 'ui_surface' => 'checkout']);
+                } catch (Throwable $error) {
+                    // L'ordine è nato: un consenso non registrato non lo ferma.
+                    Errors::internal($error, 'ecommerce.checkout.consents');
+                }
+            }
 
             $_SESSION[self::COMPLETED] = [
                 'order_id' => (int) ($result['order_id'] ?? 0),
@@ -181,6 +205,74 @@ final class CheckoutController
             self::flash([(string) __t('ecommerce.checkout.errors.generic')], $_POST);
         }
 
+        self::redirect(self::route('ecommerce.checkout.payment'));
+    }
+
+    private static function payment(): void
+    {
+        if (!self::guestAllowed() && !CartSession::authenticated()) {
+            self::redirect(self::loginUrl());
+        }
+
+        $cartId = self::cartId();
+        if ($cartId === 0) {
+            self::redirect(self::route('ecommerce.cart.index'));
+        }
+
+        // Il carrello può essere cambiato dopo la Spedizione: si ricalcola e si ricontrolla.
+        [$summary, $order] = self::shippingDone($cartId) ?? self::backToShipping();
+        $flash = self::pullFlash();
+        $values = $flash['values'] !== []
+            ? self::defaults($flash['values'])
+            : array_filter(CheckoutSteps::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0') + self::defaults([]) + ['same_as_shipping' => '1'];
+        $userId = (int) (CartSession::user()->id ?? 0);
+
+        self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.payment'));
+        View::make(Ecommerce::viewPath('pages/checkout/payment.php'), [
+            'cart' => CartSession::current(false),
+            'order' => $order,
+            'summary' => $summary,
+            'billing_fields' => self::fields(array_diff_key(
+                Order::billingAddress()->formSchema($values['billing_country'] ?? null),
+                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
+            ), $values),
+            'business_fields' => self::fields(array_intersect_key(
+                Order::billingAddress()->formSchema($values['billing_country'] ?? null),
+                array_flip(['billing_business_name', 'billing_pi', 'billing_sdi', 'billing_pec'])
+            ), $values),
+            'cf_field' => self::fields(array_intersect_key(Order::billingAddress()->formSchema($values['billing_country'] ?? null), ['billing_cf' => true]), $values),
+            'consents' => CheckoutSteps::askedConsents($userId),
+            'guest' => !CartSession::authenticated(),
+            'csrf_token' => AuthSession::csrfToken(),
+            'errors' => $flash['errors'],
+            'notice' => $flash['notice'],
+            'values' => $values,
+        ])->render();
+    }
+
+    /**
+     * L'anteprima con le scelte del carrello e il carrello riletto; null se il
+     * passo Spedizione non è completo (o il gestionale non risponde).
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}|null
+     */
+    private static function shippingDone(int $cartId): ?array
+    {
+        try {
+            $summary = CheckoutSummary::payload($cartId, [], CartSession::user());
+            $order = (array) Order::findById($cartId);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.payment');
+
+            return null;
+        }
+
+        return CheckoutSteps::shippingComplete($order, $summary, Gestionale::feature('shipping')) ? [$summary, $order] : null;
+    }
+
+    private static function backToShipping(): never
+    {
+        self::flash([(string) __t('ecommerce.checkout.errors.shipping_incomplete')]);
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 
@@ -319,39 +411,6 @@ final class CheckoutController
         ], null, 'position', 'ASC');
 
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
-    }
-
-    /**
-     * Cosa mostra la pagina prima che il JavaScript scelga: i metodi per tutte
-     * le consegne o per la spedizione, con la spedizione come consegna di partenza.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function fallbackMethods(): array
-    {
-        return array_values(array_filter(
-            self::paymentMethods(),
-            static fn (array $row): bool => in_array((string) ($row['available_for'] ?? 'all'), ['all', 'shipping'], true)
-        ));
-    }
-
-    /** @param list<array<string, mixed>> $methods */
-    private static function paymentField(array $methods, array $values): object
-    {
-        $options = [];
-        foreach ($methods as $method) {
-            $options[(int) $method['id']] = (string) ($method['name'] ?? '');
-        }
-
-        $field = FormField::key('payment_method_id')
-            ->select($options)
-            ->label((string) __t('ecommerce.checkout.payment_method'))
-            ->required();
-        if (!empty($values['payment_method_id'])) {
-            $field->value((string) $values['payment_method_id']);
-        }
-
-        return $field;
     }
 
     /** @return array<string, mixed>|null */
