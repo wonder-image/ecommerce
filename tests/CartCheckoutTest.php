@@ -173,4 +173,22 @@ check('i testi usati dalla pagina del checkout esistono in italiano e in inglese
     return true;
 });
 
+check('checkout.js scarta le risposte vecchie, aspetta una pausa e racconta a GTM le scelte', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+
+    return str_contains($js, 'class Checkout')
+        && str_contains($js, 'this.sequence')
+        && str_contains($js, 'if (sequence !== this.sequence)')
+        && str_contains($js, 'setTimeout')
+        && str_contains($js, '300')
+        && str_contains($js, 'textContent')
+        && !str_contains($js, 'innerHTML')
+        && str_contains($js, "'add_shipping_info'")
+        && str_contains($js, "'add_payment_info'")
+        && str_contains($js, 'dataLayer.push({ ecommerce: null })')
+        && str_contains($js, 'payload.redirect')
+        && str_contains($js, 'X-Requested-With')
+        && str_contains($js, 'window.ecommerceCheckout');
+});
+
 summary();
