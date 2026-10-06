@@ -24,3 +24,6 @@ versionamento semantico.
 - Token colore auth dedicati, view auth sigillate e rendering coerente col tema
   della pagina.
 - Impersonificazione cliente protetta da authority, token monouso, CSRF e audit.
+- Pagina `/account/password/` per cambiare o impostare la password, con voce
+  nel menu del pannello e riga nel riepilogo; la logica è quella del core
+  (`AccountPassword`).

@@ -15,6 +15,7 @@ class EcommerceAccountPanel extends AccountPanel
             'shipping' => ['route' => 'ecommerce.account.shipping', 'icon' => 'bi bi-geo-alt-fill', 'label' => __t('ecommerce.account.navigation.shipping')],
             'billing' => ['route' => 'ecommerce.account.billing', 'icon' => 'bi bi-person-vcard-fill', 'label' => __t('ecommerce.account.navigation.billing')],
             'payment-methods' => ['route' => 'ecommerce.account.payment-methods', 'icon' => 'bi bi-credit-card', 'label' => __t('ecommerce.account.navigation.payment_methods')],
+            'password' => ['route' => 'ecommerce.account.password', 'icon' => 'bi bi-key-fill', 'label' => __t('account.navigation.password')],
         ];
         $overrides = (array) Ecommerce::config('account.navigation', []);
         foreach ($overrides as $key => $item) {
