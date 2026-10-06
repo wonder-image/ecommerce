@@ -49,6 +49,7 @@ final class CheckoutController
         $flash = self::pullFlash();
         $values = self::defaults($flash['values']);
         $methods = self::fallbackMethods();
+        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values);
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.index'));
         View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
@@ -62,7 +63,27 @@ final class CheckoutController
             'errors' => $flash['errors'],
             'notice' => '',
             'values' => $values,
+            'summary' => $summary,
         ])->render();
+    }
+
+    /**
+     * La prima anteprima, già nella pagina: le scelte di consegna si vedono
+     * anche senza JavaScript. Se il gestionale non risponde, la pagina resta
+     * quella di prima e il JavaScript riprova al primo cambiamento.
+     *
+     * @param array<string, string> $values
+     * @return array<string, mixed>|null
+     */
+    private static function initialSummary(int $cartId, array $values): ?array
+    {
+        try {
+            return CheckoutSummary::payload($cartId, $values, CartSession::user());
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.index');
+
+            return null;
+        }
     }
 
     private static function place(): void

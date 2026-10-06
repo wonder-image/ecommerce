@@ -132,4 +132,45 @@ check('carrello e checkout hanno layout sigillati e form identificabili da GTM',
         && str_contains($checkout, 'id="checkout"');
 });
 
+check('la pagina del checkout ha i ganci per consegna, sedi, coupon e il solo form di invio', function () use ($root) {
+    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $hooks = ['data-checkout-fulfillment', 'data-checkout-shipping-methods', 'data-checkout-pickup-locations',
+        'data-checkout-payments', 'data-checkout-lines', 'data-checkout-totals', 'data-checkout-notices',
+        'data-summary-url', 'data-coupon-url', 'data-initial', 'data-checkout-submit', 'id="checkout-coupon"'];
+
+    foreach ($hooks as $hook) {
+        if (!str_contains($view, $hook)) {
+            return false;
+        }
+    }
+
+    return substr_count($view, '<h1') === 1
+        && str_contains($view, "->attr('form', 'checkout')")
+        && str_contains($view, "module_asset('ecommerce', 'js/checkout.js')")
+        && str_contains($view, "'event' => 'begin_checkout'");
+});
+
+check('i testi usati dalla pagina del checkout esistono in italiano e in inglese', function () use ($root) {
+    $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    preg_match_all("/__t\('ecommerce\.([a-z_.]+)'\)/", $view, $found);
+
+    foreach (['it', 'en'] as $lang) {
+        $lines = json_decode((string) file_get_contents($root.'/lang/'.$lang.'/ecommerce.json'), true);
+
+        foreach (array_unique($found[1]) as $key) {
+            $cursor = $lines;
+
+            foreach (explode('.', $key) as $part) {
+                $cursor = is_array($cursor) ? ($cursor[$part] ?? null) : null;
+            }
+
+            if (!is_string($cursor) || $cursor === '') {
+                return false;
+            }
+        }
+    }
+
+    return true;
+});
+
 summary();
