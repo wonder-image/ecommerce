@@ -28,6 +28,8 @@ final class CheckoutController
         match ($action) {
             'index' => self::index(),
             'place' => self::place(),
+            'summary' => self::summary(),
+            'coupon' => self::coupon(),
             'completed' => self::completed(),
             default => self::notFound(),
         };
@@ -46,7 +48,7 @@ final class CheckoutController
 
         $flash = self::pullFlash();
         $values = self::defaults($flash['values']);
-        $methods = self::paymentMethods();
+        $methods = self::fallbackMethods();
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.index'));
         View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
@@ -85,27 +87,18 @@ final class CheckoutController
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
             }
 
-            $methodId = (int) ($_POST['payment_method_id'] ?? 0);
-            $method = self::method($methodId);
+            $user = CartSession::user();
+            $data = CheckoutForm::data($_POST, $user);
+            $method = self::method($data['payment_method_id']);
             if (!is_array($method)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
             }
-            if ((string) ($method['provider'] ?? 'manual') !== 'manual') {
+            if (!CheckoutForm::isManual($method)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.provider_pending'));
             }
 
-            $user = CartSession::user();
-            $result = Checkout::place((int) ($cart['order']['id'] ?? 0), [
-                'email' => trim((string) ($_POST['email'] ?? ($user->email ?? ''))),
-                'phone' => trim((string) ($_POST['phone'] ?? ($user->phone ?? ''))),
+            $result = Checkout::place((int) ($cart['order']['id'] ?? 0), $data + [
                 'customer_id' => CartSession::customerId(),
-                'payment_method_id' => $methodId,
-                'shipping_method_id' => 0,
-                'location_id' => 0,
-                'fulfillment_type' => 'shipping',
-                'customer_note' => trim((string) ($_POST['customer_note'] ?? '')),
-                'billing' => self::address($_POST, 'billing_'),
-                'shipping' => self::address($_POST, 'shipping_'),
                 'source' => 'ecommerce',
                 'user_id' => (int) ($user->id ?? 0),
             ]);
@@ -130,6 +123,102 @@ final class CheckoutController
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 
+    private static function summary(): never
+    {
+        $cartId = self::guardJson();
+
+        try {
+            self::json(['success' => true] + CheckoutSummary::payload($cartId, $_POST, CartSession::user()));
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.summary');
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
+        }
+    }
+
+    private static function coupon(): void
+    {
+        $json = self::wantsJson();
+        $cartId = $json ? self::guardJson() : self::guardPage();
+        $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+
+        try {
+            $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user());
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.coupon');
+
+            if ($json) {
+                self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
+            }
+
+            self::flash([(string) __t('ecommerce.checkout.errors.generic')], $_POST);
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
+        if ($json) {
+            self::json(['success' => $payload['error'] === ''] + $payload);
+        }
+
+        self::flash($payload['error'] !== '' ? [$payload['error']] : [], $_POST);
+        self::redirect(self::route('ecommerce.checkout.index'));
+    }
+
+    /** Le guardie delle rotte JSON: POST, CSRF, login; ridà l'id del carrello. */
+    private static function guardJson(): int
+    {
+        self::requirePost();
+
+        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
+        }
+
+        if (!self::guestAllowed() && !CartSession::authenticated()) {
+            self::json(['success' => false, 'redirect' => self::loginUrl()], 401);
+        }
+
+        $cartId = self::cartId();
+
+        return $cartId > 0
+            ? $cartId
+            : self::json(['success' => false, 'redirect' => self::route('ecommerce.cart.index')], 409);
+    }
+
+    /** Le stesse guardie per la pagina senza JavaScript. */
+    private static function guardPage(): int
+    {
+        self::requirePost();
+        self::requireCsrf();
+
+        if (!self::guestAllowed() && !CartSession::authenticated()) {
+            self::redirect(self::loginUrl());
+        }
+
+        $cartId = self::cartId();
+
+        return $cartId > 0 ? $cartId : self::redirect(self::route('ecommerce.cart.index'));
+    }
+
+    /** L'id del carrello del cliente, 0 se non c'è o è vuoto. */
+    private static function cartId(): int
+    {
+        $cart = CartSession::current(false);
+
+        return (array) ($cart['items'] ?? []) === [] ? 0 : (int) ($cart['order']['id'] ?? 0);
+    }
+
+    private static function wantsJson(): bool
+    {
+        return strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+            || str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+    }
+
+    private static function json(array $payload, int $status = 200): never
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     private static function completed(): void
     {
         $result = (array) ($_SESSION[self::COMPLETED] ?? []);
@@ -145,7 +234,12 @@ final class CheckoutController
         ])->render();
     }
 
-    /** @return list<array<string, mixed>> */
+    /**
+     * I metodi online attivi: `place` li accetta tutti e il gestionale
+     * rifiuta quello che la consegna scelta non ammette.
+     *
+     * @return list<array<string, mixed>>
+     */
     private static function paymentMethods(): array
     {
         $rows = PaymentMethod::find([
@@ -154,10 +248,21 @@ final class CheckoutController
             'deleted' => 'false',
         ], null, 'position', 'ASC');
 
-        return is_array($rows)
-            ? array_values(array_filter($rows, static fn (mixed $row): bool => is_array($row)
-                && in_array((string) ($row['available_for'] ?? 'all'), ['all', 'shipping'], true)))
-            : [];
+        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+    }
+
+    /**
+     * Cosa mostra la pagina prima che il JavaScript scelga: i metodi per tutte
+     * le consegne o per la spedizione, con la spedizione come consegna di partenza.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function fallbackMethods(): array
+    {
+        return array_values(array_filter(
+            self::paymentMethods(),
+            static fn (array $row): bool => in_array((string) ($row['available_for'] ?? 'all'), ['all', 'shipping'], true)
+        ));
     }
 
     /** @param list<array<string, mixed>> $methods */
@@ -238,19 +343,6 @@ final class CheckoutController
         }
 
         return array_values($schema);
-    }
-
-    /** @return array<string, string> */
-    private static function address(array $input, string $prefix): array
-    {
-        $result = [];
-        foreach ($input as $key => $value) {
-            if (is_string($key) && str_starts_with($key, $prefix) && is_scalar($value)) {
-                $result[substr($key, strlen($prefix))] = trim((string) $value);
-            }
-        }
-
-        return $result;
     }
 
     private static function guestAllowed(): bool

@@ -87,10 +87,23 @@ check('il checkout ospite resta disattivato per default e usa reCAPTCHA se abili
 check('il checkout non finge il completamento dei provider online non collegati', function () use ($root) {
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
 
-    return str_contains($controller, "!== 'manual'")
+    return str_contains($controller, 'CheckoutForm::isManual($method)')
         && str_contains($controller, 'ecommerce.checkout.errors.provider_pending')
         && str_contains($controller, 'Checkout::place')
         && str_contains($controller, 'ecommerce_checkout_completed');
+});
+
+check('summary e coupon hanno le guardie in JSON e place usa CheckoutForm', function () use ($root) {
+    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($routes, "['checkout_action' => 'summary']")
+        && str_contains($routes, "['checkout_action' => 'coupon']")
+        && str_contains($c, "'error' => (string) __t('ecommerce.checkout.summary_error')], 419)")
+        && str_contains($c, "'redirect' => self::loginUrl()], 401)")
+        && str_contains($c, "'redirect' => self::route('ecommerce.cart.index')], 409)")
+        && str_contains($c, 'CheckoutForm::data($_POST')
+        && !str_contains($c, "'shipping_method_id' => 0");
 });
 
 check('login, registrazione e Google conservano il ritorno al checkout', function () use ($root) {
