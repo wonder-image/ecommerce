@@ -194,6 +194,37 @@ try {
             && ($replay->reason ?? '') === 'password_reset_token_invalid'
         );
 
+        $guestEmail = 'ecommerce-guest-'.bin2hex(random_bytes(6)).'@example.com';
+        $guestId = $gateway->createUserWithoutPassword('Ada', 'Ospite', '  '.strtoupper($guestEmail).' ', 'frontend');
+        $guest = $gateway->findUserById($guestId);
+
+        check('l\'ospite diventa un cliente attivo senza password e con l\'email da verificare', fn () =>
+            $guestId > 0
+            && ($guest['email'] ?? '') === $guestEmail
+            && ($guest['password'] ?? 'x') === ''
+            && ($guest['active'] ?? false) === true
+            && in_array('client', $guest['authority'] ?? [], true)
+            && in_array('frontend', $guest['area'] ?? [], true)
+            && !$gateway->hasLocalPassword($guestId)
+            && $gateway->canAccessArea($guestId, 'frontend', ['client'])
+            && (infoUser($guestId, 'id')->email_verified ?? true) === false
+        );
+
+        check('senza email valida non nasce nessun account', fn () =>
+            $gateway->createUserWithoutPassword('Ada', 'Ospite', '', 'frontend') === 0
+            && $gateway->createUserWithoutPassword('Ada', 'Ospite', 'non-una-email', 'frontend') === 0
+        );
+
+        $guestReset = new PasswordReset(7 * 86400);
+        $guestToken = $guestReset->issueForUser($guestId, '/account/');
+        $guestDone = $guestReset->reset($guestToken->token, 'password-ospite-123');
+
+        check('scegliere la password dal link verifica l\'email', fn () =>
+            ($guestDone->success ?? false)
+            && $gateway->hasLocalPassword($guestId)
+            && (infoUser($guestId, 'id')->email_verified ?? false) === true
+        );
+
         throw new AnnullaAuthAccount();
     });
 } catch (AnnullaAuthAccount) {
