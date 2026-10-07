@@ -7,6 +7,7 @@ $errors = array_values(array_filter(array_map('strval', (array) ($errors ?? []))
 $notice = trim((string) ($notice ?? ''));
 
 View::layout('frontend.minimal');
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('checkout');
 ?>
     <?php if ($notice !== ''): ?>
         <?=Alert::make($notice, 'success')->title((string) __t('ecommerce.checkout.notice_title'))->render()?>

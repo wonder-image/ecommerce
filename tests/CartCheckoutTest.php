@@ -318,4 +318,15 @@ check('il check-out rapido non ha ancora bottoni (arrivano coi pagamenti online)
     \Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout::buttons(['total' => '10.00']) === []
 );
 
+check('accesso, account e checkout stampano il loro font', function (): bool {
+    $dir = dirname(__DIR__).'/view/layout/frontend/';
+    foreach (['auth', 'account', 'checkout'] as $area) {
+        if (!str_contains((string) file_get_contents($dir.'ecommerce.'.$area.'.php'), "StoreFont::style('".$area."')")) {
+            return false;
+        }
+    }
+
+    return true;
+});
+
 summary();

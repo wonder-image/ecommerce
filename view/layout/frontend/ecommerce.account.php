@@ -8,5 +8,6 @@ $account_panel->layout([
     'logout_url' => $logout_url ?? __r('ecommerce.auth.logout'),
     'page_modals' => $page_modals ?? [],
 ]);
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('account');
 echo $PAGE_CONTENT;
 \Wonder\View\View::end();
