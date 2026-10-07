@@ -254,6 +254,17 @@ check('ogni pagamento porta loghi, commissione e pannello', fn () => prova(stati
         && ($voce['panel'] ?? '') === (string) ($voce['instructions'] ?? '');
 }));
 
+check('la commissione mostrata è quella che il gestionale fa pagare', fn () => prova(static function (): bool {
+    standard();
+    $bonifico = manuale();
+    PaymentMethod::update(['fee_type' => 'percent', 'fee_percent' => '150'], $bonifico);
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    $p = CheckoutSummary::payload($cart, modulo());
+    $voce = array_column((array) $p['payment_methods']['options'], null, 'id')[$bonifico] ?? [];
+
+    return ($voce['fee_display'] ?? '') === '+ '.CartPresenter::money(10.0, 'EUR');
+}));
+
 check('senza indirizzo i metodi di spedizione aspettano l\'indirizzo', fn () => prova(static function (): bool {
     standard();
     $cart = carrello([[articolo(2.0, 10.0), 1]]);

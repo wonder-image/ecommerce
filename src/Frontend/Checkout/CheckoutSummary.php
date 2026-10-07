@@ -61,7 +61,7 @@ final class CheckoutSummary
         }
 
         foreach ((array) ($preview['payment_methods']['options'] ?? []) as $i => $opzione) {
-            $preview['payment_methods']['options'][$i] = $opzione + self::paymentDisplay((array) $opzione, (array) $preview['order'], $valuta);
+            $preview['payment_methods']['options'][$i] = $opzione + self::paymentDisplay((array) $opzione, $valuta);
         }
 
         $preview['shipping_methods']['address_complete'] = CheckoutRules::addressComplete((array) Order::findById($cartId));
@@ -73,15 +73,12 @@ final class CheckoutSummary
     }
 
     /**
-     * Loghi, commissione e pannello di un'opzione di pagamento. La commissione
-     * è un'anticipazione calcolata come il gestionale (sui prodotti): il totale
-     * vero lo dà l'anteprima del metodo scelto.
+     * Loghi, commissione e pannello di un'opzione di pagamento.
      *
      * @param array<string, mixed> $option
-     * @param array<string, mixed> $order
      * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string}
      */
-    private static function paymentDisplay(array $option, array $order, string $currency): array
+    private static function paymentDisplay(array $option, string $currency): array
     {
         $icons = [];
         foreach ((array) ($option['icons'] ?? []) as $key) {
@@ -91,13 +88,9 @@ final class CheckoutSummary
             }
         }
 
-        $base = (float) ($order['products_total'] ?? 0);
-        $fee = match ((string) ($option['fee_type'] ?? 'none')) {
-            'amount' => (float) ($option['fee_value'] ?? 0),
-            'percent' => round($base * (float) ($option['fee_percent'] ?? 0) / 100, 2),
-            'amount_percent' => round((float) ($option['fee_value'] ?? 0) + $base * (float) ($option['fee_percent'] ?? 0) / 100, 2),
-            default => 0.0,
-        };
+        // La commissione la calcola il gestionale come quando la applica
+        // (contrassegno dal listino, percentuale fino al 100%).
+        $fee = (float) ($option['fee'] ?? 0);
 
         return [
             'icon_urls' => $icons,
