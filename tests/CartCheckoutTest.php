@@ -560,4 +560,24 @@ check('il codice fiscale è obbligatorio solo per il privato, e il JS lo cambia 
         && str_contains($js, 'label[for="${CSS.escape(field.id)}-control"]');
 });
 
+check('l\'ospite ottiene account e link prima dell\'ordine, e la conferma non mostra l\'account', function () use ($root) {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $completed = (string) file_get_contents($root.'/view/pages/checkout/completed.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $account = strpos($controller, 'GuestCheckout::account(');
+    $place = strpos($controller, 'Checkout::place(');
+
+    return $account !== false && $place !== false && $account < $place
+        && str_contains($controller, 'GuestCheckout::passwordLink(')
+        && str_contains($controller, "'customer_email'")
+        && str_contains($controller, "'password_link'")
+        && str_contains($completed, "ecommerce.checkout.completed.password_sent")
+        && str_contains($completed, "empty(\$result['guest'])")
+        && is_string($it['checkout']['completed']['password_sent'] ?? null)
+        && is_string($en['checkout']['completed']['password_sent'] ?? null)
+        && is_string($it['checkout']['completed']['shop'] ?? null)
+        && is_string($en['checkout']['completed']['shop'] ?? null);
+});
+
 summary();

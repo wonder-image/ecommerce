@@ -55,8 +55,8 @@ sono mostrati nell'alert di pagina.
   o `false` per nascondere una voce; nascondere non cambia le autorizzazioni;
 - `auth.federated.google` e `auth.federated.apple`;
 - `impersonation.enabled`, `actor_authorities` e `token_ttl`;
-- `checkout.guest_enabled`, attualmente solo contratto per la fase checkout e
-  disabilitato per default.
+- `checkout.guest_enabled`, disabilitato per default: accende il checkout
+  ospite, vedi `cart-checkout.md`, «Account e ospite».
 
 Il Client ID Google arriva dal sistema credenziali del core o dalla variabile
 d'ambiente `GOOGLE_OAUTH_CLIENT_ID`. Nel backend è disponibile la scheda

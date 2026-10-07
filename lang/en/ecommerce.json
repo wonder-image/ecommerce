@@ -140,7 +140,9 @@
         "completed": {
             "title": "Order received",
             "text": "Your order {{number}} has been recorded.",
-            "account": "Go to your account"
+            "account": "Go to your account",
+            "password_sent": "We have sent you an email to choose your password and follow your orders.",
+            "shop": "Back to the shop"
         }
     },
     "auth": {

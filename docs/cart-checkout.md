@@ -88,10 +88,15 @@ Il checkout richiede un account per default. Login, registrazione locale e
 Google conservano il parametro interno `continue` e riportano al checkout; il
 carrello ospite viene unito dopo l'autenticazione.
 
-`checkout.guest_enabled` è `false`. Il percorso ospite è predisposto e, quando
-abilitato, verifica reCAPTCHA con action `ecommerce_checkout`. Prima di
-attivarlo in produzione restano da aggiungere l'impostazione backend e la
-decisione su collegamento/conversione dell'ordine a un account successivo.
+`checkout.guest_enabled` è `false`; un sito lo accende con
+`custom/config/modules/ecommerce.php`. L'ospite vede «Accedi» nei Contatti e
+scrive la sua email; l'invio è protetto da reCAPTCHA (action
+`ecommerce_checkout`). Al «Ordina» `GuestCheckout` trova l'account con quella
+email o lo crea senza password, collega il contatto e salva i consensi
+(`registerLeadConsents` per un account che c'era già, i cui dati non cambiano).
+Se l'account non ha una password, l'email dell'ordine porta il link «Scegli la
+password» (7 giorni); scegliendola l'email risulta verificata. La sessione resta
+da ospite.
 
 ## Limiti intenzionali della prima fase
 

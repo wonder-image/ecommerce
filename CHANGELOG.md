@@ -34,6 +34,9 @@ versionamento semantico.
 - Pagina `/account/password/` per cambiare o impostare la password, con voce
   nel menu del pannello e riga nel riepilogo; la logica è quella del core
   (`AccountPassword`).
+- Checkout ospite (`checkout.guest_enabled`): `GuestCheckout` trova o crea l'account
+  dall'email, collega contatto e consensi e manda nell'email dell'ordine il link per
+  scegliere la password; la conferma lo dice all'ospite senza mostrare l'account.
 
 ### Modificato
 

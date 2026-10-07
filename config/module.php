@@ -26,8 +26,8 @@ return [
         ],
     ],
     'checkout' => [
-        // Predisposto per la fase checkout: nessun acquisto ospite finche il
-        // commerciante non lo abilita esplicitamente dal backend.
+        // Ospite: all'ordine nasce (o si riusa) l'account con la sua email e
+        // l'email al cliente porta il link per scegliere la password.
         'guest_enabled' => false,
     ],
     'account' => [

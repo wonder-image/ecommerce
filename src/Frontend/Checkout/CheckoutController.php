@@ -157,13 +157,25 @@ final class CheckoutController
                 'customer_note' => (string) ($post['customer_note'] ?? ''),
             ] + $billing + self::fromCart($order), $user);
 
+            // L'ospite ordina sempre su un account: si trova o nasce dalla sua email.
+            $guest = !CartSession::authenticated();
+            $customerId = CartSession::customerId();
+            $passwordLink = '';
+            if ($guest) {
+                $account = GuestCheckout::account($order, $post, $asked);
+                $userId = $account['user_id'];
+                $customerId = $account['customer_id'];
+                $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'), self::route('ecommerce.account.index'));
+            }
+
             $result = Checkout::place($cartId, $data + [
-                'customer_id' => CartSession::customerId(),
+                'customer_id' => $customerId,
                 'source' => 'ecommerce',
                 'user_id' => $userId,
+                'customer_email' => $passwordLink === '' ? [] : ['account_url' => $passwordLink],
             ]);
 
-            if ($userId > 0 && $asked !== []) {
+            if (!$guest && $userId > 0 && $asked !== []) {
                 try {
                     consentService()->registerBaseConsents($userId, $post, ['required_document_types' => $asked, 'ui_surface' => 'checkout']);
                 } catch (Throwable $error) {
@@ -178,6 +190,8 @@ final class CheckoutController
                 'total' => (string) ($result['total'] ?? ''),
                 'status' => (string) ($result['status'] ?? 'pending'),
                 'instructions' => (string) ($method['instructions'] ?? ''),
+                'guest' => $guest,
+                'password_link' => $passwordLink !== '',
             ];
             self::redirect(self::route('ecommerce.checkout.completed'));
         } catch (UserError $error) {

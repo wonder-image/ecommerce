@@ -151,7 +151,9 @@
         "completed": {
             "title": "Ordine ricevuto",
             "text": "Il tuo ordine {{number}} è stato registrato.",
-            "account": "Vai al tuo account"
+            "account": "Vai al tuo account",
+            "password_sent": "Ti abbiamo mandato un'email per scegliere la password e seguire i tuoi ordini.",
+            "shop": "Torna al negozio"
         }
     },
     "auth": {
