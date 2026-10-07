@@ -329,4 +329,25 @@ check('accesso, account e checkout stampano il loro font', function (): bool {
     return true;
 });
 
+check('i testi della pagina unica ci sono in italiano e in inglese, quelli dei passi no', function (): bool {
+    foreach (['it', 'en'] as $lingua) {
+        $t = json_decode((string) file_get_contents(dirname(__DIR__).'/lang/'.$lingua.'/ecommerce.json'), true);
+        $c = (array) ($t['checkout'] ?? []);
+        foreach (['express', 'or', 'secure', 'logout', 'billing_different', 'field_required', 'shipping_pending', 'shipping_methods_pending', 'redirect_panel'] as $chiave) {
+            if (trim((string) ($c[$chiave] ?? '')) === '') {
+                return false;
+            }
+        }
+        if (isset($c['steps']) || isset($c['continue_payment']) || isset($c['edit']) || isset($c['errors']['shipping_incomplete'])
+            || !str_contains((string) $c['field_required'], '{{label}}') || !str_contains((string) $c['redirect_panel'], '{{name}}')) {
+            return false;
+        }
+    }
+
+    $it = json_decode((string) file_get_contents(dirname(__DIR__).'/lang/it/ecommerce.json'), true);
+
+    return $it['cart']['products_total'] === 'Subtotale' && $it['checkout']['submit_online'] === 'Paga ora'
+        && $it['checkout']['submit_manual'] === 'Ordina';
+});
+
 summary();
