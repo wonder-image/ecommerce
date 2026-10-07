@@ -6,6 +6,8 @@ use Throwable;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Auth\Frontend\AccountAddressForm;
 use Wonder\Auth\Frontend\AccountAddressValidation;
+use Wonder\Auth\Frontend\AccountPassword;
+use Wonder\Auth\Frontend\AuthValidationAlert;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
@@ -26,6 +28,7 @@ final class AccountController
             'shipping.create' => self::shippingEditor(),
             'shipping.edit' => self::shippingEditor((int) ($parameters['id'] ?? 0)),
             'payment-methods' => self::paymentMethods(),
+            'password' => self::password(),
             default => self::notFound(),
         };
     }
@@ -47,6 +50,12 @@ final class AccountController
                         trim((string) ($user->phone ?? '')),
                     ]),
                     'href' => self::route('ecommerce.account.profile'),
+                    'action' => (string) __t('ecommerce.account.actions.edit'),
+                ],
+                [
+                    'label' => (string) __t('account.password.label'),
+                    'value' => [(string) __t(self::hasPassword((int) $user->id) ? 'account.password.summary_set' : 'account.password.summary_missing')],
+                    'href' => self::route('ecommerce.account.password'),
                     'action' => (string) __t('ecommerce.account.actions.edit'),
                 ],
                 [
@@ -256,6 +265,36 @@ final class AccountController
         ]);
     }
 
+    private static function password(): void
+    {
+        $user = self::user();
+        $errors = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            self::requireCsrf();
+            $result = AccountPassword::change((int) $user->id, self::whitelist($_POST, ['current_password', 'password', 'password_confirmation']));
+            if ($result->success) {
+                self::redirect(self::route('ecommerce.account.password').'?saved=1');
+            }
+            $errors = isset($result->errors['user'])
+                ? [(string) __t('ecommerce.account.errors.save')]
+                : array_map(static fn (string $key): string => (string) __t($key), AuthValidationAlert::messageKeys($result->errors));
+        }
+
+        self::render('password', [
+            'title' => (string) __t('account.password.title'),
+            'has_password' => self::hasPassword((int) $user->id),
+            'errors' => $errors,
+            'notice' => isset($_GET['saved']) ? (string) __t('account.password.saved') : '',
+        ]);
+    }
+
+    private static function hasPassword(int $userId): bool
+    {
+        $user = \sqlSelect('user', ['id' => $userId], 1);
+        return trim((string) ($user->row['password'] ?? '')) !== '';
+    }
+
     private static function ensureContact(int $userId): array
     {
         $contact = self::contact($userId);
@@ -366,6 +405,7 @@ final class AccountController
             'profile' => 'ecommerce.account.profile',
             'shipping' => 'ecommerce.account.shipping',
             'payment-methods' => 'ecommerce.account.payment-methods',
+            'password' => 'ecommerce.account.password',
             'address-form' => ($data['active'] ?? '') === 'billing'
                 ? 'ecommerce.account.billing'
                 : 'ecommerce.account.shipping',

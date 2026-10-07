@@ -31,6 +31,9 @@ versionamento semantico.
   `begin_checkout`, `add_shipping_info` e `add_payment_info`.
 - Loghi dei metodi di pagamento, pannello sotto il metodo scelto, errori sotto
   il campo, font del commerciante su accesso, account, checkout e carrello.
+- Pagina `/account/password/` per cambiare o impostare la password, con voce
+  nel menu del pannello e riga nel riepilogo; la logica è quella del core
+  (`AccountPassword`).
 
 ### Modificato
 

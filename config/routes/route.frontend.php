@@ -85,6 +85,7 @@ Route::area('frontend')
                     'shipping' => '/shipping-addresses/',
                     'shipping.create' => '/shipping-addresses/new/',
                     'payment-methods' => '/payment-methods/',
+                    'password' => '/password/',
                 ] as $action => $path) {
                     Route::get($path, $handler, ['account_action' => $action])->name($action);
                     Route::post($path, $handler, ['account_action' => $action]);
