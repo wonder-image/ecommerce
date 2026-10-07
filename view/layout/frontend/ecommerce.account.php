@@ -9,5 +9,6 @@ $account_panel->layout([
     'page_modals' => $page_modals ?? [],
 ]);
 echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('account');
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet();
 echo $PAGE_CONTENT;
 \Wonder\View\View::end();

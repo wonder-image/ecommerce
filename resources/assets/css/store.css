@@ -1,0 +1,43 @@
+/* Misure dei testi di accesso, account, checkout e carrello: valgono nel <main>, header e footer del sito restano come sono. */
+main {
+    --font-size: 14px;
+    font-size: var(--font-size);
+    --subtitle-font-size: 20px;
+    --subtitle-line-height: 24px;
+    --text-font-size: 14px;
+    --text-line-height: 20px;
+    --text-small-font-size: 14px;
+    --text-small-line-height: 20px;
+    --button-font-size: 14px;
+    --input-font-size: 14px;
+    --input-line-height: 20px;
+    --input-label-font-size: 14px;
+    --input-label-line-height: 20px;
+    --input-label-focus-font-size: 12px;
+    --input-label-focus-line-height: 12px;
+}
+/* Input alti 48px dentro i bordi: la label vuota sta in mezzo, quella compilata sale sopra il valore. */
+main .wi-input-container .wi-input {
+    padding-top: 21px;
+    padding-bottom: 7px;
+}
+main .wi-input-container .wi-label {
+    margin-top: 14px;
+    margin-bottom: 14px;
+}
+main .wi-input-container.compiled .wi-label {
+    margin-top: 7px;
+    margin-bottom: 7px;
+}
+/* Le tendine seguono: stessa altezza, freccia in mezzo, lista subito sotto. */
+main .wi-input-container.select .wi-input.select-selected {
+    min-height: calc(var(--input-line-height) + 28px + var(--input-border-top) + var(--input-border-bottom));
+}
+main .wi-input-container.select:after,
+main .wi-input-container.text-list:after {
+    padding-top: calc(16px + var(--input-border-bottom) + var(--input-border-top));
+    padding-bottom: calc(16px + var(--input-border-bottom) + var(--input-border-top));
+}
+main .wi-input-container .wi-input-list {
+    top: calc(48px + var(--input-border-top));
+}

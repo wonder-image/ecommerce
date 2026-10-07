@@ -21,6 +21,7 @@ foreach (['products_total', 'discount', 'total'] as $key) {
 Ecommerce::layout('shop', compact('errors', 'notice'));
 ?>
 <?=\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart')?>
+<?=\Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet()?>
 <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
 <?php if ($items === []): ?>
     <div class="w-100 wi-box p-6 a-c">

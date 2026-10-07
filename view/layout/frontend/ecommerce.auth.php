@@ -6,5 +6,6 @@ $auth_profile->layout([
     'federated_error' => $federated_error ?? null,
 ]);
 echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('auth');
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet();
 echo $PAGE_CONTENT;
 \Wonder\View\View::end();

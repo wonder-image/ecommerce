@@ -276,6 +276,42 @@ check('accesso, account e checkout stampano il loro font', function (): bool {
     return true;
 });
 
+check('accesso, account, checkout e carrello caricano le misure dei testi del negozio', function (): bool {
+    $root = dirname(__DIR__);
+    $files = [
+        $root.'/view/layout/frontend/ecommerce.auth.php', $root.'/view/layout/frontend/ecommerce.account.php',
+        $root.'/view/layout/frontend/ecommerce.checkout.php', $root.'/view/pages/cart/index.php',
+    ];
+    foreach ($files as $file) {
+        if (!str_contains((string) file_get_contents($file), 'StoreStyle::sheet()')) {
+            return false;
+        }
+    }
+    $layout = (string) file_get_contents($root.'/view/layout/frontend/ecommerce.checkout.php');
+
+    return str_contains((string) file_get_contents($root.'/src/Frontend/StoreStyle.php'), "module_asset('ecommerce', 'css/store.css')")
+        && str_contains($layout, '<main>') && str_contains($layout, '</main>');
+});
+
+check('store.css: sottotitoli 20, testi, bottoni e valori 14, label 14 che sale a 12, input più bassi', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/store.css');
+    $vars = [
+        '--font-size: 14px;', '--subtitle-font-size: 20px;', '--text-font-size: 14px;', '--text-small-font-size: 14px;',
+        '--button-font-size: 14px;', '--input-font-size: 14px;', '--input-line-height: 20px;',
+        '--input-label-font-size: 14px;', '--input-label-focus-font-size: 12px;',
+    ];
+    foreach ($vars as $var) {
+        if (!str_contains($css, $var)) {
+            return false;
+        }
+    }
+
+    return str_contains($css, 'main {') && str_contains($css, 'font-size: var(--font-size);') && str_contains($css, 'main .wi-input-container .wi-input {')
+        && str_contains($css, 'main .wi-input-container.compiled .wi-label {')
+        && str_contains($css, 'min-height: calc(var(--input-line-height) + 28px')
+        && str_contains($css, 'top: calc(48px + var(--input-border-top));');
+});
+
 check('i testi della pagina unica ci sono in italiano e in inglese, quelli dei passi no', function (): bool {
     foreach (['it', 'en'] as $lingua) {
         $t = json_decode((string) file_get_contents(dirname(__DIR__).'/lang/'.$lingua.'/ecommerce.json'), true);
