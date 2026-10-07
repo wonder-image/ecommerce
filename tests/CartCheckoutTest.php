@@ -217,16 +217,17 @@ check('una modifica del cliente scarta le risposte in viaggio e la prima visita 
         && str_contains($view, 'CartPresenter::lines(');
 });
 
-check('il passo Carrello usa il layout del checkout, i passi e il coupon che torna al carrello', function () use ($root) {
-    $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
+check('il carrello sta nel layout del negozio, col suo font, senza passi e senza SKU', function () use ($root): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/cart/index.php');
     $parts = checkoutViews($root);
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
     $manifest = json_decode((string) file_get_contents($root.'/module.json'), true);
 
-    return str_contains($cart, "Ecommerce::layout('checkout'")
-        && str_contains($cart, 'data-checkout-cart')
-        && str_contains($cart, "'step' => 'cart'")
-        && str_contains($parts, 'Steps::make(')
+    return str_contains($v, "Ecommerce::layout('shop'")
+        && str_contains($v, "StoreFont::style('cart')")
+        && str_contains($v, 'data-checkout-cart')
+        && !str_contains($v, 'Steps::make(') && !str_contains($v, 'steps.php')
+        && !str_contains($v, "labels['sku']") && !str_contains($v, 'data-step')
         && str_contains($parts, 'wi-thumb')
         && str_contains($parts, '<template data-checkout-line>')
         && str_contains($parts, "FormField::key('return')->hidden()")
@@ -234,7 +235,7 @@ check('il passo Carrello usa il layout del checkout, i passi e il coupon che tor
         && str_contains($controller, "'coupon_applied'")
         && str_contains($controller, 'CartController::flash(')
         && in_array('components/checkout', $manifest['views']['sealed'] ?? [], true)
-        && !str_contains($cart.$parts, "render('wonder')");
+        && !str_contains($v.$parts, "render('wonder')");
 });
 
 check('le viste dei passi reggono i float del sito: ogni div ha una larghezza e nessuna griglia è anche uno span', function () use ($root) {

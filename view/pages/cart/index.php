@@ -17,11 +17,10 @@ foreach (['coupon_remove', 'updating', 'summary_error', 'fees_total'] as $key) {
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
-$labels['sku'] = (string) __t('ecommerce.cart.sku', ['sku' => ':sku']);
 
-Ecommerce::layout('checkout', compact('errors', 'notice'));
+Ecommerce::layout('shop', compact('errors', 'notice'));
 ?>
-<?=View::component(Ecommerce::viewPath('components/checkout/steps.php'), ['step' => 'cart'])?>
+<?=\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart')?>
 <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
 <?php if ($items === []): ?>
     <div class="w-100 wi-box p-6 a-c">
@@ -30,7 +29,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         <?=Button::to((string) (__r('ecommerce.catalog.index') ?: '/'), (string) __t('ecommerce.cart.back_to_shop'))->variant('primary')->class('mt-5')?>
     </div>
 <?php else: ?>
-    <div class="w-100 d-grid col-3 col-t-1 gap-6" data-checkout data-checkout-cart data-step="cart"
+    <div class="w-100 d-grid col-3 col-t-1 gap-6" data-checkout data-checkout-cart
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>">
@@ -45,9 +44,6 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                         <div class="w-100 d-grid col-2 col-p-1 gap-3">
                             <div class="w-100">
                                 <h2 class="text fw-600"><?=e($item['name'] ?? '')?></h2>
-                                <?php if (trim((string) ($item['sku'] ?? '')) !== ''): ?>
-                                    <p class="text-small tx-secondary mt-1"><?=e(__t('ecommerce.cart.sku', ['sku' => $item['sku']]))?></p>
-                                <?php endif; ?>
                             </div>
                             <p class="text fw-700 a-r a-p-l"><?=e(CartPresenter::money($item['line_total'] ?? 0, $currency))?></p>
                         </div>
