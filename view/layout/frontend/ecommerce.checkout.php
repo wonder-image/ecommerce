@@ -8,6 +8,9 @@ $notice = trim((string) ($notice ?? ''));
 
 View::layout('frontend.minimal');
 echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('checkout');
+if (($checkoutCss = module_asset('ecommerce', 'css/checkout.css')) !== '') {
+    echo '<link rel="stylesheet" href="'.e($checkoutCss).'">';
+}
 ?>
     <?php if ($notice !== ''): ?>
         <?=Alert::make($notice, 'success')->title((string) __t('ecommerce.checkout.notice_title'))->render()?>

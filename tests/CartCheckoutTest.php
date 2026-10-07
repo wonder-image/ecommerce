@@ -159,7 +159,7 @@ check('la pagina del checkout ha i ganci per consegna, sedi, coupon e il solo fo
         }
     }
 
-    return str_contains($view, "->attr('form', 'checkout')")
+    return str_contains((string) @file_get_contents($root.'/view/pages/checkout/index.php'), "->attr('data-checkout-submit', '')")
         && str_contains($view, "module_asset('ecommerce', 'js/checkout.js')")
         && str_contains($view, "'event' => 'begin_checkout'");
 });
@@ -322,6 +322,32 @@ check('il riepilogo usa lo stesso POST della pagina', function (): bool {
     $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
 
     return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user())');
+});
+
+check('la pagina unica ha le sezioni nell\'ordine giusto e il bottone nel form', function (): bool {
+    $v = (string) @file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $pos = static fn (string $s): int => ($p = strpos($v, $s)) === false ? -1 : $p;
+    $ordine = [$pos('id="contatti"'), $pos('id="consegna"'), $pos('id="pagamento"'), $pos('id="fatturazione"'), $pos('data-checkout-submit')];
+    $form = substr($v, $pos('<form id="checkout"'), $pos('</form>') - $pos('<form id="checkout"'));
+
+    return !in_array(-1, $ordine, true) && $ordine === array_values(array_unique($ordine)) && $ordine == array_values((function ($o) { sort($o); return $o; })($ordine))
+        && str_contains($form, 'data-checkout-submit')
+        && str_contains($v, "variant('segmented')") && str_contains($v, "variant('list')")
+        && str_contains($v, "->icon('truck')") && str_contains($v, "->icon('shop')")
+        && str_contains($v, '->icons(') && str_contains($v, '->panel(')
+        && str_contains($v, 'same_as_shipping:0') && str_contains($v, 'billing_type:business')
+        && str_contains($v, "ecommerce.auth.logout") && str_contains($v, "StoreFont") === false
+        && !file_exists(dirname(__DIR__).'/view/pages/checkout/shipping.php')
+        && !file_exists(dirname(__DIR__).'/view/pages/checkout/payment.php')
+        && !file_exists(dirname(__DIR__).'/view/components/checkout/steps.php');
+});
+
+check('il riepilogo è sticky e le righe non hanno lo SKU', function (): bool {
+    $css = (string) @file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
+    $righe = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/lines.php');
+
+    return str_contains($css, 'position: sticky') && str_contains($css, '100vmax') && str_contains($css, '560px')
+        && !str_contains($righe, 'data-line-sku') && str_contains($righe, '64px');
 });
 
 summary();

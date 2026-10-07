@@ -1,0 +1,68 @@
+/* Pagina unica del checkout: modulo a sinistra, riepilogo grigio e sticky a destra. */
+.wi-checkout {
+    align-items: start;
+}
+.wi-checkout__form {
+    width: 100%;
+    max-width: 560px;
+    margin-left: auto;
+}
+.wi-checkout__aside {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow: auto;
+    padding: calc(var(--spacer) * 6);
+    box-sizing: border-box;
+    background: #f5f5f5;
+    /* Il grigio arriva fino al bordo destro della finestra. */
+    box-shadow: 0 0 0 100vmax #f5f5f5;
+    clip-path: inset(0 -100vmax 0 0);
+}
+.wi-checkout__currency {
+    font-size: var(--text-small-font-size);
+    font-weight: 400;
+    opacity: 0.7;
+    margin-right: 4px;
+}
+.wi-checkout__or {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacer) * 3);
+    font-size: var(--text-small-font-size);
+    opacity: 0.7;
+}
+.wi-checkout__or::before,
+.wi-checkout__or::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--dropdown-border-color);
+}
+/* «Esci» accanto all'email: un link, non un bottone. */
+.wi-checkout__link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--text-small-font-size);
+    text-decoration: underline;
+    cursor: pointer;
+}
+/* Titolo per i lettori di schermo. */
+.wi-checkout__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+@media (max-width: 1024px) {
+    .wi-checkout__form {
+        max-width: none;
+    }
+    .wi-checkout__aside {
+        display: none;
+    }
+}
