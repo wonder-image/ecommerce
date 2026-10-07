@@ -6,6 +6,7 @@ require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 
 $root = dirname(__DIR__);
 
@@ -438,6 +439,32 @@ check('senza JS il checkout apre tutte le parti che il JS nasconde', function ()
         && str_contains($css, '[data-checkout-pickup][hidden]')
         && str_contains($css, 'display:block!important')
         && str_contains($css, '.d-grid[data-checkout-toggle][hidden]{display:grid!important}');
+});
+
+check('indirizzi e fattura stanno su 4 colonne con la larghezza di ogni campo', function (): bool {
+    $spans = ['shipping_name' => 2, 'billing_surname' => 2, 'shipping_country' => 2, 'billing_province' => 2,
+        'shipping_cap' => 1, 'billing_number' => 1, 'billing_sdi' => 1, 'shipping_phone_prefix' => 1,
+        'billing_city' => 3, 'shipping_street' => 3, 'shipping_phone' => 3, 'billing_business_name' => 3,
+        'shipping_more' => 4, 'billing_cf' => 4, 'billing_pi' => 4, 'billing_pec' => 4, 'billing_altro' => 4];
+    foreach ($spans as $key => $span) {
+        if (CheckoutFields::span($key) !== $span) {
+            return false;
+        }
+    }
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+
+    return !str_contains($v, 'col-2 col-p-1')
+        && substr_count($v, 'd-grid col-4 gap-4') === 5
+        && substr_count($v, 'col-<?=CheckoutFields::span($key)?>') >= 3
+        && str_contains($v, "col-<?=CheckoutFields::span('shipping_name')?>");
+});
+
+check('la fattura mette in fila ragione sociale e SDI, poi partita IVA, codice fiscale e PEC', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+    $schema = ['billing_cf' => 'cf', 'billing_name' => 'n', 'billing_pec' => 'pec', 'billing_sdi' => 'sdi', 'billing_business_name' => 'b', 'billing_pi' => 'pi'];
+
+    return array_keys(CheckoutFields::pick($schema, CheckoutFields::INVOICE)) === ['billing_business_name', 'billing_sdi', 'billing_pi', 'billing_cf', 'billing_pec']
+        && str_contains($c, 'CheckoutFields::pick($billing, CheckoutFields::INVOICE)');
 });
 
 summary();

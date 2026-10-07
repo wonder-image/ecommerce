@@ -72,10 +72,7 @@ final class CheckoutController
                 $billing,
                 array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec', 'billing_phone_prefix', 'billing_phone'])
             ), $values),
-            'invoice_fields' => self::fields(array_intersect_key(
-                $billing,
-                array_flip(['billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
-            ), $values),
+            'invoice_fields' => self::fields(CheckoutFields::pick($billing, CheckoutFields::INVOICE), $values),
             'consents' => CheckoutRules::askedConsents((int) ($user->id ?? 0)),
             'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',

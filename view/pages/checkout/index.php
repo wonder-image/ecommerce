@@ -6,6 +6,7 @@ use Wonder\Elements\Components\Choice;
 use Wonder\Elements\Components\ChoiceGroup;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -91,13 +92,13 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
         <?php if ($express !== []): ?>
-            <section id="rapido" class="w-100">
+            <div id="rapido" class="w-100">
                 <h2 class="text-small a-c mb-3"><?=e(__t('ecommerce.checkout.express'))?></h2>
                 <div class="w-100 d-grid col-3 gap-3"><?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?></div>
                 <p class="wi-checkout__or mt-5"><?=e(__t('ecommerce.checkout.or'))?></p>
-            </section>
+            </div>
         <?php endif; ?>
-        <section id="contatti" class="w-100">
+        <div id="contatti" class="w-100">
             <div class="w-100 d-flex gap-3 mb-3">
                 <h2 class="subtitle"><?=e(__t('ecommerce.checkout.contact'))?></h2>
                 <?php if ($guest): ?>
@@ -112,8 +113,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     <button type="submit" form="checkout-logout" class="ml-auto wi-checkout__link"><?=e(__t('ecommerce.checkout.logout'))?></button>
                 </div>
             <?php endif; ?>
-        </section>
-        <section id="consegna" class="w-100">
+        </div>
+        <div id="consegna" class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.delivery'))?></h2>
             <?php if ($shipping): ?>
                 <div class="w-100 mb-4" data-checkout-fulfillment<?=$canPickup ? '' : ' hidden'?>>
@@ -123,13 +124,13 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     )?>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-2 col-p-1 gap-4">
-                <?=FormField::key('shipping_name')->text()->label((string) __t('ecommerce.auth.fields.name'))->required()->value($values['shipping_name'] ?? '')?>
-                <?=FormField::key('shipping_surname')->text()->label((string) __t('ecommerce.auth.fields.surname'))->required()->value($values['shipping_surname'] ?? '')?>
+            <div class="w-100 d-grid col-4 gap-4">
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_name')?>"><?=FormField::key('shipping_name')->text()->label((string) __t('ecommerce.auth.fields.name'))->required()->value($values['shipping_name'] ?? '')?></div>
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_surname')?>"><?=FormField::key('shipping_surname')->text()->label((string) __t('ecommerce.auth.fields.surname'))->required()->value($values['shipping_surname'] ?? '')?></div>
             </div>
             <div class="w-100 mt-4" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
-                <div class="w-100 d-grid col-2 col-p-1 gap-4">
-                    <?php foreach ($shipping_fields as $field): ?><?=$field?><?php endforeach; ?>
+                <div class="w-100 d-grid col-4 gap-4">
+                    <?php foreach ($shipping_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
                 </div>
             </div>
             <?php if ($shipping): ?>
@@ -143,8 +144,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                 </div>
             <?php endif; ?>
             <div class="w-100 d-grid col-4 gap-4 mt-4">
-                <div class="w-100 col-1"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
-                <div class="w-100 col-3"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
             </div>
             <?php if ($shipping): ?>
                 <div class="w-100 mt-5" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
@@ -157,8 +158,9 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     <p class="w-100 wi-box p-4 text-small" data-checkout-notice role="status"<?=$shippingNotice === '' ? ' hidden' : ''?>><?=$shippingNotice === '' ? '' : e(__t('ecommerce.checkout.'.$shippingNotice))?></p>
                 </div>
             <?php endif; ?>
-        </section>
-        <section id="pagamento" class="w-100">
+        </div>
+
+        <div id="pagamento" class="w-100">
             <h2 class="subtitle"><?=e(__t('ecommerce.checkout.payment'))?></h2>
             <p class="text-small tx-secondary mt-1 mb-3"><?=e(__t('ecommerce.checkout.secure'))?></p>
             <div class="w-100" data-checkout-payments>
@@ -168,19 +170,20 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     <?=ChoiceGroup::make()->variant('list')->choices(...array_map($payment, $payments))?>
                 <?php endif; ?>
             </div>
-        </section>
-        <section id="fatturazione" class="w-100">
+        </div>
+
+        <div id="fatturazione" class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.billing'))?></h2>
             <?php if ($shipping): ?>
                 <div class="w-100 mb-4" data-checkout-toggle="fulfillment_type:shipping"<?=$pickup ? ' hidden' : ''?>>
                     <?=ChoiceGroup::make()->variant('list')->choices(
                         Choice::make('same_as_shipping', '1')->type('radio')->title((string) __t('ecommerce.checkout.billing_same'))->checked($same),
                         Choice::make('same_as_shipping', '0')->type('radio')->title((string) __t('ecommerce.checkout.billing_different'))->checked(!$same)
-                    )?>
+                    )->addClass('w-100')?>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-2 col-p-1 gap-4" data-checkout-toggle="<?=$shipping ? 'same_as_shipping:0|fulfillment_type:pickup' : ''?>"<?=$shipping && $same && !$pickup ? ' hidden' : ''?>>
-                <?php foreach ($billing_fields as $field): ?><?=$field?><?php endforeach; ?>
+            <div class="w-100 d-grid col-4 gap-4" data-checkout-toggle="<?=$shipping ? 'same_as_shipping:0|fulfillment_type:pickup' : ''?>"<?=$shipping && $same && !$pickup ? ' hidden' : ''?>>
+                <?php foreach ($billing_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
             </div>
             <div class="w-100 mt-5">
                 <?=Choice::make('invoice', '1')->type('checkbox')->title((string) __t('ecommerce.checkout.invoice'))->checked($invoice)?>
@@ -189,20 +192,21 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                 <?=ChoiceGroup::make()->variant('segmented')->choices(
                     Choice::make('billing_type', 'private')->type('radio')->title((string) __t('ecommerce.checkout.billing_private'))->checked(!$business),
                     Choice::make('billing_type', 'business')->type('radio')->title((string) __t('ecommerce.checkout.billing_business'))->checked($business)
-                )?>
+                )->addClass('w-100')?>
                 <?php /* Il codice fiscale serve a tutti e due: l'azienda può averne uno diverso dalla partita IVA. */ ?>
-                <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4">
+                <div class="w-100 d-grid col-4 gap-4 mt-4">
                     <?php foreach ($invoice_fields as $key => $field): ?>
                         <?php if ($key === 'billing_cf'): ?>
-                            <div class="w-100"><?=$field?></div>
+                            <div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div>
                         <?php else: ?>
-                            <div class="w-100" data-checkout-toggle="billing_type:business"<?=$business ? '' : ' hidden'?>><?=$field?></div>
+                            <div class="w-100 col-<?=CheckoutFields::span($key)?>" data-checkout-toggle="billing_type:business"<?=$business ? '' : ' hidden'?>><?=$field?></div>
                         <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
             </div>
-        </section>
-        <section id="conferma" class="w-100 d-flex d-column gap-4">
+        </div>
+
+        <div id="conferma" class="w-100 d-flex d-column gap-4">
             <?=FormField::key('customer_note')->textarea()->label((string) __t('ecommerce.checkout.note'))->value($values['customer_note'] ?? '')?>
             <?php foreach ($consents as $type): ?>
                 <?=FormField::key('accept_'.$type)->acceptDocument($type)->required()->value($values['accept_'.$type] ?? '')?>
@@ -212,8 +216,10 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             <?php endif; ?>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
-        </section>
+        </div>
+
         <template data-checkout-choice><?=Choice::make('', '')->type('radio')?></template>
+
     </form>
     <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), $aside + ['button' => ''])?>
 </div>
