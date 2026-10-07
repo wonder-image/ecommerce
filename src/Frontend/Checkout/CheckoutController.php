@@ -165,7 +165,7 @@ final class CheckoutController
                 $account = GuestCheckout::account($order, $post, $asked);
                 $userId = $account['user_id'];
                 $customerId = $account['customer_id'];
-                $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'), self::route('ecommerce.account.index'));
+                $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'));
             }
 
             $result = Checkout::place($cartId, $data + [
@@ -191,7 +191,7 @@ final class CheckoutController
                 'status' => (string) ($result['status'] ?? 'pending'),
                 'instructions' => (string) ($method['instructions'] ?? ''),
                 'guest' => $guest,
-                'password_link' => $passwordLink !== '',
+                'email_sent' => $guest && ($result['customer_email_sent'] ?? false),
             ];
             self::redirect(self::route('ecommerce.checkout.completed'));
         } catch (UserError $error) {

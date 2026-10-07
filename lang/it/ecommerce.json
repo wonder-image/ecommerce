@@ -152,7 +152,7 @@
             "title": "Ordine ricevuto",
             "text": "Il tuo ordine {{number}} è stato registrato.",
             "account": "Vai al tuo account",
-            "password_sent": "Ti abbiamo mandato un'email per scegliere la password e seguire i tuoi ordini.",
+            "email_sent": "Ti abbiamo mandato il riepilogo dell'ordine via email. Se non hai ancora una password, nell'email trovi il link per sceglierla e seguire i tuoi ordini.",
             "shop": "Torna al negozio"
         }
     },

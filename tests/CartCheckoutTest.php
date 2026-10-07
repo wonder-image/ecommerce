@@ -571,11 +571,14 @@ check('l\'ospite ottiene account e link prima dell\'ordine, e la conferma non mo
     return $account !== false && $place !== false && $account < $place
         && str_contains($controller, 'GuestCheckout::passwordLink(')
         && str_contains($controller, "'customer_email'")
-        && str_contains($controller, "'password_link'")
-        && str_contains($completed, "ecommerce.checkout.completed.password_sent")
+        // Il testo non dice se l'account ha una password; si mostra se l'email è partita.
+        && str_contains($controller, "'email_sent' => \$guest && (\$result['customer_email_sent'] ?? false)")
+        && !str_contains($controller, "'password_link'")
+        && str_contains($completed, "ecommerce.checkout.completed.email_sent")
         && str_contains($completed, "empty(\$result['guest'])")
-        && is_string($it['checkout']['completed']['password_sent'] ?? null)
-        && is_string($en['checkout']['completed']['password_sent'] ?? null)
+        && is_string($it['checkout']['completed']['email_sent'] ?? null)
+        && is_string($en['checkout']['completed']['email_sent'] ?? null)
+        && !isset($it['checkout']['completed']['password_sent'])
         && is_string($it['checkout']['completed']['shop'] ?? null)
         && is_string($en['checkout']['completed']['shop'] ?? null);
 });

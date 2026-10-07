@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
+use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
@@ -65,7 +66,7 @@ final class GuestCheckout
             return ['user_id' => 0, 'customer_id' => 0, 'created' => false];
         }
 
-        $customerId = self::link($userId, [
+        $customerId = self::linkNew($userId, $email, [
             'phone_prefix' => (string) ($order['shipping_phone_prefix'] ?? ''),
             'phone' => (string) ($order['shipping_phone'] ?? ''),
         ]);
@@ -76,17 +77,21 @@ final class GuestCheckout
 
     /**
      * Il link per scegliere la password, solo per un cliente del negozio attivo
-     * che non ne ha una (anche l'ospite che torna): a un utente del backend
-     * la pagina del ripristino rifiuterebbe il token. Relativo: l'email lo fa assoluto.
+     * che non ne ha una e non entra con Google (anche l'ospite che torna): a un
+     * utente del backend la pagina del ripristino rifiuterebbe il token. I link
+     * già mandati restano validi. Relativo: l'email lo fa assoluto.
      */
-    public static function passwordLink(int $userId, string $restorePath, string $continueUrl): string
+    public static function passwordLink(int $userId, string $restorePath): string
     {
         $users = new EcommerceUserAccountGateway();
-        if ($userId <= 0 || $users->hasLocalPassword($userId) || !$users->canAccessArea($userId, 'frontend', ['client'])) {
+        if ($userId <= 0
+            || $users->hasLocalPassword($userId)
+            || !$users->canAccessArea($userId, 'frontend', ['client'])
+            || (new FederatedIdentityRepository())->findByUserId($userId) !== []) {
             return '';
         }
 
-        $issued = (new PasswordReset(self::LINK_TTL))->issueForUser($userId, $continueUrl);
+        $issued = (new PasswordReset(self::LINK_TTL))->issueForUser($userId, null, [], false);
 
         return $restorePath.'?token='.rawurlencode((string) $issued->token);
     }
@@ -102,6 +107,25 @@ final class GuestCheckout
         $linked = CustomerAccount::linkContact($userId, $input);
 
         return ($linked->success ?? false) ? (int) ($linked->contact_id ?? 0) : 0;
+    }
+
+    /**
+     * Il contatto di un account appena nato. Una scheda del commerciante con la
+     * stessa email e senza account si collega così com'è: chi ordina non ne
+     * cambia nome e telefono, finché non prova l'email scegliendo la password.
+     *
+     * @param array<string, string> $input
+     */
+    private static function linkNew(int $userId, string $email, array $input): int
+    {
+        $contact = Contact::find(['email' => $email], 1);
+        if (!is_array($contact) || empty($contact['id']) || (int) ($contact['user_id'] ?? 0) > 0) {
+            return self::link($userId, $input);
+        }
+
+        $linked = Contact::update(['user_id' => $userId, 'is_customer' => 'true', 'active' => 'true'], (int) $contact['id']);
+
+        return ($linked->success ?? false) ? (int) $contact['id'] : 0;
     }
 
     /** @param list<string> $asked */

@@ -36,7 +36,10 @@ versionamento semantico.
   (`AccountPassword`).
 - Checkout ospite (`checkout.guest_enabled`): `GuestCheckout` trova o crea l'account
   dall'email, collega contatto e consensi e manda nell'email dell'ordine il link per
-  scegliere la password; la conferma lo dice all'ospite senza mostrare l'account.
+  scegliere la password (non a chi entra con Google, senza annullare i link già
+  mandati); la conferma dice che l'email è partita senza rivelare se l'account ha
+  una password. La scheda del commerciante con la stessa email si collega senza
+  cambiarne i dati.
 
 ### Modificato
 
