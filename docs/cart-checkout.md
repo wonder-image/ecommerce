@@ -20,11 +20,45 @@ cliente. Un semplice GET su `/cart/` non crea né cookie né righe nel database.
 - `view/components/cart/add.php`: form POST riutilizzabile per aggiungere un
   prodotto. Richiede `product_id`; accetta `quantity`, `label` e `continue`.
   CSRF e id del form GTM sono gestiti dal componente.
-- `/cart/`: riepilogo, modifica quantità e rimozione.
-- `/checkout/`: contatto, fatturazione, consegna (spedizione o ritiro), pagamento, coupon e riepilogo.
+- `/cart/`: riepilogo, modifica quantità e rimozione, nel layout del negozio.
+- `/checkout/`: una pagina sola con riepilogo a destra (vedi sotto).
 - `/checkout/completed/`: conferma legata alla sessione che ha creato l'ordine.
 
 I `FormField` ereditano il tema della pagina; nessuna view forza un renderer.
+
+## La pagina del checkout
+
+Il checkout sta in una pagina sola, nello stile di Shopify. Le rotte sono
+`index` (GET `/checkout/`), `place` (POST, crea l'ordine), `summary` e `coupon`
+(JSON, vedi sotto) e `completed`. Non ci sono più i passi Spedizione e
+Pagamento.
+
+Le sezioni, in ordine: check-out rapido, contatti (con «Esci»), consegna
+(spedizione o ritiro, indirizzo, metodo o sede), pagamento, indirizzo di
+fatturazione, fattura (privato o azienda, solo i campi necessari) e il bottone
+che conferma. Il bottone dice «Paga ora» con un provider online e «Ordina» con
+un metodo manuale.
+
+Le regole stanno in `Checkout\CheckoutRules`:
+
+- `post()` prepara il POST per il carrello: il telefono del contatto vale anche
+  per il corriere, col ritiro si svuota l'indirizzo, con l'accesso l'email è
+  quella dell'utente;
+- `deliveryErrors()` dice cosa manca alla consegna;
+- `billing()` costruisce la fatturazione: di partenza è «uguale all'indirizzo
+  di spedizione»; col ritiro o con «indirizzo diverso» usa i campi compilati;
+- `method()` accetta solo i metodi di pagamento offerti dall'anteprima.
+
+Ogni metodo di pagamento mostra fino a tre loghi (poi «+N»), la commissione e,
+quando è scelto, un pannello con le istruzioni o il rinvio al provider. I loghi
+stanno in `resources/assets/payment-icons` (licenza MIT, file `LICENSE`).
+
+`checkout.js` mostra gli errori sotto il campo (`aria-invalid`) e porta la
+pagina al primo. Nome, cognome e telefono della fatturazione partono da quelli
+della consegna finché il cliente non li cambia.
+
+`StoreFont::style($area)` stampa il font scelto dal commerciante per una delle
+quattro aree: `auth`, `account`, `checkout` e `cart`.
 
 ## Consegna e coupon
 

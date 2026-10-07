@@ -148,7 +148,9 @@ strutture definitive del gestionale.
   conversione/collegamento successivo a un account.
 - [x] D5 Raccolta fatturazione e consegna, metodi di spedizione, sedi di ritiro,
   coupon, riepilogo che si ricalcola (`checkout.js`) e creazione ordine con i
-  metodi manuali. **Resta la prova nel browser su `ecommerce.test`.**
+  metodi manuali. Checkout in una pagina sola (spec del gestionale
+  `2026-10-07-checkout-pagina-unica-design.md`, piano 2).
+  **Resta la prova nel browser su `ecommerce.test`.**
 - [ ] D6 Adapter dei provider pagamento, idempotenza callback e gestione esiti in
   ambiente test senza addebiti reali.
 - [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di

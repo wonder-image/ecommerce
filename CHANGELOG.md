@@ -29,3 +29,14 @@ versionamento semantico.
   rotte `summary` e `coupon`); `place` accetta i pagamenti manuali
   `bank_transfer` e `cash` e passa consegna, metodo e sede al gestionale; eventi
   `begin_checkout`, `add_shipping_info` e `add_payment_info`.
+- Loghi dei metodi di pagamento, pannello sotto il metodo scelto, errori sotto
+  il campo, font del commerciante su accesso, account, checkout e carrello.
+
+### Modificato
+
+- Checkout in una pagina sola (via i passi Spedizione e Pagamento); carrello nel
+  layout del negozio.
+
+### Rimosso
+
+- Rotte `ecommerce.checkout.shipping` e `ecommerce.checkout.payment`.
