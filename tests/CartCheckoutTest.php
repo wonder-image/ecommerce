@@ -367,4 +367,11 @@ check('checkout.js lavora su una pagina sola', function (): bool {
         && (bool) preg_match('/schedule\(\) \{\s*\/\/[^\n]*\n\s*this\.sequence\+\+;/', $js);
 });
 
+check('spedizione e ritiro aprono e chiudono tutte le parti della spedizione', function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($js, "querySelectorAll('[data-checkout-shipping]')")
+        && !str_contains($js, "querySelector('[data-checkout-shipping]')");
+});
+
 summary();

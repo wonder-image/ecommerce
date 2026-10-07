@@ -255,7 +255,7 @@ class Checkout {
                 radio.closest('label')?.toggleAttribute('hidden', !pickup);
             }
         });
-        document.querySelector('[data-checkout-shipping]')?.toggleAttribute('hidden', payload.fulfillment.type === 'pickup');
+        document.querySelectorAll('[data-checkout-shipping]').forEach((node) => node.toggleAttribute('hidden', payload.fulfillment.type === 'pickup'));
     }
 
     // Le scelte nascono dal template della Choice: titolo, testo, prezzo, loghi e pannello vanno nelle loro parti.
