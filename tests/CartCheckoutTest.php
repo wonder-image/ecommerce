@@ -351,4 +351,20 @@ check('il riepilogo è sticky e le righe non hanno lo SKU', function (): bool {
         && !str_contains($righe, 'data-line-sku') && str_contains($righe, '64px');
 });
 
+check('checkout.js lavora su una pagina sola', function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return !str_contains($js, 'dataset.step') && !str_contains($js, 'this.step')
+        && !str_contains($js, 'data-line-sku') && !str_contains($js, 'innerHTML')
+        && str_contains($js, '[data-choice-icons]') && str_contains($js, '[data-choice-panel]')
+        && str_contains($js, 'wi-choice__more')
+        && str_contains($js, 'field_required') && str_contains($js, "aria-invalid")
+        && str_contains($js, 'scrollIntoView')
+        && str_contains($js, 'shipping_methods_pending') && str_contains($js, 'address_complete')
+        && str_contains($js, 'mirror(')
+        && str_contains($js, "'pageshow'") && str_contains($js, 'data-checkout-locked')
+        && str_contains($js, 'this.submit(this.latest)')
+        && (bool) preg_match('/schedule\(\) \{\s*\/\/[^\n]*\n\s*this\.sequence\+\+;/', $js);
+});
+
 summary();
