@@ -124,12 +124,12 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     )?>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-4 gap-4">
+            <div class="w-100 d-grid col-4 gap-4 gap-p-3">
                 <div class="w-100 col-<?=CheckoutFields::span('shipping_name')?>"><?=FormField::key('shipping_name')->text()->label((string) __t('ecommerce.auth.fields.name'))->required()->value($values['shipping_name'] ?? '')?></div>
                 <div class="w-100 col-<?=CheckoutFields::span('shipping_surname')?>"><?=FormField::key('shipping_surname')->text()->label((string) __t('ecommerce.auth.fields.surname'))->required()->value($values['shipping_surname'] ?? '')?></div>
             </div>
-            <div class="w-100 mt-4" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
-                <div class="w-100 d-grid col-4 gap-4">
+            <div class="w-100 mt-4 mt-p-3" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
+                <div class="w-100 d-grid col-4 gap-4 gap-p-3">
                     <?php foreach ($shipping_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
                 </div>
             </div>
@@ -143,7 +143,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     </div>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-4 gap-4 mt-4">
+            <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">
                 <div class="w-100 col-<?=CheckoutFields::span('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
                 <div class="w-100 col-<?=CheckoutFields::span('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
             </div>
@@ -155,7 +155,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                             ->type('radio')->title((string) $o['name'])->text((string) ($o['description'] ?? ''))->aside((string) ($o['price_display'] ?? ''))
                             ->checked((int) $o['method_id'] === $shippingSelected), $shippingOptions))?>
                     </div>
-                    <p class="w-100 wi-box p-4 text-small" data-checkout-notice role="status"<?=$shippingNotice === '' ? ' hidden' : ''?>><?=$shippingNotice === '' ? '' : e(__t('ecommerce.checkout.'.$shippingNotice))?></p>
+                    <p class="w-100 wi-box p-4 text-xsmall" data-checkout-notice role="status"<?=$shippingNotice === '' ? ' hidden' : ''?>><?=$shippingNotice === '' ? '' : e(__t('ecommerce.checkout.'.$shippingNotice))?></p>
                 </div>
             <?php endif; ?>
         </div>
@@ -182,7 +182,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     )->addClass('w-100')?>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-4 gap-4" data-checkout-toggle="<?=$shipping ? 'same_as_shipping:0|fulfillment_type:pickup' : ''?>"<?=$shipping && $same && !$pickup ? ' hidden' : ''?>>
+            <div class="w-100 d-grid col-4 gap-4 gap-p-3" data-checkout-toggle="<?=$shipping ? 'same_as_shipping:0|fulfillment_type:pickup' : ''?>"<?=$shipping && $same && !$pickup ? ' hidden' : ''?>>
                 <?php foreach ($billing_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
             </div>
             <div class="w-100 mt-5">
@@ -194,7 +194,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     Choice::make('billing_type', 'business')->type('radio')->title((string) __t('ecommerce.checkout.billing_business'))->checked($business)
                 )->addClass('w-100')?>
                 <?php /* Il codice fiscale serve a tutti e due: l'azienda può averne uno diverso dalla partita IVA. */ ?>
-                <div class="w-100 d-grid col-4 gap-4 mt-4">
+                <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">
                     <?php foreach ($invoice_fields as $key => $field): ?>
                         <?php if ($key === 'billing_cf'): ?>
                             <div class="w-100 col-<?=CheckoutFields::span($key)?>" data-checkout-required="billing_type:private"><?=$field->required(!$business)?></div>

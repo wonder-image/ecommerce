@@ -15,29 +15,72 @@ main {
     --input-label-line-height: 20px;
     --input-label-focus-font-size: 12px;
     --input-label-focus-line-height: 12px;
+    --text-xsmall-font-size: 12px;
+    --text-xsmall-line-height: 16px;
+}
+/* Testi di contorno più piccoli: avvisi di spedizione e istruzioni sotto i pagamenti. */
+main .text-xsmall {
+    font-size: var(--text-xsmall-font-size) !important;
+    line-height: var(--text-xsmall-line-height) !important;
+}
+main .wi-choice__panel {
+    font-size: var(--text-xsmall-font-size);
+    line-height: var(--text-xsmall-line-height);
 }
 /* Input alti 48px dentro i bordi: la label vuota sta in mezzo, quella compilata sale sopra il valore. */
 main .wi-input-container .wi-input {
+    width: calc(100% - 24px - var(--input-border-left) - var(--input-border-right));
     padding-top: 21px;
     padding-bottom: 7px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 main .wi-input-container .wi-label {
+    width: calc(100% - 24px - var(--input-border-left) - var(--input-border-right));
     margin-top: 14px;
     margin-bottom: 14px;
+    margin-left: 12px;
+    margin-right: 12px;
 }
 main .wi-input-container.compiled .wi-label {
     margin-top: 7px;
     margin-bottom: 7px;
+    margin-left: 12px;
+    margin-right: 12px;
+}
+/* Con l'icona la label resta dove la mette la lib. */
+main .wi-input-container.compiled.wi-input-icon-start .wi-label {
+    margin-left: 50px;
+}
+main .wi-input-container.compiled.wi-input-icon-end .wi-label {
+    margin-right: 0;
 }
 /* Le tendine seguono: stessa altezza, freccia in mezzo, lista subito sotto. */
+main .wi-input-container select.wi-input {
+    width: 100%;
+    padding-right: 36px;
+}
 main .wi-input-container.select .wi-input.select-selected {
+    padding-right: 36px;
     min-height: calc(var(--input-line-height) + 28px + var(--input-border-top) + var(--input-border-bottom));
 }
 main .wi-input-container.select:after,
 main .wi-input-container.text-list:after {
     padding-top: calc(16px + var(--input-border-bottom) + var(--input-border-top));
     padding-bottom: calc(16px + var(--input-border-bottom) + var(--input-border-top));
+    padding-left: 12px;
+    padding-right: 12px;
 }
 main .wi-input-container .wi-input-list {
     top: calc(48px + var(--input-border-top));
+}
+/* Le opzioni hanno la misura e i margini dei campi. */
+main .wi-input-container .wi-input-list .wi-input-list-value {
+    width: calc(100% - 24px);
+    font-size: var(--input-font-size);
+    line-height: var(--input-line-height);
+    padding: 8px 12px;
+}
+main .wi-input-container.select .select-items input.wi-input {
+    padding: 12px 36px 12px 12px;
 }

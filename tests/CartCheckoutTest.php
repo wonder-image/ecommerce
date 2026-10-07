@@ -312,6 +312,23 @@ check('store.css: sottotitoli 20, testi, bottoni e valori 14, label 14 che sale 
         && str_contains($css, 'top: calc(48px + var(--input-border-top));');
 });
 
+check('store.css: input e tendine con 12px ai lati, opzioni come i campi, testi piccolissimi a 12', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/store.css');
+
+    return str_contains($css, '--text-xsmall-font-size: 12px;') && str_contains($css, 'main .text-xsmall {')
+        && str_contains($css, 'main .wi-choice__panel {') && str_contains($css, 'padding-left: 12px;')
+        && str_contains($css, 'calc(100% - 24px - var(--input-border-left) - var(--input-border-right))')
+        && str_contains($css, 'main .wi-input-container .wi-input-list .wi-input-list-value')
+        && str_contains($css, 'padding: 8px 12px;');
+});
+
+check('checkout: avviso di spedizione piccolissimo, griglie dei campi con gap 3 sul telefono', function (): bool {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+
+    return str_contains($view, 'text-xsmall" data-checkout-notice') && !str_contains($view, 'gap-p-2')
+        && substr_count($view, 'd-grid col-4 gap-4 gap-p-3') === 5 && substr_count($view, 'mt-4 mt-p-3') >= 3;
+});
+
 check('i testi della pagina unica ci sono in italiano e in inglese, quelli dei passi no', function (): bool {
     foreach (['it', 'en'] as $lingua) {
         $t = json_decode((string) file_get_contents(dirname(__DIR__).'/lang/'.$lingua.'/ecommerce.json'), true);
