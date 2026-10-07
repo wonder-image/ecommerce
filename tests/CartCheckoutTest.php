@@ -374,4 +374,15 @@ check('spedizione e ritiro aprono e chiudono tutte le parti della spedizione', f
         && !str_contains($js, "querySelector('[data-checkout-shipping]')");
 });
 
+check('senza JS il checkout apre tutte le parti che il JS nasconde', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $css = preg_match('~<noscript><style>(.*?)</style></noscript>~s', $v, $m) ? $m[1] : '';
+
+    return str_contains($css, '[data-checkout-toggle][hidden]')
+        && str_contains($css, '[data-checkout-shipping][hidden]')
+        && str_contains($css, '[data-checkout-pickup][hidden]')
+        && str_contains($css, 'display:block!important')
+        && str_contains($css, '.d-grid[data-checkout-toggle][hidden]{display:grid!important}');
+});
+
 summary();

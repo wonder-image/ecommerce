@@ -78,6 +78,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
 ], (int) ($_SESSION['user_id'] ?? 0))?>
 <h1 class="wi-checkout__sr"><?=e(__t('ecommerce.checkout.title'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
+<?php /* Senza JS niente si apre o si chiude: si vede tutto il modulo. */ ?>
+<noscript><style>[data-checkout-toggle][hidden],[data-checkout-shipping][hidden],[data-checkout-pickup][hidden]{display:block!important}.d-grid[data-checkout-toggle][hidden]{display:grid!important}</style></noscript>
 <div class="w-100 d-grid col-2 col-t-1 gap-6 wi-checkout">
     <form id="checkout" class="w-100 d-flex d-column gap-6 wi-checkout__form" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
         data-checkout
