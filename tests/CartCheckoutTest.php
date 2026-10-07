@@ -314,4 +314,8 @@ check('ogni icona di pagamento ha il suo SVG e la licenza', function (): bool {
     return str_contains((string) @file_get_contents($dir.'/LICENSE'), 'MIT');
 });
 
+check('il check-out rapido non ha ancora bottoni (arrivano coi pagamenti online)', fn () =>
+    \Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout::buttons(['total' => '10.00']) === []
+);
+
 summary();
