@@ -237,61 +237,6 @@ check('il passo Carrello usa il layout del checkout, i passi e il coupon che tor
         && !str_contains($cart.$parts, "render('wonder')");
 });
 
-check('il Pagamento chiede la Spedizione completa e place ordina dal carrello', function () use ($root) {
-    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
-    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
-    $view = (string) @file_get_contents($root.'/view/pages/checkout/payment.php');
-
-    return str_contains($routes, "['checkout_action' => 'payment']")
-        && !is_file($root.'/view/pages/checkout/index.php')
-        && str_contains($c, 'CheckoutRules::deliveryErrors(')
-        && str_contains($c, 'self::fromCart(')
-        && str_contains($c, 'CheckoutRules::paymentErrors(')
-        && str_contains($c, 'registerBaseConsents(')
-        && str_contains($c, "'ecommerce.checkout.errors.shipping_incomplete'")
-        && str_contains($view, 'data-step="payment"')
-        && str_contains($view, "__r('ecommerce.checkout.place')")
-        && str_contains($view, "Choice::make('same_as_shipping'")
-        && str_contains($view, "Choice::make('invoice'")
-        && str_contains($view, '->acceptDocument(')
-        && str_contains($view, "#contatto")
-        && str_contains($view, "#consegna");
-});
-
-check('il passo Spedizione salva contatto e consegna e porta al Pagamento', function () use ($root) {
-    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
-    $c = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
-    $view = (string) @file_get_contents($root.'/view/pages/checkout/shipping.php');
-
-    return str_contains($routes, "['checkout_action' => 'shipping']")
-        && str_contains($c, 'CheckoutRules::deliveryErrors(')
-        && str_contains($c, "\$post['shipping_phone']")
-        && str_contains($c, "self::route('ecommerce.checkout.payment')")
-        && str_contains($view, 'id="checkout"')
-        && str_contains($view, 'data-step="shipping"')
-        && str_contains($view, 'id="contatto"')
-        && str_contains($view, 'id="consegna"')
-        && str_contains($view, "__r('ecommerce.checkout.shipping')")
-        && str_contains($view, 'ChoiceGroup::make(')
-        && str_contains($view, 'data-checkout-choice')
-        && str_contains($view, 'data-checkout-inline-submit')
-        && substr_count($view, '<h1') === 1;
-});
-
-check('checkout.js lavora a passi, clona i template e non manda due volte', function () use ($root) {
-    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
-
-    return str_contains($js, "querySelector('[data-checkout]')")
-        && str_contains($js, 'dataset.step')
-        && str_contains($js, '[data-checkout-line]')
-        && str_contains($js, '[data-checkout-choice]')
-        && str_contains($js, 'querySelectorAll(\'[data-checkout-lines]\')')
-        && str_contains($js, 'data-checkout-toggle')
-        && str_contains($js, "'pageshow'")
-        && str_contains($js, 'data-checkout-locked')
-        && str_contains($js, '.content.cloneNode(true)');
-});
-
 check('le viste dei passi reggono i float del sito: ogni div ha una larghezza e nessuna griglia è anche uno span', function () use ($root) {
     // Nel sito ogni div dentro una section galleggia: senza w-* si stringe al contenuto.
     $views = checkoutViews($root)."\n".file_get_contents($root.'/view/pages/cart/index.php');
@@ -348,6 +293,35 @@ check('i testi della pagina unica ci sono in italiano e in inglese, quelli dei p
 
     return $it['cart']['products_total'] === 'Subtotale' && $it['checkout']['submit_online'] === 'Paga ora'
         && $it['checkout']['submit_manual'] === 'Ordina';
+});
+
+check('il checkout è una pagina sola: niente rotte dei passi', function (): bool {
+    $rotte = (string) file_get_contents(dirname(__DIR__).'/config/routes/route.frontend.php');
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+
+    return !str_contains($rotte, "'checkout_action' => 'shipping'") && !str_contains($rotte, "'checkout_action' => 'payment'")
+        && str_contains($rotte, "['checkout_action' => 'place']")
+        && !str_contains($c, 'function shipping(') && !str_contains($c, 'function payment(')
+        && !str_contains($c, 'shippingDone') && !str_contains($c, 'backToShipping')
+        && str_contains($c, "pages/checkout/index.php");
+});
+
+check('place passa dalle regole: POST pulito, errori insieme, solo i metodi offerti', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+    $place = substr($c, (int) strpos($c, 'private static function place('));
+
+    return str_contains($place, 'CheckoutRules::post($_POST, CartSession::user())')
+        && str_contains($place, 'CheckoutRules::deliveryErrors(')
+        && str_contains($place, 'CheckoutRules::paymentErrors(')
+        && str_contains($place, 'CheckoutRules::method(')
+        && str_contains($place, 'CheckoutForm::isManual(')
+        && !str_contains($place, "ecommerce.checkout.payment'");
+});
+
+check('il riepilogo usa lo stesso POST della pagina', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user())');
 });
 
 summary();

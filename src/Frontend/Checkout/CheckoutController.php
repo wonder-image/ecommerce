@@ -12,7 +12,6 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
-use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
@@ -30,14 +29,13 @@ final class CheckoutController
         match ($action) {
             'index' => self::index(),
             'place' => self::place(),
-            'shipping' => self::shipping(),
-            'payment' => self::payment(),
             'summary' => self::summary(),
             'coupon' => self::coupon(),
             'completed' => self::completed(),
             default => self::notFound(),
         };
     }
+
 
     private static function index(): void
     {
@@ -57,55 +55,35 @@ final class CheckoutController
         $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $flash['values'] === []);
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
         $cart = CartSession::current(false);
+        $user = CartSession::user();
+        $billing = Order::billingAddress()->formSchema($values['billing_country'] ?? null);
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.index'));
-        View::make(Ecommerce::viewPath('pages/checkout/shipping.php'), [
+        View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
             'cart' => $cart,
+            'summary' => $summary,
+            'values' => $values,
             'shipping_fields' => self::fields(array_diff_key(
                 Order::shippingAddress()->formSchema($values['shipping_country'] ?? null),
                 array_flip(['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'])
             ), $values),
+            'billing_fields' => self::fields(array_diff_key(
+                $billing,
+                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
+            ), $values),
+            'business_fields' => self::fields(array_intersect_key(
+                $billing,
+                array_flip(['billing_business_name', 'billing_pi', 'billing_sdi', 'billing_pec'])
+            ), $values),
+            'cf_field' => self::fields(array_intersect_key($billing, ['billing_cf' => true]), $values),
+            'consents' => CheckoutRules::askedConsents((int) ($user->id ?? 0)),
+            'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
+            'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
             'csrf_token' => AuthSession::csrfToken(),
             'errors' => $flash['errors'],
             'notice' => $flash['notice'],
-            'values' => $values,
-            'summary' => $summary,
         ])->render();
-    }
-
-    /** Il passo Spedizione: salva contatto e consegna sul carrello, poi va al Pagamento. */
-    private static function shipping(): never
-    {
-        $cartId = self::guardPage();
-        $post = $_POST;
-        // Il telefono del contatto è anche quello del corriere.
-        $post['shipping_phone'] = (string) ($post['phone'] ?? '');
-
-        // Col ritiro non resta un indirizzo vecchio sull'ordine.
-        if ((string) ($post['fulfillment_type'] ?? '') === 'pickup') {
-            foreach (Order::shippingAddress()->keys() as $key) {
-                if (!in_array($key, ['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'], true)) {
-                    $post[$key] = '';
-                }
-            }
-        }
-
-        try {
-            $summary = CheckoutSummary::payload($cartId, $post, CartSession::user());
-            $errors = CheckoutRules::deliveryErrors((array) Order::findById($cartId), $summary, Gestionale::feature('shipping'));
-            $messages = array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $errors);
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.checkout.shipping');
-            $messages = [(string) __t('ecommerce.checkout.errors.generic')];
-        }
-
-        if ($messages !== []) {
-            self::flash($messages, $post);
-            self::redirect(self::route('ecommerce.checkout.index'));
-        }
-
-        self::redirect(self::route('ecommerce.checkout.payment'));
     }
 
     /**
@@ -127,6 +105,7 @@ final class CheckoutController
         }
     }
 
+
     private static function place(): void
     {
         self::requirePost();
@@ -136,6 +115,9 @@ final class CheckoutController
             self::redirect(self::loginUrl());
         }
 
+        $post = CheckoutRules::post($_POST, CartSession::user());
+        $user = CartSession::user();
+
         try {
             if (!CartSession::authenticated()) {
                 RecaptchaGuard::for('ecommerce_checkout')
@@ -144,35 +126,39 @@ final class CheckoutController
                     ->verify();
             }
 
-            $cart = CartSession::current(false);
-            if ((array) ($cart['items'] ?? []) === []) {
+            $cartId = self::cartId();
+            if ($cartId === 0) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
             }
 
-            $cartId = (int) ($cart['order']['id'] ?? 0);
-            [, $order] = self::shippingDone($cartId) ?? self::backToShipping();
-            $user = CartSession::user();
+            // L'anteprima scrive contatti e consegna sul carrello; poi si rilegge.
+            $preview = CheckoutSummary::payload($cartId, $post, $user);
+            $order = (array) Order::findById($cartId);
             $userId = (int) ($user->id ?? 0);
             $asked = CheckoutRules::askedConsents($userId);
-            $billing = CheckoutRules::billing($_POST, $order);
-            $missing = CheckoutRules::paymentErrors($_POST, $billing, $asked);
+            $billing = CheckoutRules::billing($post, $order);
+            $missing = array_values(array_unique(array_merge(
+                CheckoutRules::deliveryErrors($order, $preview, Gestionale::feature('shipping')),
+                CheckoutRules::paymentErrors($post, $billing, $asked)
+            )));
             if ($missing !== []) {
-                self::flash(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $_POST);
-                self::redirect(self::route('ecommerce.checkout.payment'));
+                self::flash(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post);
+                self::redirect(self::route('ecommerce.checkout.index'));
             }
 
-            // L'ordine nasce dal carrello (Spedizione) più i campi del Pagamento.
-            $data = CheckoutForm::data([
-                'payment_method_id' => (string) ($_POST['payment_method_id'] ?? ''),
-                'customer_note' => (string) ($_POST['customer_note'] ?? ''),
-            ] + $billing + self::fromCart($order), $user);
-            $method = self::method($data['payment_method_id']);
-            if (!is_array($method)) {
+            // Vale solo un metodo che la pagina ha offerto.
+            $method = CheckoutRules::method($preview, (int) ($post['payment_method_id'] ?? 0));
+            if ($method === null) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
             }
             if (!CheckoutForm::isManual($method)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.provider_pending'));
             }
+
+            $data = CheckoutForm::data([
+                'payment_method_id' => (string) $method['id'],
+                'customer_note' => (string) ($post['customer_note'] ?? ''),
+            ] + $billing + self::fromCart($order), $user);
 
             $result = Checkout::place($cartId, $data + [
                 'customer_id' => CartSession::customerId(),
@@ -182,7 +168,7 @@ final class CheckoutController
 
             if ($userId > 0 && $asked !== []) {
                 try {
-                    consentService()->registerBaseConsents($userId, $_POST, ['required_document_types' => $asked, 'ui_surface' => 'checkout']);
+                    consentService()->registerBaseConsents($userId, $post, ['required_document_types' => $asked, 'ui_surface' => 'checkout']);
                 } catch (Throwable $error) {
                     // L'ordine è nato: un consenso non registrato non lo ferma.
                     Errors::internal($error, 'ecommerce.checkout.consents');
@@ -198,82 +184,14 @@ final class CheckoutController
             ];
             self::redirect(self::route('ecommerce.checkout.completed'));
         } catch (UserError $error) {
-            self::flash([$error->getMessage()], $_POST);
+            self::flash([$error->getMessage()], $post);
         } catch (RuntimeException $error) {
-            self::flash([$error->getMessage()], $_POST);
+            self::flash([$error->getMessage()], $post);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.place');
-            self::flash([(string) __t('ecommerce.checkout.errors.generic')], $_POST);
+            self::flash([(string) __t('ecommerce.checkout.errors.generic')], $post);
         }
 
-        self::redirect(self::route('ecommerce.checkout.payment'));
-    }
-
-    private static function payment(): void
-    {
-        if (!self::guestAllowed() && !CartSession::authenticated()) {
-            self::redirect(self::loginUrl());
-        }
-
-        $cartId = self::cartId();
-        if ($cartId === 0) {
-            self::redirect(self::route('ecommerce.cart.index'));
-        }
-
-        // Il carrello può essere cambiato dopo la Spedizione: si ricalcola e si ricontrolla.
-        [$summary, $order] = self::shippingDone($cartId) ?? self::backToShipping();
-        $flash = self::pullFlash();
-        $values = $flash['values'] !== []
-            ? self::defaults($flash['values'])
-            : array_filter(self::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0') + self::defaults([]) + ['same_as_shipping' => '1'];
-        $userId = (int) (CartSession::user()->id ?? 0);
-
-        self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.payment'));
-        View::make(Ecommerce::viewPath('pages/checkout/payment.php'), [
-            'cart' => CartSession::current(false),
-            'order' => $order,
-            'summary' => $summary,
-            'billing_fields' => self::fields(array_diff_key(
-                Order::billingAddress()->formSchema($values['billing_country'] ?? null),
-                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
-            ), $values),
-            'business_fields' => self::fields(array_intersect_key(
-                Order::billingAddress()->formSchema($values['billing_country'] ?? null),
-                array_flip(['billing_business_name', 'billing_pi', 'billing_sdi', 'billing_pec'])
-            ), $values),
-            'cf_field' => self::fields(array_intersect_key(Order::billingAddress()->formSchema($values['billing_country'] ?? null), ['billing_cf' => true]), $values),
-            'consents' => CheckoutRules::askedConsents($userId),
-            'guest' => !CartSession::authenticated(),
-            'csrf_token' => AuthSession::csrfToken(),
-            'errors' => $flash['errors'],
-            'notice' => $flash['notice'],
-            'values' => $values,
-        ])->render();
-    }
-
-    /**
-     * L'anteprima con le scelte del carrello e il carrello riletto; null se il
-     * passo Spedizione non è completo (o il gestionale non risponde).
-     *
-     * @return array{0: array<string, mixed>, 1: array<string, mixed>}|null
-     */
-    private static function shippingDone(int $cartId): ?array
-    {
-        try {
-            $summary = CheckoutSummary::payload($cartId, [], CartSession::user());
-            $order = (array) Order::findById($cartId);
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.checkout.payment');
-
-            return null;
-        }
-
-        return CheckoutRules::deliveryErrors($order, $summary, Gestionale::feature('shipping')) === [] ? [$summary, $order] : null;
-    }
-
-    private static function backToShipping(): never
-    {
-        self::flash([(string) __t('ecommerce.checkout.errors.shipping_incomplete')]);
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 
@@ -282,7 +200,7 @@ final class CheckoutController
         $cartId = self::guardJson();
 
         try {
-            self::json(['success' => true] + CheckoutSummary::payload($cartId, $_POST, CartSession::user()));
+            self::json(['success' => true] + CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user()));
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.summary');
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
@@ -291,16 +209,12 @@ final class CheckoutController
 
     private static function coupon(): void
     {
-        $return = in_array($_POST['return'] ?? '', ['cart', 'payment'], true) ? (string) $_POST['return'] : 'checkout';
+        $return = ($_POST['return'] ?? '') === 'cart' ? 'cart' : 'checkout';
         $json = self::wantsJson();
         // Il coupon si prova già dal carrello, prima del login.
         $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart');
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
-        $back = match ($return) {
-            'cart' => self::route('ecommerce.cart.index'),
-            'payment' => self::route('ecommerce.checkout.payment'),
-            default => self::route('ecommerce.checkout.index'),
-        };
+        $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
 
         try {
             // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
@@ -395,35 +309,6 @@ final class CheckoutController
             'errors' => [],
             'notice' => '',
         ])->render();
-    }
-
-    /**
-     * I metodi online attivi: `place` li accetta tutti e il gestionale
-     * rifiuta quello che la consegna scelta non ammette.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function paymentMethods(): array
-    {
-        $rows = PaymentMethod::find([
-            'active' => 'true',
-            'applies_online' => 'true',
-            'deleted' => 'false',
-        ], null, 'position', 'ASC');
-
-        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
-    }
-
-    /** @return array<string, mixed>|null */
-    private static function method(int $id): ?array
-    {
-        foreach (self::paymentMethods() as $method) {
-            if ((int) ($method['id'] ?? 0) === $id) {
-                return $method;
-            }
-        }
-
-        return null;
     }
 
     /** @return array<string, string> */

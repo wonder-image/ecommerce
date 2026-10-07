@@ -230,13 +230,55 @@ check('un\'anteprima senza scelte tiene quelle del carrello', fn () => prova(sta
     return $p['shipping_methods']['selected'] === $veloce && (float) $p['order']['shipping_total'] === 12.0;
 }));
 
-check('l\'email dell\'utente non sostituisce quella scritta al passo Spedizione', fn () => prova(static function (): bool {
+check('l\'anteprima non sostituisce da sola l\'email scritta (lo fa `CheckoutRules::post`)', fn () => prova(static function (): bool {
     standard();
     $cart = carrello([[articolo(2.0, 10.0), 1]]);
     CheckoutSummary::payload($cart, modulo(['email' => 'c@example.com']));
     CheckoutSummary::payload($cart, modulo(), (object) ['email' => 'altro@example.com']);
 
     return Order::findById($cart)['email'] === 'c@example.com';
+}));
+
+check('ogni pagamento porta loghi, commissione e pannello', fn () => prova(static function (): bool {
+    standard();
+    $bonifico = manuale();
+    PaymentMethod::update(['icons' => 'genericbank,bitcoin', 'fee_type' => 'amount', 'fee_value' => '1.50'], $bonifico);
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    $p = CheckoutSummary::payload($cart, modulo());
+    $voce = array_column((array) $p['payment_methods']['options'], null, 'id')[$bonifico] ?? [];
+
+    return count($voce['icon_urls'] ?? []) === 1
+        && str_contains((string) $voce['icon_urls'][0]['src'], 'payment-icons/genericbank.svg')
+        && ($voce['icon_urls'][0]['alt'] ?? '') === PaymentMethod::ICONS['genericbank']
+        && ($voce['fee_display'] ?? '') === '+ '.CartPresenter::money(1.5, 'EUR')
+        && ($voce['panel'] ?? '') === (string) ($voce['instructions'] ?? '');
+}));
+
+check('senza indirizzo i metodi di spedizione aspettano l\'indirizzo', fn () => prova(static function (): bool {
+    standard();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    $vuoto = CheckoutSummary::payload($cart, ['shipping_country' => 'IT']);
+    $pieno = CheckoutSummary::payload($cart, modulo());
+
+    return $vuoto['shipping_methods']['address_complete'] === false
+        && $pieno['shipping_methods']['address_complete'] === true
+        && $pieno['display']['shipping_pending'] === false;
+}));
+
+check('un carrello già ordinato non diventa un secondo ordine', fn () => prova(static function (): bool {
+    $metodo = standard();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    $post = modulo(fatturazione() + ['fulfillment_type' => 'shipping', 'shipping_method_id' => (string) $metodo]) + ['shipping_name' => 'Ada', 'shipping_surname' => 'L', 'phone' => '333'];
+    $m = manuale();
+    invia($cart, $post, $m);
+
+    try {
+        invia($cart, $post, $m);
+    } catch (UserError $e) {
+        return $e->getMessage() !== '' && str_contains((string) $e->key(), 'cart.not_a_cart');
+    }
+
+    return false;
 }));
 
 summary();

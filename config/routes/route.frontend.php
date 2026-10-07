@@ -59,8 +59,6 @@ Route::area('frontend')
 
                 Route::get('/', $handler, ['checkout_action' => 'index'])->name('index');
                 Route::post('/', $handler, ['checkout_action' => 'place'])->name('place');
-                Route::post('/shipping/', $handler, ['checkout_action' => 'shipping'])->name('shipping');
-                Route::get('/payment/', $handler, ['checkout_action' => 'payment'])->name('payment');
                 Route::post('/summary/', $handler, ['checkout_action' => 'summary'])->name('summary');
                 Route::post('/coupon/', $handler, ['checkout_action' => 'coupon'])->name('coupon');
                 Route::get('/completed/', $handler, ['checkout_action' => 'completed'])->name('completed');

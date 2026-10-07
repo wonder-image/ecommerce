@@ -3,6 +3,9 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
+use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\Plugin\Gestionale\Support\Promotions\Coupons;
@@ -57,7 +60,52 @@ final class CheckoutSummary
                 : CartPresenter::money($opzione['price'] ?? 0, $valuta);
         }
 
+        foreach ((array) ($preview['payment_methods']['options'] ?? []) as $i => $opzione) {
+            $preview['payment_methods']['options'][$i] = $opzione + self::paymentDisplay((array) $opzione, (array) $preview['order'], $valuta);
+        }
+
+        $preview['shipping_methods']['address_complete'] = CheckoutRules::addressComplete((array) Order::findById($cartId));
+        $preview['display']['shipping_pending'] = Gestionale::feature('shipping')
+            && (string) ($preview['fulfillment']['type'] ?? 'shipping') === 'shipping'
+            && (int) ($preview['shipping_methods']['selected'] ?? 0) === 0;
+
         return $preview;
+    }
+
+    /**
+     * Loghi, commissione e pannello di un'opzione di pagamento. La commissione
+     * è un'anticipazione calcolata come il gestionale (sui prodotti): il totale
+     * vero lo dà l'anteprima del metodo scelto.
+     *
+     * @param array<string, mixed> $option
+     * @param array<string, mixed> $order
+     * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string}
+     */
+    private static function paymentDisplay(array $option, array $order, string $currency): array
+    {
+        $icons = [];
+        foreach ((array) ($option['icons'] ?? []) as $key) {
+            $src = isset(PaymentMethod::ICONS[$key]) ? (string) module_asset('ecommerce', 'payment-icons/'.$key.'.svg') : '';
+            if ($src !== '') {
+                $icons[] = ['src' => $src, 'alt' => PaymentMethod::ICONS[$key]];
+            }
+        }
+
+        $base = (float) ($order['products_total'] ?? 0);
+        $fee = match ((string) ($option['fee_type'] ?? 'none')) {
+            'amount' => (float) ($option['fee_value'] ?? 0),
+            'percent' => round($base * (float) ($option['fee_percent'] ?? 0) / 100, 2),
+            'amount_percent' => round((float) ($option['fee_value'] ?? 0) + $base * (float) ($option['fee_percent'] ?? 0) / 100, 2),
+            default => 0.0,
+        };
+
+        return [
+            'icon_urls' => $icons,
+            'fee_display' => $fee > 0 ? '+ '.CartPresenter::money($fee, $currency) : '',
+            'panel' => !empty($option['manual'])
+                ? (string) ($option['instructions'] ?? '')
+                : (string) __t('ecommerce.checkout.redirect_panel', ['name' => (string) ($option['name'] ?? '')]),
+        ];
     }
 
     /**
