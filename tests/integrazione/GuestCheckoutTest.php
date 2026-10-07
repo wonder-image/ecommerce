@@ -108,6 +108,46 @@ try {
             && $senzaScheda['customer_id'] === 0
         );
 
+        $delBackend = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';
+        $backend = (int) (User::create([
+            'name' => 'Bea',
+            'surname' => 'Backend',
+            'email' => $delBackend,
+            'username' => create_link(explode('@', $delBackend)[0], 'user', 'username'),
+            'authority' => json_encode(['admin'], JSON_THROW_ON_ERROR),
+            'area' => json_encode(['backend'], JSON_THROW_ON_ERROR),
+            'active' => 'true',
+        ])->insert_id ?? 0);
+        $collegatoBackend = GuestCheckout::account(carrelloOspite($delBackend), [], []);
+
+        check('l\'email di un utente senza l\'area del negozio collega l\'ordine ma non manda link', fn () =>
+            $backend > 0
+            && $collegatoBackend['user_id'] === $backend
+            && GuestCheckout::passwordLink($backend, '/account/password-restore/', '/account/') === ''
+        );
+
+        $cancellato = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';
+        $vecchio = (int) (User::create([
+            'name' => 'Ugo',
+            'surname' => 'Cancellato',
+            'email' => $cancellato,
+            'username' => create_link(explode('@', $cancellato)[0], 'user', 'username'),
+            'authority' => json_encode(['client'], JSON_THROW_ON_ERROR),
+            'area' => json_encode(['frontend'], JSON_THROW_ON_ERROR),
+            'active' => 'true',
+        ])->insert_id ?? 0);
+        sqlModify('user', ['deleted' => 'true'], 'id', $vecchio);
+        try {
+            $senzaAccount = GuestCheckout::account(carrelloOspite($cancellato), [], []);
+        } catch (Throwable $errore) {
+            $senzaAccount = ['errore' => $errore->getMessage()];
+        }
+
+        check('un account che non si può creare (email di un utente cancellato) non blocca l\'ordine', fn () =>
+            $vecchio > 0
+            && $senzaAccount === ['user_id' => 0, 'customer_id' => 0, 'created' => false]
+        );
+
         throw new AnnullaGuestCheckout();
     });
 } catch (AnnullaGuestCheckout) {

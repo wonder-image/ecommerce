@@ -94,9 +94,11 @@ scrive la sua email; l'invio è protetto da reCAPTCHA (action
 `ecommerce_checkout`). Al «Ordina» `GuestCheckout` trova l'account con quella
 email o lo crea senza password, collega il contatto e salva i consensi
 (`registerLeadConsents` per un account che c'era già, i cui dati non cambiano).
-Se l'account non ha una password, l'email dell'ordine porta il link «Scegli la
-password» (7 giorni); scegliendola l'email risulta verificata. La sessione resta
-da ospite.
+Se l'account è un cliente del negozio attivo senza password, l'email dell'ordine
+porta il link «Scegli la password» (7 giorni); scegliendola l'email risulta
+verificata. Se l'account non si può creare (per esempio l'email di un utente
+cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account. La
+sessione resta da ospite.
 
 ## Limiti intenzionali della prima fase
 

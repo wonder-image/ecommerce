@@ -11,7 +11,7 @@ use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
 /**
- * L'ospite che ordina: l'ordine va sempre a un account. Con un'email nuova
+ * L'ospite che ordina: l'ordine va a un account. Con un'email nuova
  * l'account nasce senza password; con un'email nota si riusa così com'è.
  * La sessione resta da ospite: chi ordina non entra nell'account.
  */
@@ -46,14 +46,23 @@ final class GuestCheckout
             return ['user_id' => $userId, 'customer_id' => $customerId, 'created' => false];
         }
 
-        $userId = $users->createUserWithoutPassword(
-            (string) ($order['shipping_name'] ?? ''),
-            (string) ($order['shipping_surname'] ?? ''),
-            $email,
-            'frontend'
-        );
+        $error = null;
+        try {
+            $userId = $users->createUserWithoutPassword(
+                (string) ($order['shipping_name'] ?? ''),
+                (string) ($order['shipping_surname'] ?? ''),
+                $email,
+                'frontend'
+            );
+        } catch (Throwable $error) {
+            $userId = 0;
+        }
         if ($userId <= 0) {
-            throw new RuntimeException((string) __t('ecommerce.checkout.errors.generic'));
+            // Per esempio un utente cancellato con la stessa email: l'account è un
+            // servizio in più, l'ordine nasce lo stesso, senza account né link.
+            Errors::internal($error ?? new RuntimeException('guest_account_not_created'), 'ecommerce.checkout.guest_account');
+
+            return ['user_id' => 0, 'customer_id' => 0, 'created' => false];
         }
 
         $customerId = self::link($userId, [
@@ -66,12 +75,14 @@ final class GuestCheckout
     }
 
     /**
-     * Il link per scegliere la password, solo per chi non ne ha una (anche
-     * l'ospite che torna). Relativo: l'email lo fa assoluto.
+     * Il link per scegliere la password, solo per un cliente del negozio attivo
+     * che non ne ha una (anche l'ospite che torna): a un utente del backend
+     * la pagina del ripristino rifiuterebbe il token. Relativo: l'email lo fa assoluto.
      */
     public static function passwordLink(int $userId, string $restorePath, string $continueUrl): string
     {
-        if ($userId <= 0 || (new EcommerceUserAccountGateway())->hasLocalPassword($userId)) {
+        $users = new EcommerceUserAccountGateway();
+        if ($userId <= 0 || $users->hasLocalPassword($userId) || !$users->canAccessArea($userId, 'frontend', ['client'])) {
             return '';
         }
 
