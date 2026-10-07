@@ -292,4 +292,14 @@ check('checkout.js lavora a passi, clona i template e non manda due volte', func
         && str_contains($js, '.content.cloneNode(true)');
 });
 
+check('le viste dei passi reggono i float del sito: ogni div ha una larghezza e nessuna griglia è anche uno span', function () use ($root) {
+    // Nel sito ogni div dentro una section galleggia: senza w-* si stringe al contenuto.
+    $views = checkoutViews($root)."\n".file_get_contents($root.'/view/pages/cart/index.php');
+    preg_match_all('/<div\b(.*?)(?<!\?)>/s', $views, $divs);
+    $narrow = array_filter($divs[1], static fn (string $attrs): bool => preg_match('/class="[^"]*\bw-\d+/', $attrs) !== 1);
+
+    return $divs[1] !== [] && $narrow === []
+        && preg_match('/class="[^"]*\bcol-\d+ col-t-\d+\b[^"]*\bd-grid\b/', $views) !== 1;
+});
+
 summary();

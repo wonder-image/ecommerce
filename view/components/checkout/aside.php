@@ -10,7 +10,7 @@ $withLines = $step !== 'cart';
     <h2 class="subtitle mb-4"><?=e(__t($withLines ? 'ecommerce.checkout.your_cart' : 'ecommerce.cart.summary'))?></h2>
     <?php if ($withLines): ?><?=View::component(Ecommerce::viewPath('components/checkout/lines.php'), compact('items', 'currency'))?><?php endif; ?>
     <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup'])?>
-    <div class="mt-4" data-checkout-notices>
+    <div class="w-100 mt-4" data-checkout-notices>
         <?php foreach ($notices as $message): ?><p class="text-small" role="status"><?=e($message)?></p><?php endforeach; ?>
     </div>
     <?php if ($coupons): ?>

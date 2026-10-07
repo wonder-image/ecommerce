@@ -62,8 +62,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
 <?=View::component(Ecommerce::viewPath('components/checkout/steps.php'), ['step' => 'shipping'])?>
 <h1 class="title mb-6"><?=e(__t('ecommerce.checkout.title'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
-<div class="d-grid col-3 col-t-1 gap-6">
-    <form id="checkout" class="col-2 col-t-1 d-grid col-1 gap-6" method="post" action="<?=e(__r('ecommerce.checkout.shipping'))?>" novalidate
+<div class="w-100 d-grid col-3 col-t-1 gap-6">
+    <form id="checkout" class="col-2 col-t-1 d-flex d-column gap-6" method="post" action="<?=e(__r('ecommerce.checkout.shipping'))?>" novalidate
         data-checkout data-step="shipping"
         data-shipping="<?=$shipping ? 'on' : 'off'?>"
         data-coupons="<?=$coupons ? 'on' : 'off'?>"
@@ -77,7 +77,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             <?php if ($guest): ?>
                 <p class="text-small mb-4"><?=e(__t('ecommerce.checkout.have_account'))?> <a href="<?=e(__r('ecommerce.auth.login').'?continue='.rawurlencode((string) __r('ecommerce.checkout.index')))?>"><?=e(__t('ecommerce.checkout.login'))?></a></p>
             <?php endif; ?>
-            <div class="d-grid col-2 col-p-1 gap-4">
+            <div class="w-100 d-grid col-2 col-p-1 gap-4">
                 <?=FormField::key('shipping_name')->text()->label((string) __t('ecommerce.auth.fields.name'))->required()->value($values['shipping_name'] ?? '')?>
                 <?=FormField::key('shipping_surname')->text()->label((string) __t('ecommerce.auth.fields.surname'))->required()->value($values['shipping_surname'] ?? '')?>
                 <?=FormField::key('email')->email()->label((string) __t('ecommerce.auth.fields.email'))->required()->value($values['email'] ?? '')?>
@@ -87,20 +87,20 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         <section id="consegna" class="wi-box p-5">
             <h2 class="subtitle mb-4"><?=e(__t('ecommerce.checkout.delivery'))?></h2>
             <?php if ($shipping): ?>
-                <div class="mb-5" data-checkout-fulfillment>
+                <div class="w-100 mb-5" data-checkout-fulfillment>
                     <?=ChoiceGroup::make()->choices(
                         Choice::make('fulfillment_type', 'shipping')->type('radio')->title((string) __t('ecommerce.checkout.fulfillment_shipping'))->checked($fulfillment === 'shipping'),
                         Choice::make('fulfillment_type', 'pickup')->type('radio')->title((string) __t('ecommerce.checkout.fulfillment_pickup'))->checked($fulfillment === 'pickup')->disabled(!$canPickup)
                     )?>
                 </div>
             <?php endif; ?>
-            <div data-checkout-shipping<?=$shipping && $fulfillment === 'pickup' ? ' hidden' : ''?>>
-                <div class="d-grid col-2 col-p-1 gap-4">
+            <div class="w-100" data-checkout-shipping<?=$shipping && $fulfillment === 'pickup' ? ' hidden' : ''?>>
+                <div class="w-100 d-grid col-2 col-p-1 gap-4">
                     <?php foreach ($shipping_fields as $field): ?><?=$field?><?php endforeach; ?>
                 </div>
                 <?php if ($shipping): ?>
                     <h3 class="subtitle mt-5 mb-3"><?=e(__t('ecommerce.checkout.shipping_methods'))?></h3>
-                    <div data-checkout-shipping-methods>
+                    <div class="w-100" data-checkout-shipping-methods>
                         <?=ChoiceGroup::make()->choices(...array_map(static fn (array $o): Choice => Choice::make('shipping_method_id', (int) $o['method_id'])
                             ->type('radio')->title((string) $o['name'])->text((string) ($o['description'] ?? ''))->aside((string) ($o['price_display'] ?? ''))
                             ->checked((int) $o['method_id'] === $shippingSelected), $shippingOptions))?>
@@ -109,9 +109,9 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                 <?php endif; ?>
             </div>
             <?php if ($shipping): ?>
-                <div data-checkout-pickup<?=$fulfillment === 'pickup' ? '' : ' hidden'?>>
+                <div class="w-100" data-checkout-pickup<?=$fulfillment === 'pickup' ? '' : ' hidden'?>>
                     <h3 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.pickup_locations'))?></h3>
-                    <div data-checkout-pickup-locations>
+                    <div class="w-100" data-checkout-pickup-locations>
                         <?=ChoiceGroup::make()->choices(...array_map(static fn (array $o): Choice => Choice::make('location_id', (int) $o['id'])
                             ->type('radio')->title((string) $o['name'])->text((string) ($o['address'] ?? ''))
                             ->checked((int) $o['id'] === $pickupSelected), $pickupOptions))?>

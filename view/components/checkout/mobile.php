@@ -10,7 +10,7 @@ use Wonder\View\View;
         <span class="w-100"><?=e(__t('ecommerce.checkout.show_cart'))?></span>
         <strong data-checkout-total><?=e(CartPresenter::money($order['total'] ?? 0, $currency))?></strong>
     </summary>
-    <div class="mt-4">
+    <div class="w-100 mt-4">
         <?=View::component(Ecommerce::viewPath('components/checkout/lines.php'), compact('items', 'currency'))?>
         <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup'])?>
         <?php if ($coupons): ?>

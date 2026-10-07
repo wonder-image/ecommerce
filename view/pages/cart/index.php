@@ -24,17 +24,17 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
 <?=View::component(Ecommerce::viewPath('components/checkout/steps.php'), ['step' => 'cart'])?>
 <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
 <?php if ($items === []): ?>
-    <div class="wi-box p-6 a-c">
+    <div class="w-100 wi-box p-6 a-c">
         <h2 class="subtitle"><?=e(__t('ecommerce.cart.empty_title'))?></h2>
         <p class="text mt-3"><?=e(__t('ecommerce.cart.empty_text'))?></p>
         <?=Button::to((string) (__r('ecommerce.catalog.index') ?: '/'), (string) __t('ecommerce.cart.back_to_shop'))->variant('primary')->class('mt-5')?>
     </div>
 <?php else: ?>
-    <div class="d-grid col-3 col-t-1 gap-6" data-checkout data-checkout-cart data-step="cart"
+    <div class="w-100 d-grid col-3 col-t-1 gap-6" data-checkout data-checkout-cart data-step="cart"
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>">
-        <div class="col-2 col-t-1 wi-box p-5 d-grid col-1 gap-5">
+        <div class="w-100 col-2 col-t-1 wi-box p-5 d-flex d-column gap-5">
             <p class="text-small"><?=e(__t('ecommerce.cart.count', ['count' => CartPresenter::count($items)]))?></p>
             <?php foreach ($items as $item): ?>
                 <article class="d-flex d-p-column gap-4">
@@ -42,8 +42,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                         <?php if (trim((string) ($item['image'] ?? '')) !== ''): ?><img src="<?=e($item['image'])?>" alt="" loading="lazy"><?php endif; ?>
                     </span>
                     <div class="w-100">
-                        <div class="d-grid col-2 col-p-1 gap-3">
-                            <div>
+                        <div class="w-100 d-grid col-2 col-p-1 gap-3">
+                            <div class="w-100">
                                 <h2 class="text fw-600"><?=e($item['name'] ?? '')?></h2>
                                 <?php if (trim((string) ($item['sku'] ?? '')) !== ''): ?>
                                     <p class="text-small tx-secondary mt-1"><?=e(__t('ecommerce.cart.sku', ['sku' => $item['sku']]))?></p>
@@ -51,7 +51,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                             </div>
                             <p class="text fw-700 a-r a-p-l"><?=e(CartPresenter::money($item['line_total'] ?? 0, $currency))?></p>
                         </div>
-                        <div class="d-flex d-p-column gap-3 mt-4">
+                        <div class="w-100 d-flex d-p-column gap-3 mt-4">
                             <form id="cart_quantity_<?=e((string) ($item['id'] ?? 0))?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => (int) ($item['id'] ?? 0)]))?>" class="d-flex gap-2">
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
                                 <div class="w-25"><?=FormField::key('quantity')->number()->label((string) __t('ecommerce.cart.quantity'))->required()->value(CartPresenter::quantity($item['quantity'] ?? 1))?></div>

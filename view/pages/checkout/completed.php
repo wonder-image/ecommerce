@@ -5,7 +5,7 @@ use Wonder\View\View;
 
 Ecommerce::layout('checkout', compact('errors', 'notice'));
 ?>
-<div class="wi-box p-6 a-c">
+<div class="w-100 wi-box p-6 a-c">
     <h1 class="title"><?=e(__t('ecommerce.checkout.completed.title'))?></h1>
     <p class="text mt-4"><?=e(__t('ecommerce.checkout.completed.text', ['number' => (string) ($result['order_number'] ?? '')]))?></p>
     <?php if (trim((string) ($result['instructions'] ?? '')) !== ''): ?>

@@ -6,7 +6,7 @@ $line = static function (array $item) use ($currency): string {
     $image = trim((string) ($item['image'] ?? ''));
     $sku = trim((string) ($item['sku'] ?? ''));
 
-    return '<div class="d-flex gap-4">'
+    return '<div class="w-100 d-flex gap-4">'
         .'<span class="wi-thumb" style="--wi-thumb-size: 56px">'
         .($image === '' ? '' : '<img src="'.e($image).'" alt="" loading="lazy" data-line-image>')
         .'<span class="badge badge-dark" data-line-quantity>'.e($item['quantity_display'] ?? CartPresenter::quantity($item['quantity'] ?? 1)).'</span></span>'
@@ -16,7 +16,7 @@ $line = static function (array $item) use ($currency): string {
         .'</div>';
 };
 ?>
-<div class="d-grid col-1 gap-4" data-checkout-lines>
+<div class="w-100 d-grid col-1 gap-4" data-checkout-lines>
     <?php foreach ($items as $item): ?><?=$line($item)?><?php endforeach; ?>
 </div>
 <template data-checkout-line><?=$line(['name' => '', 'quantity_display' => '', 'line_total_display' => '', 'image' => 'data:,'])?></template>

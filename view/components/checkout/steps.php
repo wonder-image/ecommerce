@@ -11,4 +11,4 @@ foreach (array_keys($order) as $i => $key) {
     $steps->step((string) __t('ecommerce.checkout.steps.'.$key), $state === 'done' ? (string) __r($order[$key]) : null, $state);
 }
 ?>
-<div class="mb-6"><?=$steps?></div>
+<div class="w-100 mb-6"><?=$steps?></div>

@@ -59,8 +59,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
 <?=View::component(Ecommerce::viewPath('components/checkout/steps.php'), ['step' => 'payment'])?>
 <h1 class="title mb-6"><?=e(__t('ecommerce.checkout.payment'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
-<div class="d-grid col-3 col-t-1 gap-6">
-    <form id="checkout" class="col-2 col-t-1 d-grid col-1 gap-6" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
+<div class="w-100 d-grid col-3 col-t-1 gap-6">
+    <form id="checkout" class="col-2 col-t-1 d-flex d-column gap-6" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
         data-checkout data-step="payment"
         data-shipping="<?=Gestionale::feature('shipping') ? 'on' : 'off'?>"
         data-coupons="<?=$coupons ? 'on' : 'off'?>"
@@ -70,12 +70,12 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
         <section class="wi-box p-5 d-grid col-1 gap-3">
-            <div class="d-flex gap-3"><span class="w-100"><span class="d-block text-small tx-secondary"><?=e(__t('ecommerce.checkout.contact'))?></span><?=e($contact)?></span><a class="text-small" href="<?=e(__r('ecommerce.checkout.index'))?>#contatto"><?=e(__t('ecommerce.checkout.edit'))?></a></div>
-            <div class="d-flex gap-3"><span class="w-100"><span class="d-block text-small tx-secondary"><?=e(__t('ecommerce.checkout.delivery'))?></span><?=e($delivery)?></span><a class="text-small" href="<?=e(__r('ecommerce.checkout.index'))?>#consegna"><?=e(__t('ecommerce.checkout.edit'))?></a></div>
+            <div class="w-100 d-flex gap-3"><span class="w-100"><span class="d-block text-small tx-secondary"><?=e(__t('ecommerce.checkout.contact'))?></span><?=e($contact)?></span><a class="text-small" href="<?=e(__r('ecommerce.checkout.index'))?>#contatto"><?=e(__t('ecommerce.checkout.edit'))?></a></div>
+            <div class="w-100 d-flex gap-3"><span class="w-100"><span class="d-block text-small tx-secondary"><?=e(__t('ecommerce.checkout.delivery'))?></span><?=e($delivery)?></span><a class="text-small" href="<?=e(__r('ecommerce.checkout.index'))?>#consegna"><?=e(__t('ecommerce.checkout.edit'))?></a></div>
         </section>
         <section class="wi-box p-5">
             <h2 class="subtitle mb-4"><?=e(__t('ecommerce.checkout.payment_method'))?></h2>
-            <div data-checkout-payments>
+            <div class="w-100" data-checkout-payments>
                 <?php if ($payments === []): ?>
                     <p class="text"><?=e(__t('ecommerce.checkout.no_payment_methods'))?></p>
                 <?php else: ?>
@@ -91,21 +91,21 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             <?php if (!$pickup): ?>
                 <?=Choice::make('same_as_shipping', '1')->type('checkbox')->title((string) __t('ecommerce.checkout.billing_same'))->checked(!empty($values['same_as_shipping']))?>
             <?php endif; ?>
-            <div class="d-grid col-2 col-p-1 gap-4 mt-4" data-checkout-toggle="<?=$pickup ? '' : 'same_as_shipping:off'?>">
+            <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4" data-checkout-toggle="<?=$pickup ? '' : 'same_as_shipping:off'?>">
                 <?php foreach ($billing_fields as $billingField): ?><?=$billingField?><?php endforeach; ?>
             </div>
-            <div class="mt-5">
+            <div class="w-100 mt-5">
                 <?=Choice::make('invoice', '1')->type('checkbox')->title((string) __t('ecommerce.checkout.invoice'))->checked(!empty($values['invoice']))?>
             </div>
-            <div class="mt-4" data-checkout-toggle="invoice:on">
+            <div class="w-100 mt-4" data-checkout-toggle="invoice:on">
                 <?=ChoiceGroup::make()->choices(
                     Choice::make('billing_type', 'private')->type('radio')->title((string) __t('ecommerce.checkout.billing_private'))->checked(($values['billing_type'] ?? 'private') !== 'business'),
                     Choice::make('billing_type', 'business')->type('radio')->title((string) __t('ecommerce.checkout.billing_business'))->checked(($values['billing_type'] ?? '') === 'business')
                 )?>
-                <div class="d-grid col-2 col-p-1 gap-4 mt-4">
+                <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4">
                     <?php foreach ($cf_field as $billingField): ?><?=$billingField?><?php endforeach; ?>
                 </div>
-                <div class="d-grid col-2 col-p-1 gap-4 mt-4" data-checkout-toggle="billing_type:business">
+                <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4" data-checkout-toggle="billing_type:business">
                     <?php foreach ($business_fields as $billingField): ?><?=$billingField?><?php endforeach; ?>
                 </div>
             </div>
