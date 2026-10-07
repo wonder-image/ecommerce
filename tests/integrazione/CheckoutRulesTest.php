@@ -182,10 +182,39 @@ check('col ritiro la fatturazione prende nome e telefono della consegna se vuoti
 });
 
 check('POST senza JavaScript col ritiro: l\'indirizzo di spedizione si svuota, il nome resta', function (): bool {
-    $p = CheckoutRules::post(['fulfillment_type' => 'pickup', 'phone' => '333', 'shipping_name' => 'Ada', 'shipping_city' => 'Milano', 'shipping_street' => 'Via', 'email' => 'c@example.com']);
+    $p = CheckoutRules::post(['fulfillment_type' => 'pickup', 'shipping_phone_prefix' => '+39', 'shipping_phone' => '333', 'shipping_name' => 'Ada', 'shipping_city' => 'Milano', 'shipping_street' => 'Via', 'email' => 'c@example.com']);
 
     return $p['shipping_city'] === '' && $p['shipping_street'] === '' && $p['shipping_name'] === 'Ada'
-        && $p['shipping_phone'] === '333' && $p['email'] === 'c@example.com';
+        && $p['shipping_phone'] === '333' && $p['shipping_phone_prefix'] === '+39' && $p['email'] === 'c@example.com';
+});
+
+check('il cellulare del contatto è prefisso più numero', function (): bool {
+    $p = CheckoutRules::post(['shipping_phone_prefix' => '+41', 'shipping_phone' => ' 333 1234567 ']);
+    $vuoto = CheckoutRules::post(['shipping_phone_prefix' => '+39', 'shipping_phone' => '']);
+
+    return $p['phone'] === '+41 333 1234567' && $vuoto['phone'] === '';
+});
+
+check('il telefono della fatturazione è sempre quello del contatto', function (): bool {
+    $b = CheckoutRules::billing(['same_as_shipping' => '0', 'billing_phone' => '999', 'billing_phone_prefix' => '+1'],
+        ['fulfillment_type' => 'shipping', 'shipping_phone_prefix' => '+39', 'shipping_phone' => '333']);
+
+    return $b['billing_phone'] === '333' && $b['billing_phone_prefix'] === '+39';
+});
+
+check('l\'anteprima riceve la fatturazione vera: le tasse seguono il suo paese', function (): bool {
+    $uguale = CheckoutRules::post(modulo(['billing_country' => 'DE', 'billing_city' => 'Berlin']));
+    $diverso = CheckoutRules::post(modulo(['same_as_shipping' => '0', 'billing_country' => 'DE', 'billing_city' => 'Berlin']));
+
+    return $uguale['billing_country'] === 'IT' && $uguale['billing_city'] === 'Milano'
+        && $diverso['billing_country'] === 'DE' && $diverso['billing_city'] === 'Berlin';
+});
+
+check('senza fattura l\'anteprima non riceve la partita IVA (niente tasse da azienda)', function (): bool {
+    $senza = CheckoutRules::post(modulo(['billing_type' => 'business', 'billing_pi' => '12345678901']));
+    $con = CheckoutRules::post(modulo(['invoice' => '1', 'billing_type' => 'business', 'billing_pi' => '12345678901', 'billing_cf' => 'X']));
+
+    return $senza['billing_pi'] === '' && $con['billing_pi'] === '12345678901' && $con['billing_cf'] === 'X';
 });
 
 check('con l\'accesso fatto vince l\'email dell\'utente', function (): bool {

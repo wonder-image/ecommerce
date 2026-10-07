@@ -116,7 +116,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         <section id="consegna" class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.delivery'))?></h2>
             <?php if ($shipping): ?>
-                <div class="w-100 mb-4" data-checkout-fulfillment>
+                <div class="w-100 mb-4" data-checkout-fulfillment<?=$canPickup ? '' : ' hidden'?>>
                     <?=ChoiceGroup::make()->variant('segmented')->choices(
                         Choice::make('fulfillment_type', 'shipping')->type('radio')->icon('truck')->title((string) __t('ecommerce.checkout.fulfillment_shipping'))->checked(!$pickup),
                         Choice::make('fulfillment_type', 'pickup')->type('radio')->icon('shop')->title((string) __t('ecommerce.checkout.fulfillment_pickup'))->checked($pickup)->disabled(!$canPickup)
@@ -142,8 +142,9 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     </div>
                 </div>
             <?php endif; ?>
-            <div class="w-100 mt-4">
-                <?=FormField::key('phone')->tel()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['phone'] ?? '')?>
+            <div class="w-100 d-grid col-4 gap-4 mt-4">
+                <div class="w-100 col-1"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
+                <div class="w-100 col-3"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
             </div>
             <?php if ($shipping): ?>
                 <div class="w-100 mt-5" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
@@ -189,11 +190,15 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                     Choice::make('billing_type', 'private')->type('radio')->title((string) __t('ecommerce.checkout.billing_private'))->checked(!$business),
                     Choice::make('billing_type', 'business')->type('radio')->title((string) __t('ecommerce.checkout.billing_business'))->checked($business)
                 )?>
-                <div class="w-100 mt-4" data-checkout-toggle="billing_type:private"<?=$business ? ' hidden' : ''?>>
-                    <?php foreach ($cf_field as $field): ?><?=$field?><?php endforeach; ?>
-                </div>
-                <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4" data-checkout-toggle="billing_type:business"<?=$business ? '' : ' hidden'?>>
-                    <?php foreach ($business_fields as $field): ?><?=$field?><?php endforeach; ?>
+                <?php /* Il codice fiscale serve a tutti e due: l'azienda può averne uno diverso dalla partita IVA. */ ?>
+                <div class="w-100 d-grid col-2 col-p-1 gap-4 mt-4">
+                    <?php foreach ($invoice_fields as $key => $field): ?>
+                        <?php if ($key === 'billing_cf'): ?>
+                            <div class="w-100"><?=$field?></div>
+                        <?php else: ?>
+                            <div class="w-100" data-checkout-toggle="billing_type:business"<?=$business ? '' : ' hidden'?>><?=$field?></div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </section>

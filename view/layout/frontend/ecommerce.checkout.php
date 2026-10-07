@@ -18,7 +18,7 @@ if (($checkoutCss = module_asset('ecommerce', 'css/checkout.css')) !== '') {
     <?php if ($errors !== []): ?>
         <?=Alert::make(implode("\n", $errors), 'error')->title((string) __t('ecommerce.checkout.error_title'))->render()?>
     <?php endif; ?>
-    <section>
+    <section class="wi-checkout-section">
         <div class="content">
             <div class="w-100"><?=$PAGE_CONTENT?></div>
         </div>

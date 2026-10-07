@@ -1,6 +1,14 @@
 /* Pagina unica del checkout: modulo a sinistra, riepilogo grigio e sticky a destra. */
+/* Le section del sito tagliano quello che esce: col taglio lo sticky non si muove. */
+.wi-checkout-section {
+    overflow: visible;
+}
 .wi-checkout {
     align-items: start;
+}
+/* Un pannello chiuso sparisce anche quando è una griglia (.d-grid vince su [hidden]). */
+.wi-checkout [hidden] {
+    display: none !important;
 }
 .wi-checkout__form {
     width: 100%;
@@ -9,15 +17,13 @@
 }
 .wi-checkout__aside {
     position: sticky;
-    top: 0;
-    max-height: 100vh;
+    top: calc(var(--spacer) * 6);
+    max-height: calc(100vh - var(--spacer) * 12);
     overflow: auto;
     padding: calc(var(--spacer) * 6);
     box-sizing: border-box;
     background: #f5f5f5;
-    /* Il grigio arriva fino al bordo destro della finestra. */
-    box-shadow: 0 0 0 100vmax #f5f5f5;
-    clip-path: inset(0 -100vmax 0 0);
+    border-radius: var(--button-border-radius, 8px);
 }
 .wi-checkout__currency {
     font-size: var(--text-small-font-size);

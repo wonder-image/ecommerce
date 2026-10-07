@@ -67,15 +67,15 @@ final class CheckoutController
                 Order::shippingAddress()->formSchema($values['shipping_country'] ?? null),
                 array_flip(['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'])
             ), $values),
+            // Il cellulare si chiede una volta, nei contatti.
             'billing_fields' => self::fields(array_diff_key(
                 $billing,
-                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
+                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec', 'billing_phone_prefix', 'billing_phone'])
             ), $values),
-            'business_fields' => self::fields(array_intersect_key(
+            'invoice_fields' => self::fields(array_intersect_key(
                 $billing,
-                array_flip(['billing_business_name', 'billing_pi', 'billing_sdi', 'billing_pec'])
+                array_flip(['billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec'])
             ), $values),
-            'cf_field' => self::fields(array_intersect_key($billing, ['billing_cf' => true]), $values),
             'consents' => CheckoutRules::askedConsents((int) ($user->id ?? 0)),
             'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
@@ -97,7 +97,7 @@ final class CheckoutController
     private static function initialSummary(int $cartId, array $values, bool $keepCart): ?array
     {
         try {
-            return CheckoutSummary::payload($cartId, $values, CartSession::user(), $keepCart);
+            return CheckoutSummary::payload($cartId, CheckoutRules::post($values, CartSession::user()), CartSession::user(), $keepCart);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.index');
 
@@ -330,10 +330,7 @@ final class CheckoutController
             ?: ContactAddress::find(['contact_id' => $contactId, 'deleted' => 'false'], 1);
         $shipping = is_array($shipping) ? $shipping : [];
 
-        $values = [
-            'email' => (string) ($user->email ?? $contact['email'] ?? ''),
-            'phone' => (string) ($user->phone ?? $contact['phone'] ?? ''),
-        ];
+        $values = ['email' => (string) ($user->email ?? $contact['email'] ?? '')];
         foreach (Order::billingAddress()->keys() as $key) {
             $source = substr($key, strlen('billing_'));
             $values[$key] = (string) ($contact[$source] ?? '');
@@ -345,19 +342,48 @@ final class CheckoutController
         $values['billing_country'] = $values['billing_country'] ?: 'IT';
         $values['shipping_country'] = $values['shipping_country'] ?: 'IT';
 
+        // Il cellulare del contatto: il numero salvato porta il prefisso davanti.
+        if ($values['shipping_phone'] === '') {
+            $prefix = (string) ($contact['phone_prefix'] ?? '');
+            $phone = (string) (($contact['phone'] ?? '') ?: ($user->phone ?? ''));
+            $digits = (string) preg_replace('/\D+/', '', $phone);
+            $prefixDigits = (string) preg_replace('/\D+/', '', $prefix);
+            if ($prefixDigits !== '' && str_starts_with($digits, $prefixDigits)) {
+                $phone = substr($digits, strlen($prefixDigits));
+            }
+            $values['shipping_phone_prefix'] = $prefix;
+            $values['shipping_phone'] = $phone;
+        }
+        if ($values['shipping_phone_prefix'] === '' && function_exists('countryPhonePrefix')) {
+            $values['shipping_phone_prefix'] = (string) countryPhonePrefix($values['shipping_country']);
+        }
+
         return $values;
     }
 
-    /** @return list<object> */
+    /**
+     * I campi con valore e label della lingua: lo schema dell'indirizzo non
+     * ne ha e il campo scriverebbe la sua chiave.
+     *
+     * @return array<string, object>
+     */
     private static function fields(array $schema, array $values): array
     {
+        $labels = Order::shippingAddress()->labels() + Order::billingAddress()->labels();
+
         foreach ($schema as $key => $field) {
-            if (is_object($field) && method_exists($field, 'value') && array_key_exists($key, $values)) {
+            if (!is_object($field)) {
+                continue;
+            }
+            if (isset($labels[$key]) && method_exists($field, 'label')) {
+                $field->label((string) $labels[$key]);
+            }
+            if (method_exists($field, 'value') && array_key_exists($key, $values)) {
                 $field->value((string) $values[$key]);
             }
         }
 
-        return array_values($schema);
+        return $schema;
     }
 
     private static function guestAllowed(): bool

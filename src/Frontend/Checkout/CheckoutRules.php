@@ -68,16 +68,21 @@ final class CheckoutRules
     }
 
     /**
-     * Il POST della pagina come va sul carrello: il telefono del contatto è
-     * anche quello del corriere, col ritiro non resta un indirizzo vecchio,
-     * con l'accesso fatto l'email è quella dell'utente.
+     * Il POST della pagina come va sul carrello: il cellulare del contatto
+     * (prefisso e numero) è anche quello del corriere, col ritiro non resta
+     * un indirizzo vecchio, con l'accesso fatto l'email è quella dell'utente.
+     * La fatturazione arriva già decisa: le tasse si calcolano su quella.
      *
      * @param array<string, mixed> $post
      * @return array<string, mixed>
      */
     public static function post(array $post, ?object $user = null): array
     {
-        $post['shipping_phone'] = (string) ($post['phone'] ?? '');
+        $prefix = is_scalar($post['shipping_phone_prefix'] ?? null) ? trim((string) $post['shipping_phone_prefix']) : '';
+        $number = is_scalar($post['shipping_phone'] ?? null) ? trim((string) $post['shipping_phone']) : '';
+        $post['shipping_phone_prefix'] = $prefix;
+        $post['shipping_phone'] = $number;
+        $post['phone'] = $number === '' ? '' : trim($prefix.' '.$number);
 
         if ((string) ($post['fulfillment_type'] ?? '') === 'pickup') {
             foreach (Order::shippingAddress()->keys() as $key) {
@@ -92,7 +97,7 @@ final class CheckoutRules
             $post['email'] = $email;
         }
 
-        return $post;
+        return array_merge($post, self::billing($post, $post));
     }
 
     /**
@@ -116,8 +121,9 @@ final class CheckoutRules
     /**
      * La fatturazione da scrivere sull'ordine: «Uguale all'indirizzo di
      * spedizione» (di partenza, `same_as_shipping` diverso da `0`) copia
-     * l'indirizzo, non col ritiro; col ritiro nome e telefono vuoti vengono
-     * dalla consegna; «Mi serve la fattura» decide il tipo.
+     * l'indirizzo, non col ritiro; col ritiro nome e cognome vuoti vengono
+     * dalla consegna; il cellulare è sempre quello dei contatti; «Mi serve la
+     * fattura» decide il tipo.
      *
      * @param array<string, mixed> $post
      * @param array<string, mixed> $order
@@ -140,13 +146,18 @@ final class CheckoutRules
             }
         }
 
-        // Col ritiro nome e telefono si scrivono una volta sola, nella consegna.
+        // Col ritiro nome e cognome si scrivono una volta sola, nella consegna.
         if ($pickup) {
-            foreach (['name', 'surname', 'phone'] as $field) {
+            foreach (['name', 'surname'] as $field) {
                 if (($billing['billing_'.$field] ?? '') === '') {
                     $billing['billing_'.$field] = trim((string) ($order['shipping_'.$field] ?? ''));
                 }
             }
+        }
+
+        // Il cellulare si chiede una volta, nei contatti.
+        foreach (['phone_prefix', 'phone'] as $field) {
+            $billing['billing_'.$field] = trim((string) ($order['shipping_'.$field] ?? ''));
         }
 
         $invoice = !empty($post['invoice']);

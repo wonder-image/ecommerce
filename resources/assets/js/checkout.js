@@ -29,7 +29,8 @@ class Checkout {
             return;
         }
 
-        const watch = 'select, [name^="shipping_"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
+        // Anche la fatturazione: le tasse si calcolano sul suo indirizzo.
+        const watch = 'select, [name^="shipping_"], [name^="billing_"], [name="same_as_shipping"], [name="invoice"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
 
         this.form.addEventListener('change', (event) => {
             if (event.target.hasAttribute('aria-invalid')) this.fieldError(event.target, '');
@@ -247,6 +248,9 @@ class Checkout {
 
         const pickup = payload.fulfillment.choices.includes('pickup');
 
+        // Senza sedi per il ritiro non c'è niente da scegliere.
+        box.hidden = !pickup;
+
         box.querySelectorAll('[name="fulfillment_type"]').forEach((radio) => {
             radio.checked = radio.value === payload.fulfillment.type;
 
@@ -450,13 +454,13 @@ class Checkout {
         return value === wanted;
     }
 
-    // Col ritiro (o con «indirizzo diverso») nome, cognome e telefono partono da quelli della consegna.
+    // Col ritiro (o con «indirizzo diverso») nome e cognome partono da quelli della consegna.
     mirror() {
         if (!this.form) {
             return;
         }
 
-        [['shipping_name', 'billing_name'], ['shipping_surname', 'billing_surname'], ['phone', 'billing_phone']].forEach(([from, to]) => {
+        [['shipping_name', 'billing_name'], ['shipping_surname', 'billing_surname']].forEach(([from, to]) => {
             const source = this.form.querySelector(`[name="${from}"]`);
             const target = this.form.querySelector(`[name="${to}"]`);
 

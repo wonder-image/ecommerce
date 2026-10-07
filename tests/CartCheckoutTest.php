@@ -347,8 +347,63 @@ check('il riepilogo è sticky e le righe non hanno lo SKU', function (): bool {
     $css = (string) @file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
     $righe = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/lines.php');
 
-    return str_contains($css, 'position: sticky') && str_contains($css, '100vmax') && str_contains($css, '560px')
+    return str_contains($css, 'position: sticky') && str_contains($css, '560px')
         && !str_contains($righe, 'data-line-sku') && str_contains($righe, '64px');
+});
+
+check('il riepilogo è un box grigio che resta fermo: la section del layout non taglia lo sticky', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
+    $layout = (string) file_get_contents(dirname(__DIR__).'/view/layout/frontend/ecommerce.checkout.php');
+
+    return !str_contains($css, '100vmax') && str_contains($css, 'border-radius')
+        && str_contains($layout, '<section class="wi-checkout-section">')
+        && (bool) preg_match('/\.wi-checkout-section\s*\{[^}]*overflow:\s*visible/', $css);
+});
+
+check('i pannelli nascosti del checkout spariscono anche se sono griglie', fn (): bool =>
+    (bool) preg_match('/\.wi-checkout \[hidden\]\s*\{\s*display:\s*none\s*!important/', (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css'))
+);
+
+check('senza sedi per il ritiro la scelta spedizione/ritiro non si vede', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($v, "data-checkout-fulfillment<?=\$canPickup ? '' : ' hidden'?>")
+        && str_contains($js, 'box.hidden = !pickup');
+});
+
+check('i campi indirizzo del checkout hanno le label della lingua', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($c, 'Order::shippingAddress()->labels()') && str_contains($c, 'Order::billingAddress()->labels()')
+        && str_contains($c, '->label((string) $labels[$key])');
+});
+
+check('il cellulare è prefisso più numero e si chiede una volta sola', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($v, "FormField::key('shipping_phone_prefix')->phonePrefix()")
+        && str_contains($v, "FormField::key('shipping_phone')->phone()")
+        && !str_contains($v, "FormField::key('phone')")
+        && str_contains($c, "'billing_phone_prefix', 'billing_phone'")
+        && !str_contains($js, "['phone', 'billing_phone']");
+});
+
+check('con la fattura il codice fiscale c\'è per privato e azienda, il resto solo per l\'azienda', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+
+    return str_contains($v, '$invoice_fields') && !str_contains($v, '$cf_field') && !str_contains($v, '$business_fields')
+        && !str_contains($v, 'billing_type:private') && str_contains($v, "\$key === 'billing_cf'");
+});
+
+check('le tasse seguono la fatturazione: anteprima e prima visita passano dalle regole', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post($values, CartSession::user())')
+        && str_contains($js, '[name^="billing_"]') && str_contains($js, '[name="same_as_shipping"]') && str_contains($js, '[name="invoice"]');
 });
 
 check('checkout.js lavora su una pagina sola', function (): bool {
