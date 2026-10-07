@@ -6,6 +6,7 @@ use Throwable;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
+use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
@@ -36,6 +37,8 @@ final class CartController
             'csrf_token' => AuthSession::csrfToken(),
             'errors' => $flash['errors'],
             'notice' => $flash['notice'],
+            'coupons' => Gestionale::feature('coupons'),
+            'step' => 'cart',
         ])->render();
     }
 
@@ -130,7 +133,7 @@ final class CartController
         exit('CSRF token invalid');
     }
 
-    private static function flash(array $errors = [], string $notice = ''): void
+    public static function flash(array $errors = [], string $notice = ''): void
     {
         $_SESSION['ecommerce_cart_flash'] = [
             'errors' => array_values(array_filter(array_map('strval', $errors))),

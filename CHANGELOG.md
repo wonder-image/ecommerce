@@ -24,6 +24,22 @@ versionamento semantico.
 - Token colore auth dedicati, view auth sigillate e rendering coerente col tema
   della pagina.
 - Impersonificazione cliente protetta da authority, token monouso, CSRF e audit.
+- Checkout con consegna: spedizione o ritiro in sede, metodi di spedizione,
+  sedi, coupon e riepilogo che si ricalcola mentre si compila (`checkout.js`,
+  rotte `summary` e `coupon`); `place` accetta i pagamenti manuali
+  `bank_transfer` e `cash` e passa consegna, metodo e sede al gestionale; eventi
+  `begin_checkout`, `add_shipping_info` e `add_payment_info`.
+- Loghi dei metodi di pagamento, pannello sotto il metodo scelto, errori sotto
+  il campo, font del commerciante su accesso, account, checkout e carrello.
 - Pagina `/account/password/` per cambiare o impostare la password, con voce
   nel menu del pannello e riga nel riepilogo; la logica è quella del core
   (`AccountPassword`).
+
+### Modificato
+
+- Checkout in una pagina sola (via i passi Spedizione e Pagamento); carrello nel
+  layout del negozio.
+
+### Rimosso
+
+- Rotte `ecommerce.checkout.shipping` e `ecommerce.checkout.payment`.

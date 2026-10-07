@@ -17,7 +17,7 @@ View::layout('frontend.main');
     <?php endif; ?>
     <section class="intro">
         <div class="content">
-            <div class="w-90 w-t-100"><?=$PAGE_CONTENT?></div>
+            <div class="w-100"><?=$PAGE_CONTENT?></div>
         </div>
     </section>
 </main>

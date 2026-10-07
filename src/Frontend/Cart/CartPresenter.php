@@ -16,6 +16,21 @@ final class CartPresenter
         return rtrim(rtrim(number_format((float) $value, 3, ',', ''), '0'), ',');
     }
 
+    /**
+     * Le righe da mostrare come articoli: spedizione e commissione le scrive
+     * l'anteprima del checkout e stanno solo nei totali.
+     *
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     */
+    public static function lines(array $items): array
+    {
+        return array_values(array_filter(
+            $items,
+            static fn (array $item): bool => !in_array((string) ($item['type'] ?? 'product'), ['shipping', 'fee'], true)
+        ));
+    }
+
     /** @param list<array<string, mixed>> $items */
     public static function count(array $items): string
     {

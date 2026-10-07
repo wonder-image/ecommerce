@@ -146,8 +146,11 @@ strutture definitive del gestionale.
 - [~] D4 Il percorso ospite è subordinato a `checkout.guest_enabled` e protetto
   da reCAPTCHA; restano l'impostazione nel backend e la decisione sulla
   conversione/collegamento successivo a un account.
-- [~] D5 Raccolta fatturazione e spedizione, riepilogo e creazione ordine sono
-  operative per i metodi manuali. Costi e scelta della spedizione attendono G7.
+- [x] D5 Raccolta fatturazione e consegna, metodi di spedizione, sedi di ritiro,
+  coupon, riepilogo che si ricalcola (`checkout.js`) e creazione ordine con i
+  metodi manuali. Checkout in una pagina sola (spec del gestionale
+  `2026-10-07-checkout-pagina-unica-design.md`, piano 2).
+  **Resta la prova nel browser su `ecommerce.test`.**
 - [ ] D6 Adapter dei provider pagamento, idempotenza callback e gestione esiti in
   ambiente test senza addebiti reali.
 - [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di

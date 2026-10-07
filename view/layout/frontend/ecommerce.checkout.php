@@ -6,7 +6,12 @@ use Wonder\View\View;
 $errors = array_values(array_filter(array_map('strval', (array) ($errors ?? []))));
 $notice = trim((string) ($notice ?? ''));
 
-View::layout('frontend.main');
+View::layout('frontend.minimal');
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('checkout');
+echo \Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet();
+if (($checkoutCss = module_asset('ecommerce', 'css/checkout.css')) !== '') {
+    echo '<link rel="stylesheet" href="'.e($checkoutCss).'">';
+}
 ?>
 <main>
     <?php if ($notice !== ''): ?>
@@ -15,9 +20,9 @@ View::layout('frontend.main');
     <?php if ($errors !== []): ?>
         <?=Alert::make(implode("\n", $errors), 'error')->title((string) __t('ecommerce.checkout.error_title'))->render()?>
     <?php endif; ?>
-    <section class="intro">
+    <section class="wi-checkout-section">
         <div class="content">
-            <div class="w-90 w-t-100"><?=$PAGE_CONTENT?></div>
+            <div class="w-100"><?=$PAGE_CONTENT?></div>
         </div>
     </section>
 </main>
