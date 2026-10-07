@@ -197,7 +197,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
                 <div class="w-100 d-grid col-4 gap-4 mt-4">
                     <?php foreach ($invoice_fields as $key => $field): ?>
                         <?php if ($key === 'billing_cf'): ?>
-                            <div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div>
+                            <div class="w-100 col-<?=CheckoutFields::span($key)?>" data-checkout-required="billing_type:private"><?=$field->required(!$business)?></div>
                         <?php else: ?>
                             <div class="w-100 col-<?=CheckoutFields::span($key)?>" data-checkout-toggle="billing_type:business"<?=$business ? '' : ' hidden'?>><?=$field?></div>
                         <?php endif; ?>

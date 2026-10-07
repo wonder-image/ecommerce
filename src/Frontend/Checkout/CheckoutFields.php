@@ -21,6 +21,18 @@ final class CheckoutFields
     }
 
     /**
+     * I campi che le regole del checkout vogliono pieni: la label prende
+     * l'asterisco. Il codice fiscale dipende dal tipo e lo decide la pagina;
+     * i campi nascosti il JS non li controlla.
+     */
+    public static function required(string $key): bool
+    {
+        $field = preg_replace('/^(shipping|billing)_/', '', $key);
+
+        return in_array($field, [...['name', 'surname'], ...CheckoutRules::ADDRESS, 'business_name', 'pi'], true);
+    }
+
+    /**
      * I campi dello schema nell'ordine delle chiavi date.
      *
      * @param array<string, mixed> $schema

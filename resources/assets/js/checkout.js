@@ -425,6 +425,16 @@ class Checkout {
 
             panel.hidden = rule !== '' && !rule.split('|').some((part) => this.matches(part));
         });
+
+        // Un campo obbligatorio solo in un caso: required e asterisco della label lo seguono.
+        this.root.querySelectorAll('[data-checkout-required]').forEach((box) => {
+            const required = box.dataset.checkoutRequired.split('|').some((part) => this.matches(part));
+
+            box.querySelectorAll('input, select, textarea').forEach((field) => { field.required = required; });
+            box.querySelectorAll('.wi-label').forEach((label) => {
+                label.textContent = label.textContent.replace(/\*$/, '') + (required ? '*' : '');
+            });
+        });
     }
 
     matches(part) {
@@ -523,7 +533,8 @@ class Checkout {
             return field.validationMessage;
         }
 
-        const label = field.id ? this.form.querySelector(`label[for="${CSS.escape(field.id)}"]`) : null;
+        // Le select disegnate dalla lib legano la label al bottone «-control».
+        const label = field.id ? this.form.querySelector(`label[for="${CSS.escape(field.id)}"], label[for="${CSS.escape(field.id)}-control"]`) : null;
         const text = (label ? label.textContent : field.name).replace('*', '').trim().toLowerCase();
 
         return (this.labels.field_required || '{{label}}').replace('{{label}}', text);

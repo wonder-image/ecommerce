@@ -11,7 +11,7 @@ final class CheckoutRules
     public const CONSENTS = ['privacy_policy', 'terms_conditions'];
 
     private const KEEP = ['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'];
-    private const ADDRESS = ['country', 'city', 'cap', 'street'];
+    public const ADDRESS = ['country', 'city', 'cap', 'street'];
     private const FISCAL = ['business_name', 'cf', 'pi', 'sdi', 'pec'];
     private const SAME = ['name', 'surname', 'country', 'province', 'city', 'cap', 'street', 'number', 'more', 'phone_prefix', 'phone'];
 

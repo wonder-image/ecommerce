@@ -396,7 +396,7 @@ check('con la fattura il codice fiscale c\'è per privato e azienda, il resto so
     $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
 
     return str_contains($v, '$invoice_fields') && !str_contains($v, '$cf_field') && !str_contains($v, '$business_fields')
-        && !str_contains($v, 'billing_type:private') && str_contains($v, "\$key === 'billing_cf'");
+        && !str_contains($v, 'data-checkout-toggle="billing_type:private"') && str_contains($v, "\$key === 'billing_cf'");
 });
 
 check('le tasse seguono la fatturazione: anteprima e prima visita passano dalle regole', function (): bool {
@@ -465,6 +465,32 @@ check('la fattura mette in fila ragione sociale e SDI, poi partita IVA, codice f
 
     return array_keys(CheckoutFields::pick($schema, CheckoutFields::INVOICE)) === ['billing_business_name', 'billing_sdi', 'billing_pi', 'billing_cf', 'billing_pec']
         && str_contains($c, 'CheckoutFields::pick($billing, CheckoutFields::INVOICE)');
+});
+
+check('i campi che il server vuole sono required, e così la label ha l\'asterisco', function (): bool {
+    foreach (['shipping_country', 'shipping_city', 'shipping_cap', 'shipping_street', 'billing_name', 'billing_surname', 'billing_country', 'billing_city', 'billing_cap', 'billing_street', 'billing_business_name', 'billing_pi'] as $key) {
+        if (!CheckoutFields::required($key)) {
+            return false;
+        }
+    }
+    foreach (['shipping_province', 'shipping_number', 'shipping_more', 'billing_sdi', 'billing_pec', 'billing_cf'] as $key) {
+        if (CheckoutFields::required($key)) {
+            return false;
+        }
+    }
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($c, 'CheckoutFields::required($key)');
+});
+
+check('il codice fiscale è obbligatorio solo per il privato, e il JS lo cambia col tipo', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($v, 'data-checkout-required="billing_type:private"')
+        && str_contains($v, '$field->required(!$business)')
+        && str_contains($js, "querySelectorAll('[data-checkout-required]')")
+        && str_contains($js, 'label[for="${CSS.escape(field.id)}-control"]');
 });
 
 summary();

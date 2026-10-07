@@ -375,6 +375,9 @@ final class CheckoutController
             if (isset($labels[$key]) && method_exists($field, 'label')) {
                 $field->label((string) $labels[$key]);
             }
+            if (CheckoutFields::required($key) && method_exists($field, 'required')) {
+                $field->required();
+            }
             if (method_exists($field, 'value') && array_key_exists($key, $values)) {
                 $field->value((string) $values[$key]);
             }
