@@ -84,3 +84,8 @@ main .wi-input-container .wi-input-list .wi-input-list-value {
 main .wi-input-container.select .select-items input.wi-input {
     padding: 12px 36px 12px 12px;
 }
+/* I pulsanti accanto ai campi (coupon) e «Ordina» sono alti come gli input. */
+main .btn.wi-input-submit {
+    line-height: var(--input-line-height) !important;
+    padding: 14px 16px !important;
+}

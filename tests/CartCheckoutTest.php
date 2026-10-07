@@ -322,6 +322,13 @@ check('store.css: input e tendine con 12px ai lati, opzioni come i campi, testi 
         && str_contains($css, 'padding: 8px 12px;');
 });
 
+check('store.css: i pulsanti accanto ai campi sono alti come gli input', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/store.css');
+
+    return str_contains($css, 'main .btn.wi-input-submit {') && str_contains($css, 'line-height: var(--input-line-height) !important;')
+        && str_contains($css, 'padding: 14px 16px !important;');
+});
+
 check('checkout: avviso di spedizione piccolissimo, griglie dei campi con gap 3 sul telefono', function (): bool {
     $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
 
