@@ -302,4 +302,16 @@ check('le viste dei passi reggono i float del sito: ogni div ha una larghezza e 
         && preg_match('/class="[^"]*\bcol-\d+ col-t-\d+\b[^"]*\bd-grid\b/', $views) !== 1;
 });
 
+check('ogni icona di pagamento ha il suo SVG e la licenza', function (): bool {
+    $dir = dirname(__DIR__).'/resources/assets/payment-icons';
+    foreach (array_keys(\Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod::ICONS) as $key) {
+        $svg = (string) @file_get_contents($dir.'/'.$key.'.svg');
+        if (!str_contains($svg, '<svg') || str_contains($svg, '<script')) {
+            return false;
+        }
+    }
+
+    return str_contains((string) @file_get_contents($dir.'/LICENSE'), 'MIT');
+});
+
 summary();
