@@ -407,6 +407,13 @@ check('le tasse seguono la fatturazione: anteprima e prima visita passano dalle 
         && str_contains($js, '[name^="billing_"]') && str_contains($js, '[name="same_as_shipping"]') && str_contains($js, '[name="invoice"]');
 });
 
+check('aperti o chiusi i pannelli, checkout.js fa ricontrollare il pulsante Ordina alla lib', function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+    $toggles = substr($js, (int) strpos($js, '    toggles() {'), 1500);
+
+    return str_contains($toggles, "if (typeof check === 'function') { check(); }");
+});
+
 check('checkout.js lavora su una pagina sola', function (): bool {
     $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
 

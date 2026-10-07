@@ -435,6 +435,9 @@ class Checkout {
                 label.textContent = label.textContent.replace(/\*$/, '') + (required ? '*' : '');
             });
         });
+
+        // La lib accende «Ordina» guardando i campi visibili: va ricontrollato dopo aver mosso i pannelli.
+        if (typeof check === 'function') { check(); }
     }
 
     matches(part) {
