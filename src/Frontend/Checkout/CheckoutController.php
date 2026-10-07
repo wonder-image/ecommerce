@@ -23,6 +23,7 @@ final class CheckoutController
 {
     private const FLASH = 'ecommerce_checkout_flash';
     private const COMPLETED = 'ecommerce_checkout_completed';
+    private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note'];
 
     public static function handle(string $action): void
     {
@@ -50,7 +51,7 @@ final class CheckoutController
         }
 
         $flash = self::pullFlash();
-        $fromCart = array_filter(CheckoutSteps::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
+        $fromCart = array_filter(self::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
         $values = $flash['values'] !== [] ? self::defaults($flash['values']) : $fromCart + self::defaults([]);
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
         $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $flash['values'] === []);
@@ -92,7 +93,7 @@ final class CheckoutController
 
         try {
             $summary = CheckoutSummary::payload($cartId, $post, CartSession::user());
-            $errors = CheckoutSteps::shippingErrors((array) Order::findById($cartId), $summary, Gestionale::feature('shipping'));
+            $errors = CheckoutRules::deliveryErrors((array) Order::findById($cartId), $summary, Gestionale::feature('shipping'));
             $messages = array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $errors);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.shipping');
@@ -152,9 +153,9 @@ final class CheckoutController
             [, $order] = self::shippingDone($cartId) ?? self::backToShipping();
             $user = CartSession::user();
             $userId = (int) ($user->id ?? 0);
-            $asked = CheckoutSteps::askedConsents($userId);
-            $billing = CheckoutSteps::billing($_POST, $order);
-            $missing = CheckoutSteps::paymentErrors($_POST, $billing, $asked);
+            $asked = CheckoutRules::askedConsents($userId);
+            $billing = CheckoutRules::billing($_POST, $order);
+            $missing = CheckoutRules::paymentErrors($_POST, $billing, $asked);
             if ($missing !== []) {
                 self::flash(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $_POST);
                 self::redirect(self::route('ecommerce.checkout.payment'));
@@ -164,7 +165,7 @@ final class CheckoutController
             $data = CheckoutForm::data([
                 'payment_method_id' => (string) ($_POST['payment_method_id'] ?? ''),
                 'customer_note' => (string) ($_POST['customer_note'] ?? ''),
-            ] + $billing + CheckoutSteps::fromCart($order), $user);
+            ] + $billing + self::fromCart($order), $user);
             $method = self::method($data['payment_method_id']);
             if (!is_array($method)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
@@ -224,7 +225,7 @@ final class CheckoutController
         $flash = self::pullFlash();
         $values = $flash['values'] !== []
             ? self::defaults($flash['values'])
-            : array_filter(CheckoutSteps::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0') + self::defaults([]) + ['same_as_shipping' => '1'];
+            : array_filter(self::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0') + self::defaults([]) + ['same_as_shipping' => '1'];
         $userId = (int) (CartSession::user()->id ?? 0);
 
         self::seo((string) __t('ecommerce.checkout.title'), self::route('ecommerce.checkout.payment'));
@@ -241,7 +242,7 @@ final class CheckoutController
                 array_flip(['billing_business_name', 'billing_pi', 'billing_sdi', 'billing_pec'])
             ), $values),
             'cf_field' => self::fields(array_intersect_key(Order::billingAddress()->formSchema($values['billing_country'] ?? null), ['billing_cf' => true]), $values),
-            'consents' => CheckoutSteps::askedConsents($userId),
+            'consents' => CheckoutRules::askedConsents($userId),
             'guest' => !CartSession::authenticated(),
             'csrf_token' => AuthSession::csrfToken(),
             'errors' => $flash['errors'],
@@ -267,7 +268,7 @@ final class CheckoutController
             return null;
         }
 
-        return CheckoutSteps::shippingComplete($order, $summary, Gestionale::feature('shipping')) ? [$summary, $order] : null;
+        return CheckoutRules::deliveryErrors($order, $summary, Gestionale::feature('shipping')) === [] ? [$summary, $order] : null;
     }
 
     private static function backToShipping(): never
@@ -552,5 +553,21 @@ final class CheckoutController
     {
         http_response_code(404);
         exit;
+    }
+
+    /**
+     * I valori dei moduli presi dal carrello: contatto, scelte, nota e indirizzi.
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, string>
+     */
+    private static function fromCart(array $order): array
+    {
+        $values = [];
+        foreach (array_merge(self::CART_KEYS, Order::shippingAddress()->keys(), Order::billingAddress()->keys()) as $key) {
+            $values[$key] = trim((string) ($order[$key] ?? ''));
+        }
+
+        return $values;
     }
 }

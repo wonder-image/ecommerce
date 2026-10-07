@@ -244,9 +244,9 @@ check('il Pagamento chiede la Spedizione completa e place ordina dal carrello', 
 
     return str_contains($routes, "['checkout_action' => 'payment']")
         && !is_file($root.'/view/pages/checkout/index.php')
-        && str_contains($c, 'CheckoutSteps::shippingComplete(')
-        && str_contains($c, 'CheckoutSteps::fromCart(')
-        && str_contains($c, 'CheckoutSteps::paymentErrors(')
+        && str_contains($c, 'CheckoutRules::deliveryErrors(')
+        && str_contains($c, 'self::fromCart(')
+        && str_contains($c, 'CheckoutRules::paymentErrors(')
         && str_contains($c, 'registerBaseConsents(')
         && str_contains($c, "'ecommerce.checkout.errors.shipping_incomplete'")
         && str_contains($view, 'data-step="payment"')
@@ -264,7 +264,7 @@ check('il passo Spedizione salva contatto e consegna e porta al Pagamento', func
     $view = (string) @file_get_contents($root.'/view/pages/checkout/shipping.php');
 
     return str_contains($routes, "['checkout_action' => 'shipping']")
-        && str_contains($c, 'CheckoutSteps::shippingErrors(')
+        && str_contains($c, 'CheckoutRules::deliveryErrors(')
         && str_contains($c, "\$post['shipping_phone']")
         && str_contains($c, "self::route('ecommerce.checkout.payment')")
         && str_contains($view, 'id="checkout"')

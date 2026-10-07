@@ -5,24 +5,24 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use Wonder\Consent\ConsentDictionary;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
-/** Le regole dei passi del checkout: cosa serve per andare avanti e cosa si scrive sull'ordine. */
-final class CheckoutSteps
+/** Le regole della pagina di checkout: cosa serve per ordinare e cosa si scrive sull'ordine. */
+final class CheckoutRules
 {
     public const CONSENTS = ['privacy_policy', 'terms_conditions'];
 
-    private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note'];
+    private const KEEP = ['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'];
     private const ADDRESS = ['country', 'city', 'cap', 'street'];
     private const FISCAL = ['business_name', 'cf', 'pi', 'sdi', 'pec'];
     private const SAME = ['name', 'surname', 'country', 'province', 'city', 'cap', 'street', 'number', 'more', 'phone_prefix', 'phone'];
 
     /**
-     * Cosa manca al passo Spedizione. `$order` è il carrello riletto dopo l'anteprima.
+     * Cosa manca a contatti e consegna. `$order` è il carrello riletto dopo l'anteprima.
      *
      * @param array<string, mixed> $order
      * @param array<string, mixed> $preview
      * @return list<string> chiavi di ecommerce.checkout.errors.*
      */
-    public static function shippingErrors(array $order, array $preview, bool $shipping): array
+    public static function deliveryErrors(array $order, array $preview, bool $shipping): array
     {
         $errors = [];
         $text = static fn (string $key): string => trim((string) ($order[$key] ?? ''));
@@ -43,11 +43,8 @@ final class CheckoutSteps
             return $errors;
         }
 
-        foreach (self::ADDRESS as $field) {
-            if ($text('shipping_'.$field) === '') {
-                $errors[] = 'address';
-                break;
-            }
+        if (!self::addressComplete($order)) {
+            $errors[] = 'address';
         }
 
         $methods = array_map('intval', array_column((array) ($preview['shipping_methods']['options'] ?? []), 'method_id'));
@@ -58,31 +55,69 @@ final class CheckoutSteps
         return $errors;
     }
 
-    /** @param array<string, mixed> $order @param array<string, mixed> $preview */
-    public static function shippingComplete(array $order, array $preview, bool $shipping): bool
+    /** @param array<string, mixed> $order */
+    public static function addressComplete(array $order): bool
     {
-        return self::shippingErrors($order, $preview, $shipping) === [];
-    }
-
-    /**
-     * I valori dei moduli presi dal carrello: contatto, scelte, nota e indirizzi.
-     *
-     * @param array<string, mixed> $order
-     * @return array<string, string>
-     */
-    public static function fromCart(array $order): array
-    {
-        $values = [];
-        foreach (array_merge(self::CART_KEYS, Order::shippingAddress()->keys(), Order::billingAddress()->keys()) as $key) {
-            $values[$key] = trim((string) ($order[$key] ?? ''));
+        foreach (self::ADDRESS as $field) {
+            if (trim((string) ($order['shipping_'.$field] ?? '')) === '') {
+                return false;
+            }
         }
 
-        return $values;
+        return true;
     }
 
     /**
-     * La fatturazione da scrivere sull'ordine: «Uguale alla spedizione» copia
-     * l'indirizzo (non col ritiro), «Mi serve la fattura» decide il tipo.
+     * Il POST della pagina come va sul carrello: il telefono del contatto è
+     * anche quello del corriere, col ritiro non resta un indirizzo vecchio,
+     * con l'accesso fatto l'email è quella dell'utente.
+     *
+     * @param array<string, mixed> $post
+     * @return array<string, mixed>
+     */
+    public static function post(array $post, ?object $user = null): array
+    {
+        $post['shipping_phone'] = (string) ($post['phone'] ?? '');
+
+        if ((string) ($post['fulfillment_type'] ?? '') === 'pickup') {
+            foreach (Order::shippingAddress()->keys() as $key) {
+                if (!in_array($key, self::KEEP, true)) {
+                    $post[$key] = '';
+                }
+            }
+        }
+
+        $email = trim((string) ($user->email ?? ''));
+        if ($email !== '') {
+            $post['email'] = $email;
+        }
+
+        return $post;
+    }
+
+    /**
+     * L'opzione di pagamento dell'anteprima con quell'id: un id che la pagina
+     * non ha offerto (manipolato o di un provider non collegato) non vale.
+     *
+     * @param array<string, mixed> $preview
+     * @return array<string, mixed>|null
+     */
+    public static function method(array $preview, int $id): ?array
+    {
+        foreach ((array) ($preview['payment_methods']['options'] ?? []) as $option) {
+            if (is_array($option) && (int) ($option['id'] ?? 0) === $id && $id > 0) {
+                return $option;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * La fatturazione da scrivere sull'ordine: «Uguale all'indirizzo di
+     * spedizione» (di partenza, `same_as_shipping` diverso da `0`) copia
+     * l'indirizzo, non col ritiro; col ritiro nome e telefono vuoti vengono
+     * dalla consegna; «Mi serve la fattura» decide il tipo.
      *
      * @param array<string, mixed> $post
      * @param array<string, mixed> $order
@@ -97,9 +132,20 @@ final class CheckoutSteps
             }
         }
 
-        if (!empty($post['same_as_shipping']) && (string) ($order['fulfillment_type'] ?? '') !== 'pickup') {
+        $pickup = (string) ($order['fulfillment_type'] ?? '') === 'pickup';
+        // «Uguale all'indirizzo di spedizione» è la scelta di partenza.
+        if (!$pickup && (string) ($post['same_as_shipping'] ?? '1') !== '0') {
             foreach (self::SAME as $field) {
                 $billing['billing_'.$field] = trim((string) ($order['shipping_'.$field] ?? ''));
+            }
+        }
+
+        // Col ritiro nome e telefono si scrivono una volta sola, nella consegna.
+        if ($pickup) {
+            foreach (['name', 'surname', 'phone'] as $field) {
+                if (($billing['billing_'.$field] ?? '') === '') {
+                    $billing['billing_'.$field] = trim((string) ($order['shipping_'.$field] ?? ''));
+                }
             }
         }
 
