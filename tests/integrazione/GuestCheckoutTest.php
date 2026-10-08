@@ -18,6 +18,7 @@ use Wonder\Auth\OneTimeToken;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\Gestionale\Models\System\MerchantSetting;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\Sql\Transaction;
 
@@ -223,6 +224,17 @@ try {
                 && ($contatto['surname'] ?? '') === 'Negozio'
                 && ($contatto['phone'] ?? '') === '0200000000';
         });
+
+        $impostazioni = MerchantSetting::current();
+        $accendi = static function (string $valore) use ($impostazioni): bool {
+            return $impostazioni === []
+                ? (bool) (MerchantSetting::create(['id' => 1, 'checkout_guest' => $valore])->success ?? false)
+                : (bool) (MerchantSetting::update(['checkout_guest' => $valore], 1)->success ?? false);
+        };
+        $acceso = $accendi('true') && GuestCheckout::enabled();
+        $spento = $accendi('false') && !GuestCheckout::enabled();
+
+        check('il checkout dell\'ospite si accende e si spegne dalle impostazioni del negozio', fn () => $acceso && $spento);
 
         throw new AnnullaGuestCheckout();
     });

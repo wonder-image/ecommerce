@@ -402,7 +402,7 @@ final class CheckoutController
 
     private static function guestAllowed(): bool
     {
-        return Ecommerce::config('checkout.guest_enabled', false) === true;
+        return GuestCheckout::enabled();
     }
 
     private static function loginUrl(): string

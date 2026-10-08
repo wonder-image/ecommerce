@@ -82,13 +82,14 @@ check('tutte le mutazioni del carrello e del checkout verificano il CSRF', funct
         && !str_contains($add, "render('wonder')");
 });
 
-check('il checkout ospite resta disattivato per default e usa reCAPTCHA se abilitato', function () use ($root) {
+check('il checkout ospite si sceglie dal backend, non dalla configurazione, e usa reCAPTCHA se abilitato', function () use ($root) {
     $config = require $root.'/config/module.php';
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
     $view = checkoutViews($root);
 
-    return $config['checkout']['guest_enabled'] === false
-        && str_contains($controller, "Ecommerce::config('checkout.guest_enabled', false)")
+    return !isset($config['checkout']['guest_enabled'])
+        && str_contains($controller, 'GuestCheckout::enabled()')
+        && !str_contains($controller, "Ecommerce::config('checkout.guest_enabled'")
         && str_contains($controller, "RecaptchaGuard::for('ecommerce_checkout')")
         && str_contains($view, "->recaptcha('ecommerce_checkout')");
 });

@@ -25,11 +25,6 @@ return [
             'apple' => false,
         ],
     ],
-    'checkout' => [
-        // Ospite: all'ordine nasce (o si riusa) l'account con la sua email e
-        // l'email al cliente porta il link per scegliere la password.
-        'guest_enabled' => false,
-    ],
     'account' => [
         'panel' => \Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel::class,
         'navigation' => [],
