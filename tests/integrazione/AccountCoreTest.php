@@ -20,6 +20,8 @@ use Wonder\Auth\Frontend\AccountController;
 use Wonder\Auth\Frontend\AccountPanel;
 use Wonder\Auth\Frontend\AccountPersonal;
 use Wonder\Auth\Frontend\AccountRoutes;
+use Wonder\Auth\Frontend\AuthProfile;
+use Wonder\Auth\Frontend\AuthRoutes;
 use Wonder\Auth\Frontend\ContactAccount;
 use Wonder\Http\Csrf;
 use Wonder\Http\Route;
@@ -61,6 +63,12 @@ function pagina(string $action, array $parameters = [], string $method = 'GET', 
 {
     $_SERVER['REQUEST_METHOD'] = $method;
     $_POST = $post;
+    // Il layout del sito chiede alle route nomi che qui non sono registrati (carrello, home):
+    // `__r` allora ricarica le route del sito e rimette il pannello del modulo, con la sua
+    // estensione. Prima di ogni pagina si rimette quello che il blocco prova.
+    if (isset($GLOBALS['REGISTRA'])) {
+        ($GLOBALS['REGISTRA'])();
+    }
     ob_start();
     try {
         (new $controller(AccountRoutes::panel(), AccountRoutes::auth()))->handle($action, $parameters);
@@ -207,9 +215,13 @@ try {
 // Pagine del pannello del core: controller, markup, modal con errori.
 try {
     Transaction::run(static function (): void {
-        Route::reset();
-        AccountRoutes::reset();
-        AccountRoutes::register(new AccountPanel()); // senza moduli: nessuna estensione
+        $GLOBALS['REGISTRA'] = static function (): void {
+            Route::reset();
+            AccountRoutes::reset();
+            AuthRoutes::register(new AuthProfile()); // così `route('logout')` si risolve senza ricaricare le route
+            AccountRoutes::register(new AccountPanel(), new AuthProfile()); // senza moduli: nessuna estensione
+        };
+        ($GLOBALS['REGISTRA'])();
 
         $userId = clienteDiProva('account-http');
         $_SESSION['user_id'] = $userId;
@@ -401,16 +413,14 @@ try {
 // L'ecommerce si aggancia al pannello del core: estensione, route dei metodi di pagamento, pagina.
 try {
     Transaction::run(static function (): void {
-        // Il layout del sito chiede alle route nomi che qui non sono registrati (carrello, accesso):
-        // `__r` allora ricarica le route del core e cancella quelle del pannello. Prima di ogni
-        // pagina si registrano di nuovo, e gli indirizzi si leggono prima di stamparla.
-        $registra = static function (): void {
+        $GLOBALS['REGISTRA'] = static function (): void {
             Route::reset();
             AccountRoutes::reset();
-            AccountRoutes::register(new AccountPanel());
+            AuthRoutes::register(new AuthProfile());
+            AccountRoutes::register(new AccountPanel(), new AuthProfile());
             AccountRoutes::extend(new EcommerceAccountExtension());
         };
-        $registra();
+        ($GLOBALS['REGISTRA'])();
         $paymentUrl = Route::url('account.payment-methods');
         $personalUrl = Route::url('account.personal');
 
@@ -429,7 +439,6 @@ try {
         check('Metodi di pagamento fuori dal menu', fn () => str_contains($withShop, 'wi-side-nav__link" href="'.$personalUrl)
             && !str_contains($withShop, 'wi-side-nav__link" href="'.$paymentUrl));
 
-        $registra();
         $payment = pagina('payment-methods', [], 'GET', [], ControllerEcommerceDiProva::class);
         check('Metodi di pagamento: titolo, avviso Stripe e torna a Dati personali', fn () =>
             str_contains($payment, 'wi-side-layout__title') && str_contains($payment, htmlspecialchars((string) __t('ecommerce.account.payment_methods.title'), ENT_QUOTES))
@@ -440,9 +449,7 @@ try {
         check('Metodi di pagamento: SEO privata', fn () => str_contains($payment, 'NOINDEX,NOFOLLOW'));
         check('Metodi di pagamento: l\'estensione mette font e foglio di stile del negozio nell\'head', fn () =>
             str_contains($payment, 'store.css'));
-        $registra();
         $notFound = pagina('nessuna', [], 'GET', [], ControllerEcommerceDiProva::class);
-        $registra();
         $billing = pagina('billing', [], 'GET', [], ControllerEcommerceDiProva::class);
         check('le azioni del core passano ancora dal controller dell\'ecommerce', fn () =>
             $notFound === '404' && str_contains($billing, 'id="account-billing"'));
@@ -454,5 +461,6 @@ try {
     });
 } catch (AnnullaAccountCore) {
 }
+unset($GLOBALS['REGISTRA']);
 
 summary();
