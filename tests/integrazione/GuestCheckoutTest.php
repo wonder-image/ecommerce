@@ -18,7 +18,11 @@ use Wonder\Auth\OneTimeToken;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\System\MerchantSetting;
+use Wonder\Plugin\Gestionale\Support\Catalog\Code;
+use Wonder\Plugin\Gestionale\Support\Codes;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\Sql\Transaction;
 
@@ -235,6 +239,28 @@ try {
         $spento = $accendi('false') && !GuestCheckout::enabled();
 
         check('il checkout dell\'ospite si accende e si spegne dalle impostazioni del negozio', fn () => $acceso && $spento);
+
+        $registrato = 'ecommerce-registrato-'.bin2hex(random_bytes(6)).'@example.com';
+        $vecchio = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'order',
+            'email' => $registrato,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        $nuovoUtente = clienteSenzaPassword($registrato);
+        $profilo = new EcommerceAuthProfile();
+        $profilo->afterUserSaved($nuovoUtente, 'signup-request', []);
+        $primaDellaConferma = (int) (Order::findById($vecchio)['user_id'] ?? -1);
+        $profilo->afterUserSaved($nuovoUtente, 'email.verify', []);
+        $ordine = (array) Order::findById($vecchio);
+        $scheda = Contact::find(['user_id' => $nuovoUtente], 1);
+
+        check('chi conferma l\'email della registrazione ritrova nel suo account gli ordini fatti con quell\'email', fn () =>
+            $vecchio > 0
+            && $primaDellaConferma === 0
+            && (int) ($ordine['user_id'] ?? 0) === $nuovoUtente
+            && is_array($scheda) && (int) ($ordine['customer_id'] ?? 0) === (int) $scheda['id']
+        );
 
         throw new AnnullaGuestCheckout();
     });
