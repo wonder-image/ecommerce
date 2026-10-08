@@ -74,7 +74,7 @@ class EcommerceAccountController extends AccountController
 
         $this->page(Ecommerce::viewPath('pages/account/order.php'), 'orders', [
             'title' => (string) __t('ecommerce.account.orders.order_title', ['number' => (string) $order['order_number']]),
-            'seo_url' => Route::url('account.orders.show', ['code' => $code]),
+            'seo_url' => Route::url('account.orders.show', ['code' => (string) $order['code']]),
             'order' => AccountOrder::present($order),
         ]);
     }
@@ -84,7 +84,7 @@ class EcommerceAccountController extends AccountController
      *
      * @return list<array<string, mixed>>
      */
-    protected static function rows(mixed $found): array
+    public static function rows(mixed $found): array
     {
         if (!is_array($found) || $found === []) {
             return [];

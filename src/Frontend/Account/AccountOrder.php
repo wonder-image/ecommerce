@@ -72,13 +72,15 @@ final class AccountOrder
             : $row((string) __t('ecommerce.account.orders.payment'), '—');
         $rows[] = $row((string) __t('ecommerce.account.orders.payment_status_label'), in_array($paymentStatus, Order::PAYMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.payment_status.'.$paymentStatus) : '—');
 
-        foreach (self::rows(Shipment::find(['order_id' => (int) $order['id'], 'type' => 'delivery'])) as $shipment) {
+        foreach (EcommerceAccountController::rows(Shipment::find(['order_id' => (int) $order['id'], 'type' => 'delivery'], null, 'id', 'ASC')) as $shipment) {
             $tracking = trim((string) ($shipment['tracking_number'] ?? ''));
             if ($tracking === '' || (string) ($shipment['status'] ?? '') === 'cancelled') {
                 continue;
             }
             $carrier = self::byId(Carrier::class, (int) ($shipment['carrier_id'] ?? 0));
             $href = trim((string) ($shipment['tracking_url'] ?? '')) ?: Carriers::trackingUrl($carrier, $tracking);
+            // Il modello del corriere e l'indirizzo salvato sono testo libero e `e()` non spegne `javascript:` o `data:`: si linka solo http(s), come il backend.
+            $href = preg_match('#^https?://#i', $href) === 1 ? $href : '';
             $rows[] = $row((string) __t('ecommerce.account.orders.tracking'), $tracking);
             $rows[] = $row((string) __t('ecommerce.account.orders.carrier'), (string) ($carrier['name'] ?? '—'), [], $href);
         }
@@ -93,7 +95,7 @@ final class AccountOrder
      */
     private static function items(int $orderId, callable $money): array
     {
-        $lines = CartPresenter::lines(self::rows(OrderItem::find(['order_id' => $orderId], null, 'position', 'ASC')));
+        $lines = CartPresenter::lines(EcommerceAccountController::rows(OrderItem::find(['order_id' => $orderId], null, 'position', 'ASC')));
         $line = static fn (array $item): array => [
             'name' => (string) ($item['name'] ?? ''),
             'image' => trim((string) ($item['image'] ?? '')),
@@ -183,19 +185,5 @@ final class AccountOrder
         $row = $id > 0 ? $model::find(['id' => $id], 1) : null;
 
         return is_array($row) && isset($row['id']) ? $row : [];
-    }
-
-    /**
-     * Le righe di un `find()`: una riga sola, una lista o niente diventano sempre una lista.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private static function rows(mixed $found): array
-    {
-        if (!is_array($found) || $found === []) {
-            return [];
-        }
-
-        return array_is_list($found) ? array_values(array_filter($found, 'is_array')) : [$found];
     }
 }

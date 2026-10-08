@@ -230,7 +230,7 @@ check('elenco: a pari data, prima l\'ordine inserito dopo', fn () => prova(stati
 }));
 
 check('rows(): niente, una riga sola, una lista e voci che non sono righe', function (): bool {
-    $rows = Closure::bind(static fn (mixed $found): array => EcommerceAccountController::rows($found), null, ControllerOrdiniDiProva::class);
+    $rows = static fn (mixed $found): array => EcommerceAccountController::rows($found);
 
     return $rows(null) === [] && $rows([]) === [] && $rows('testo') === []
         && $rows(['code' => 'ord_x']) === [['code' => 'ord_x']]
@@ -324,5 +324,79 @@ check('dettaglio: ritiro in sede con la sede, o il ripiego se la sede non c\'è 
         && str_contains($senza, $ritiro) && str_contains($senza, e((string) __t('ecommerce.account.orders.payment')))
         && str_contains($senza, 'PRV-RIT2');
 }));
+
+check('dettaglio: il tracking non diventa mai un link che non sia http(s)', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio-tracking');
+    // Il modello del corriere e l'indirizzo salvato sulla spedizione sono testo libero: `e()` non spegne `javascript:` né `data:`.
+    $corriereJs = (int) (Carrier::create([
+        'code' => 'car_js-'.uniqid(), 'name' => 'Corriere Pericoloso',
+        'tracking_url_template' => 'javascript:alert(1)//{tracking}', 'active' => 'true',
+    ])->insert_id ?? 0);
+    $corriereOk = (int) (Carrier::create([
+        'code' => 'car_ok-'.uniqid(), 'name' => 'Corriere Onesto',
+        'tracking_url_template' => 'https://traccia.example/{tracking}', 'active' => 'true',
+    ])->insert_id ?? 0);
+    $casi = [
+        'TRK-MODELLO' => [$corriereJs, ''],
+        'TRK-SALVATO-JS' => [$corriereOk, 'JavaScript:alert(2)'],
+        'TRK-SALVATO-DATA' => [$corriereOk, 'data:text/html,<b>x</b>'],
+    ];
+    $_SESSION['user_id'] = $userId;
+    $n = 0;
+
+    foreach ($casi as $numero => [$corriere, $url]) {
+        [$id, $code] = ordineDelCliente($scheda, 'PRV-T'.++$n, '2026-03-07 10:00:00');
+        Shipment::create(['code' => Code::make(Shipment::class, Codes::SHIPMENT), 'order_id' => $id, 'type' => 'delivery', 'status' => 'in_transit', 'carrier_id' => $corriere, 'tracking_number' => $numero, 'tracking_url' => $url]);
+        $html = paginaNegozio('orders.show', ['code' => $code]);
+        $nome = $corriere === $corriereJs ? 'Corriere Pericoloso' : 'Corriere Onesto';
+
+        if (preg_match('~href="\s*(javascript|data):~i', $html) === 1 || !str_contains($html, $nome) || !str_contains($html, $numero)) {
+            return false;
+        }
+    }
+    return true;
+}));
+
+check('dettaglio: il tracking salvato sulla spedizione vince sul modello del corriere, le spedizioni in ordine', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio-tracking-url');
+    $corriere = (int) (Carrier::create([
+        'code' => 'car_url-'.uniqid(), 'name' => 'Corriere Di Prova',
+        'tracking_url_template' => 'https://traccia.example/{tracking}', 'active' => 'true',
+    ])->insert_id ?? 0);
+    [$id, $code] = ordineDelCliente($scheda, 'PRV-T-URL', '2026-03-07 11:00:00');
+    Shipment::create(['code' => Code::make(Shipment::class, Codes::SHIPMENT), 'order_id' => $id, 'type' => 'delivery', 'status' => 'in_transit', 'carrier_id' => $corriere, 'tracking_number' => 'TRK-PRIMO', 'tracking_url' => 'https://salvato.example/xyz']);
+    Shipment::create(['code' => Code::make(Shipment::class, Codes::SHIPMENT), 'order_id' => $id, 'type' => 'delivery', 'status' => 'in_transit', 'carrier_id' => $corriere, 'tracking_number' => 'TRK-SECONDO']);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('orders.show', ['code' => $code]);
+
+    return str_contains($html, 'href="https://salvato.example/xyz"') && !str_contains($html, 'https://traccia.example/TRK-PRIMO')
+        && str_contains($html, 'href="https://traccia.example/TRK-SECONDO"')
+        && str_contains($html, 'rel="noopener noreferrer"') && !str_contains($html, 'rel="noopener"')
+        && strpos($html, 'TRK-PRIMO') < strpos($html, 'TRK-SECONDO');
+}));
+
+check('dettaglio: ogni stato dell\'ordine e del pagamento ha il suo testo, in italiano e in inglese', function (): bool {
+    foreach (['it', 'en'] as $lingua) {
+        $testi = json_decode((string) file_get_contents(dirname(__DIR__, 2).'/lang/'.$lingua.'/ecommerce.json'), true, 512, JSON_THROW_ON_ERROR)['account']['orders'] ?? [];
+        foreach (Order::LIVE_STATUSES as $stato) {
+            if (!is_string($testi['status'][$stato] ?? null) || $testi['status'][$stato] === '') {
+                return false;
+            }
+        }
+        foreach (Order::PAYMENT_STATUSES as $stato) {
+            if (!is_string($testi['payment_status'][$stato] ?? null) || $testi['payment_status'][$stato] === '') {
+                return false;
+            }
+        }
+    }
+    // Nella lingua del sito la chiave si risolve davvero (`__t()` lancia se manca).
+    foreach (Order::LIVE_STATUSES as $stato) {
+        __t('ecommerce.account.orders.status.'.$stato);
+    }
+    foreach (Order::PAYMENT_STATUSES as $stato) {
+        __t('ecommerce.account.orders.payment_status.'.$stato);
+    }
+    return true;
+});
 
 summary();

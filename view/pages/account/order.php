@@ -21,7 +21,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                             <div class="wi-data-row__label"><?=e($row['label'])?></div>
                             <div class="wi-data-row__value">
                                 <?php if ($row['href'] !== ''): ?>
-                                    <a href="<?=e($row['href'])?>" target="_blank" rel="noopener"><?=e($row['value'])?></a>
+                                    <a href="<?=e($row['href'])?>" target="_blank" rel="noopener noreferrer"><?=e($row['value'])?></a>
                                 <?php else: ?>
                                     <?=e($row['value'])?>
                                 <?php endif; ?>
