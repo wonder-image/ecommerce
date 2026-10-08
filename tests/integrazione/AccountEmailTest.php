@@ -11,8 +11,10 @@ require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 require __DIR__.'/dns-fixture.php';
 
+use Wonder\App\Models\Contacts\Contact;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\AccountEmail;
+use Wonder\Auth\Frontend\ContactAccount;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAccountEmail extends RuntimeException {}
@@ -66,9 +68,13 @@ try {
 
         $wrong = AccountEmail::request($user, $new, 'sbagliata', $url, $mail);
         check('password sbagliata: niente richiesta', fn () => !$wrong->success && ($wrong->errors['current_password'] ?? '') === 'wrong');
+        $takenId = clienteDiProva('email-taken');
+        $probe = AccountEmail::request($user, infoUser($takenId, 'id')->email, 'sbagliata', $url, $mail);
+        $probeBad = AccountEmail::request($user, 'non-una-email', 'sbagliata', $url, $mail);
+        check('password sbagliata: dice solo la password, non chi è registrato', fn () =>
+            $probe->errors === ['current_password' => 'wrong'] && $probeBad->errors === ['current_password' => 'wrong']);
         $same = AccountEmail::request($user, $user->email, 'password-di-prova-123', $url, $mail);
         check('email uguale: errore email.same', fn () => !$same->success && ($same->errors['email'] ?? '') === 'same');
-        $takenId = clienteDiProva('email-taken');
         $busy = AccountEmail::request($user, infoUser($takenId, 'id')->email, 'password-di-prova-123', $url, $mail);
         check('email di un altro: errore email.exists', fn () => !$busy->success && ($busy->errors['email'] ?? '') === 'exists');
         check('nessun errore: nessuna email spedita', fn () => $mail->sent === []);
@@ -88,11 +94,17 @@ try {
         check('la vecchia email resta valida fino al clic', fn () => infoUser($userId, 'id')->email === $user->email);
         check('un link vecchio dopo una richiesta nuova non vale', fn () => AccountEmail::confirm($first) === 'invalid');
 
+        $contactId = (int) ContactAccount::link($userId)->contact_id;
+        check('prima della conferma la scheda ha la vecchia email', fn () =>
+            $contactId > 0 && (Contact::find(['id' => $contactId], 1)['email'] ?? '') === $user->email);
+
         $_SESSION['user_id'] = $takenId;
         check('la conferma cambia email e verifica', fn () =>
             AccountEmail::confirm($second) === 'confirmed'
             && infoUser($userId, 'id')->email === $new
             && (string) infoUser($userId, 'id')->email_verified === '1');
+        check('la conferma porta la nuova email anche sulla scheda', fn () =>
+            (Contact::find(['id' => $contactId], 1)['email'] ?? '') === $new);
         check('la conferma non tocca la sessione di chi è loggato', fn () => $_SESSION['user_id'] === $takenId);
         unset($_SESSION['user_id']);
         check('un link già usato non vale', fn () => AccountEmail::confirm($second) === 'invalid');
@@ -109,6 +121,37 @@ try {
             AccountEmail::confirm($pending) === 'taken' && infoUser($raceId, 'id')->email === $raceUser->email);
 
         check('un token inventato non vale', fn () => AccountEmail::confirm('inventato') === 'invalid');
+
+        // Posta che non parte: nessun link valido, nessun successo.
+        $sendId = clienteDiProva('email-send');
+        $sendUser = infoUser($sendId, 'id');
+        $sendNew = 'spedita-'.bin2hex(random_bytes(6)).'@example.com';
+        $sendMail = new PostaDiProva();
+        AccountEmail::request($sendUser, $sendNew, 'password-di-prova-123', $url, $sendMail);
+        $earlier = $sendMail->token();
+        $failedBody = '';
+        $failing = static function (string $to, string $subject, string $body) use (&$failedBody): bool {
+            $failedBody = $body;
+            return false;
+        };
+        $notSent = AccountEmail::request($sendUser, $sendNew, 'password-di-prova-123', $url, $failing);
+        $failedToken = preg_match('/[?&]token=([^\s"&<]+)/', $failedBody, $m) ? rawurldecode($m[1]) : '';
+        check('posta che non parte: nessun successo, errore mail.send', fn () => !$notSent->success && ($notSent->errors['mail'] ?? '') === 'send');
+        check('posta che non parte: il link appena emesso è revocato', fn () => $failedToken !== '' && AccountEmail::confirm($failedToken) === 'invalid');
+        check('posta che non parte: un link emesso prima non vale più', fn () => $earlier !== '' && AccountEmail::confirm($earlier) === 'invalid');
+        check('posta che non parte: l\'email non cambia', fn () => infoUser($sendId, 'id')->email === $sendUser->email);
+
+        // Un indirizzo con apostrofo, una volta confermato, conta come già usato (anche in maiuscole).
+        $aposA = clienteDiProva('email-apos-a');
+        $aposB = infoUser(clienteDiProva('email-apos-b'), 'id');
+        $aposEmail = "o'neill-".bin2hex(random_bytes(4)).'@example.com';
+        $aposMail = new PostaDiProva();
+        AccountEmail::request(infoUser($aposA, 'id'), $aposEmail, 'password-di-prova-123', $url, $aposMail);
+        check('l\'indirizzo con apostrofo si conferma', fn () => AccountEmail::confirm($aposMail->token()) === 'confirmed');
+        $dupe = AccountEmail::request($aposB, $aposEmail, 'password-di-prova-123', $url, $aposMail);
+        $dupeUpper = AccountEmail::request($aposB, strtoupper($aposEmail), 'password-di-prova-123', $url, $aposMail);
+        check('lo stesso indirizzo con apostrofo, chiesto da un altro: exists', fn () => !$dupe->success && ($dupe->errors['email'] ?? '') === 'exists');
+        check('lo stesso indirizzo con apostrofo in maiuscole: exists', fn () => !$dupeUpper->success && ($dupeUpper->errors['email'] ?? '') === 'exists');
 
         throw new AnnullaAccountEmail();
     });
