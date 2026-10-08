@@ -58,6 +58,9 @@ try {
             && infoUser($userId, 'id')->phone === '+39'.$phone
             && ($contact['birth_date'] ?? null) === '1990-05-17');
 
+        $again = AccountPersonal::save($userId, ['name' => 'Grace', 'surname' => 'Hopper', 'birth_date' => '1990-05-17', 'phone_prefix' => '+39', 'phone' => $phone], $panel, false);
+        check('salvare due volte gli stessi dati personali riesce', fn () => $again->success);
+
         $bad = AccountPersonal::save($userId, ['name' => 'Grace', 'surname' => 'Hopper', 'birth_date' => '1990-02-31'], $panel, false);
         check('una data di nascita impossibile è un errore', fn () => !$bad->success && ($bad->errors['birth_date'] ?? '') === 'invalid');
 
@@ -92,14 +95,32 @@ try {
             AccountAddresses::find($otherContact, $addressId) === null
             && AccountAddresses::delete($otherContact, $addressId) === false
             && AccountAddresses::find($contactId, $addressId) !== null);
+        $foreignEdit = AccountAddresses::save($otherContact, ['city' => 'Roma'] + $values, $addressId);
+        check('un cliente non modifica l\'indirizzo di un altro', fn () =>
+            !$foreignEdit->success && AccountAddresses::find($contactId, $addressId)['city'] === 'Torino');
         check('il cliente elimina il proprio indirizzo', fn () =>
             AccountAddresses::delete($contactId, $addressId) && AccountAddresses::find($contactId, $addressId) === null);
+
+        // Posizioni: dopo un'eliminazione l'indirizzo nuovo non ripete una posizione.
+        $first = AccountAddresses::save($contactId, ['street' => 'Via A'] + $values);
+        AccountAddresses::save($contactId, ['street' => 'Via B'] + $values);
+        AccountAddresses::save($contactId, ['street' => 'Via C'] + $values);
+        AccountAddresses::delete($contactId, (int) $first->id);
+        $fresh = AccountAddresses::save($contactId, ['street' => 'Via D'] + $values);
+        $positions = array_map(static fn (array $row): int => (int) $row['position'], AccountAddresses::all($contactId));
+        check('dopo un\'eliminazione le posizioni restano diverse e il nuovo indirizzo va in fondo', fn () =>
+            $fresh->success && count($positions) === 3 && count(array_unique($positions)) === 3
+            && (int) AccountAddresses::find($contactId, (int) $fresh->id)['position'] === max($positions));
 
         // Scheda dell'indirizzo e fatturazione.
         $card = AccountAddresses::card($values);
         check('la scheda dell\'indirizzo ha nome, telefono e due righe', fn () =>
             $card['name'] === 'Ada Lovelace' && $card['phone_href'] === 'tel:+393331234567'
             && $card['lines'] === ['Via Roma 1, 20100', 'Milano (MI)']);
+
+        $noPhone = AccountAddresses::card(['name' => 'Ada', 'surname' => 'Lovelace', 'phone_prefix' => '+39', 'phone' => '']);
+        check('senza numero la scheda non mostra il prefisso e non ha il link tel', fn () =>
+            $noPhone['phone'] === '' && $noPhone['phone_href'] === '');
 
         $billing = AccountBilling::save($contactId, ['type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT', 'province' => 'MI', 'cap' => '20100', 'city' => 'Milano', 'street' => 'Via Roma', 'number' => '1']);
         $stored = Contact::find(['id' => $contactId], 1);
