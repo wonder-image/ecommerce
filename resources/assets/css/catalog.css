@@ -1,0 +1,8 @@
+/* wonder-image/lib non espone una utility sticky: aspetto, spaziatura e
+   responsive restano affidati alle primitive della libreria. */
+main .catalog-filters-sticky {
+    position: sticky;
+    top: calc(var(--header-height, 0px) + var(--spacer) * 4);
+    max-height: calc(100vh - var(--header-height, 0px) - var(--spacer) * 8);
+    overflow-y: auto;
+}

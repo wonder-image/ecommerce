@@ -40,12 +40,13 @@ check('dipende dal modulo gestionale', fn () =>
     $manifest->dependencySlugs() === ['gestionale']
 );
 
-check('dichiara le rotte frontend e la sola azione backend di impersonificazione', fn () =>
+check('dichiara frontend, backend di impersonificazione e API di ricerca', fn () =>
     $manifest->routeFile('frontend') === dirname(__DIR__).'/config/routes/route.frontend.php'
     && is_file((string) $manifest->routeFile('frontend'))
     && $manifest->routeFile('backend') === dirname(__DIR__).'/config/routes/route.backend.php'
     && is_file((string) $manifest->routeFile('backend'))
-    && $manifest->routeFile('api') === null
+    && $manifest->routeFile('api') === dirname(__DIR__).'/config/routes/route.api.php'
+    && is_file((string) $manifest->routeFile('api'))
 );
 
 check('le rotte backend del modulo ereditano il gruppo backend del core', function () use ($manifest) {

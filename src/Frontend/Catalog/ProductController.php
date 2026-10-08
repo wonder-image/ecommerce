@@ -25,8 +25,25 @@ final class ProductController
 
         self::seo($product);
 
+        $data = $product->data();
+        $limit = max(1, (int) Ecommerce::config('catalog.recommendations_limit', 12));
+        $recentIds = array_values(array_diff(ProductHistory::read(), [(int) $data['id']]));
+        $similarIds = ProductRecommendations::similar((int) $data['id'], $limit);
+        $suggestedIds = array_values(array_diff(
+            ProductRecommendations::suggested((int) $data['id'], $limit * 2),
+            $similarIds,
+            [(int) $data['id']]
+        ));
+        $similar = ProductListing::byModelIds($similarIds, $limit);
+        $recent = ProductListing::byModelIds($recentIds, $limit);
+        $suggested = ProductListing::byModelIds($suggestedIds, $limit);
+        ProductHistory::remember((int) $data['id'], $recentIds);
+
         View::make(Ecommerce::viewPath('pages/frontend/product.php'), [
             'product' => $product,
+            'similar_products' => $similar,
+            'recent_products' => $recent,
+            'suggested_products' => $suggested,
         ])->render();
     }
 

@@ -214,7 +214,7 @@ check('una modifica del cliente scarta le risposte in viaggio e la prima visita 
 
     return preg_match('/schedule\(\) \{\s*\/\/[^\n]*\n\s*this\.sequence\+\+;/', $js) === 1
         && str_contains($js, 'this.submit(this.latest)')
-        && str_contains($c, "\$flash['values'] === []")
+        && str_contains($c, '$formState === []')
         && str_contains($c, 'CartSession::user(), !$json)')
         && str_contains($view, 'CartPresenter::lines(');
 });
@@ -235,9 +235,24 @@ check('il carrello sta nel layout del negozio, col suo font, senza passi e senza
         && str_contains($parts, "FormField::key('return')->hidden()")
         && str_contains($parts, '<details')
         && str_contains($controller, "'coupon_applied'")
-        && str_contains($controller, 'CartController::flash(')
+        && str_contains($controller, 'FlashMessage::success(')
         && in_array('components/checkout', $manifest['views']['sealed'] ?? [], true)
         && !str_contains($v.$parts, "render('wonder')");
+});
+
+check('carrello e checkout affidano i messaggi dopo redirect al FlashMessage del core', function () use ($root): bool {
+    $cart = (string) file_get_contents($root.'/src/Frontend/Cart/CartController.php');
+    $checkout = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $layouts = (string) file_get_contents($root.'/view/layout/frontend/ecommerce.shop.php')
+        .(string) file_get_contents($root.'/view/layout/frontend/ecommerce.checkout.php');
+
+    return str_contains($cart, 'FlashMessage::success(')
+        && str_contains($cart, 'FlashMessage::error(')
+        && str_contains($checkout, 'FlashMessage::success(')
+        && str_contains($checkout, 'FlashMessage::error(')
+        && !str_contains($layouts, 'Alert::make(')
+        && !str_contains($layouts, '$notice')
+        && !str_contains($layouts, '$errors');
 });
 
 check('le viste dei passi reggono i float del sito: ogni div ha una larghezza e nessuna griglia è anche uno span', function () use ($root) {

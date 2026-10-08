@@ -81,11 +81,13 @@ final class ProductDetail
                 'url' => $this->data['url'],
                 'priceCurrency' => $this->data['currency'],
                 'price' => $offer['price'],
-                'availability' => $offer['available']
-                    ? 'https://schema.org/InStock'
-                    : 'https://schema.org/OutOfStock',
                 'itemCondition' => 'https://schema.org/NewCondition',
             ];
+            if ($offer['stock_managed']) {
+                $schema['offers']['availability'] = $offer['available']
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock';
+            }
         } elseif ($offers !== []) {
             $prices = array_column($offers, 'price');
             $schema['offers'] = [
@@ -95,10 +97,12 @@ final class ProductDetail
                 'lowPrice' => min($prices),
                 'highPrice' => max($prices),
                 'offerCount' => count($offers),
-                'availability' => $this->data['available']
-                    ? 'https://schema.org/InStock'
-                    : 'https://schema.org/OutOfStock',
             ];
+            if ($this->data['stock_managed']) {
+                $schema['offers']['availability'] = $this->data['available']
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock';
+            }
         }
 
         return $schema;
@@ -165,17 +169,21 @@ final class ProductDetail
             $sale = max(0.0, (float) ($offer['sale_price'] ?? 0));
             $price = $sale > 0 && ($regular <= 0 || $sale < $regular) ? $sale : $regular;
 
+            $stockManaged = (bool) ($offer['stock_managed'] ?? $row['stock_managed'] ?? false);
             $offers[] = [
                 'product_id' => (int) $offer['product_id'],
                 'item_id' => self::string($offer['item_id'] ?? $offer['sku'] ?? $offer['product_id']),
                 'name' => self::string($offer['name'] ?? ''),
+                'option_name' => self::string($offer['option_name'] ?? $offer['name'] ?? ''),
                 'sku' => self::string($offer['sku'] ?? ''),
                 'gtin' => self::string($offer['gtin'] ?? ''),
                 'mpn' => self::string($offer['mpn'] ?? ''),
                 'regular_price' => $regular,
                 'sale_price' => $sale,
                 'price' => $price,
-                'available' => (bool) ($offer['available'] ?? false),
+                'stock_managed' => $stockManaged,
+                'available' => !$stockManaged || (bool) ($offer['available'] ?? false),
+                'attributes' => (array) ($offer['attributes'] ?? []),
             ];
         }
 
@@ -200,12 +208,15 @@ final class ProductDetail
             'product_id' => 0,
             'item_id' => self::string($row['id'] ?? ''),
             'name' => '',
+            'option_name' => '',
             'sku' => '',
             'gtin' => '',
             'mpn' => '',
             'regular_price' => 0.0,
             'price' => 0.0,
             'available' => false,
+            'stock_managed' => false,
+            'attributes' => [],
         ];
 
         $images = [];
@@ -238,6 +249,7 @@ final class ProductDetail
             'breadcrumbs' => array_values((array) ($row['breadcrumbs'] ?? [])),
             'images' => $images,
             'offers' => $offers,
+            'option_groups' => array_values((array) ($row['option_groups'] ?? [])),
             'selected_product_id' => $selected['product_id'],
             'item_id' => $selected['item_id'],
             'sku' => $selected['sku'],
@@ -246,6 +258,7 @@ final class ProductDetail
             'price' => $selected['price'],
             'regular_price' => $selected['regular_price'],
             'available' => $offers !== [] && in_array(true, array_column($offers, 'available'), true),
+            'stock_managed' => $offers !== [] && in_array(true, array_column($offers, 'stock_managed'), true),
             'currency' => $currency,
             'details' => array_values((array) ($row['details'] ?? [])),
         ];

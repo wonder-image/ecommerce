@@ -68,16 +68,16 @@ $payment = static fn (array $p): Choice => Choice::make('payment_method_id', (in
     ->icons((array) ($p['icon_urls'] ?? []))->panel((string) ($p['panel'] ?? ''))
     ->checked((int) $p['id'] === $paymentSelected);
 
-Ecommerce::layout('checkout', compact('errors', 'notice'));
-?>
-<?=DataLayer::script([
+Ecommerce::layout('checkout');
+View::head(DataLayer::script([
     'type' => 'checkout',
     'language' => __l(),
     'currency' => $currency,
 ], [
     'event' => 'begin_checkout',
     'ecommerce' => ['currency' => $currency, 'value' => (float) ($order['total'] ?? 0), 'items' => $gaItems],
-], (int) ($_SESSION['user_id'] ?? 0))?>
+], (int) ($_SESSION['user_id'] ?? 0)));
+?>
 <h1 class="wi-checkout__sr"><?=e(__t('ecommerce.checkout.title'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
 <?php /* Senza JS niente si apre o si chiude: si vede tutto il modulo. */ ?>
@@ -103,7 +103,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             <div class="w-100 d-flex gap-3 mb-3">
                 <h2 class="subtitle"><?=e(__t('ecommerce.checkout.contact'))?></h2>
                 <?php if ($guest): ?>
-                    <a class="text-small ml-auto" href="<?=e(__r('ecommerce.auth.login').'?continue='.rawurlencode((string) __r('ecommerce.checkout.index')))?>"><?=e(__t('ecommerce.checkout.login'))?></a>
+                    <a class="text-small ml-auto a-r" href="<?=e(__r('ecommerce.auth.login').'?continue='.rawurlencode((string) __r('ecommerce.checkout.index')))?>"><?=e(__t('ecommerce.checkout.login'))?></a>
                 <?php endif; ?>
             </div>
             <?php if ($guest || $user_email === ''): ?>
@@ -111,7 +111,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             <?php else: ?>
                 <div class="w-100 d-flex gap-3">
                     <p class="text"><?=e($user_email)?></p>
-                    <button type="submit" form="checkout-logout" class="ml-auto wi-checkout__link"><?=e(__t('ecommerce.checkout.logout'))?></button>
+                    <button type="submit" form="checkout-logout" class="ml-auto a-r wi-checkout__link"><?=e(__t('ecommerce.checkout.logout'))?></button>
                 </div>
             <?php endif; ?>
         </div>
@@ -191,8 +191,8 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
             </div>
             <div class="w-100 mt-4" data-checkout-toggle="invoice:on"<?=$invoice ? '' : ' hidden'?>>
                 <?=ChoiceGroup::make()->variant('segmented')->choices(
-                    Choice::make('billing_type', 'private')->type('radio')->title((string) __t('ecommerce.checkout.billing_private'))->checked(!$business),
-                    Choice::make('billing_type', 'business')->type('radio')->title((string) __t('ecommerce.checkout.billing_business'))->checked($business)
+                    Choice::make('billing_type', 'business')->type('radio')->icon('shop')->title((string) __t('ecommerce.checkout.billing_business'))->checked($business),
+                    Choice::make('billing_type', 'private')->type('radio')->icon('person')->title((string) __t('ecommerce.checkout.billing_private'))->checked(!$business)
                 )->addClass('w-100')?>
                 <?php /* Il codice fiscale serve a tutti e due: l'azienda può averne uno diverso dalla partita IVA. */ ?>
                 <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">
@@ -229,7 +229,7 @@ Ecommerce::layout('checkout', compact('errors', 'notice'));
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
     </form>
 <?php endif; ?>
-<?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== ''): ?>
-    <script src="<?=e($checkoutJs)?>"></script>
-<?php endif; ?>
+<?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+    View::head('<script src="'.e($checkoutJs).'" defer></script>');
+} ?>
 <?php View::end(); ?>

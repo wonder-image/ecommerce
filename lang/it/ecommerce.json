@@ -8,6 +8,7 @@
         "breadcrumb_products": "Prodotti",
         "listing": {
             "all": { "title": "Tutti i prodotti", "description": "Scopri tutti i prodotti disponibili nel catalogo." },
+            "filtered": { "title": "Prodotti filtrati", "description": "Tutti i prodotti filtrati in base alla tua ricerca." },
             "offers": { "title": "Offerte", "description": "Scopri i prodotti attualmente in offerta." },
             "new": { "title": "Novità", "description": "Scopri gli ultimi prodotti arrivati nel catalogo." },
             "collection": { "title": "Collezione", "description": "Esplora la collezione selezionata." },
@@ -17,28 +18,38 @@
             "results": "{{count}} prodotti",
             "empty": "Nessun prodotto corrisponde ai filtri selezionati"
         },
+        "search": { "label": "Cerca...", "submit": "Cerca", "open": "Cerca prodotti", "close": "Chiudi ricerca" },
         "filters": {
             "label": "Filtri prodotti",
-            "brand": "Marca",
+            "brand": "Brand",
             "any_brand": "Tutte le marche",
             "price": "Prezzo",
-            "price_placeholder": "es. 20-100, 50+ o -80",
+            "price_from": "Da",
+            "price_to": "A",
+            "price_range": "Da 0 € a {{max}}",
             "any_value": "Tutti",
+            "open": "Filtri",
+            "close": "Chiudi filtri",
             "apply": "Applica filtri",
-            "reset": "Azzera filtri",
+            "reset": "Annulla",
             "order": {
                 "label": "Ordina",
                 "default": "In evidenza",
                 "newest": "Più recenti",
-                "price_asc": "Prezzo crescente",
-                "price_desc": "Prezzo decrescente",
-                "name_asc": "Nome dalla A alla Z",
-                "name_desc": "Nome dalla Z alla A"
+                "price_asc": "Prezzo: basso-alto",
+                "price_desc": "Prezzo: alto-basso",
+                "name_asc": "Nome: a-z",
+                "name_desc": "Nome: z-a"
             }
         },
         "pagination": { "label": "Pagine dei prodotti" },
         "variants": "Varianti",
         "options": "Opzioni",
+        "sliders": {
+            "similar": "Articoli simili",
+            "recent": "Visti di recente",
+            "suggested": "Potrebbero piacerti"
+        },
         "description": "Descrizione",
         "price_range": "Da {{min}} a {{max}}",
         "availability": {

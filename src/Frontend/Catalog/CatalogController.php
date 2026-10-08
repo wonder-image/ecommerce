@@ -2,14 +2,15 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
+use Wonder\App\Dependencies;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\View\View;
 
 final class CatalogController
 {
     public static function index(string $action, array $parameters, array $query): void
     {
+        Dependencies::autonumeric();
         $filter = CatalogFilter::fromRequest($action, $parameters, $query);
         if (!$filter->valid()) {
             http_response_code(404);
@@ -17,8 +18,14 @@ final class CatalogController
         }
 
         $perPage = max(1, min(60, (int) Ecommerce::config('catalog.per_page', 12)));
-        $pagination = pagination(ProductModel::$table, $filter->where(), $perPage, 'catalog-products');
+        $pagination = pagination(
+            ProductListing::paginationTable(),
+            ProductListing::paginationWhere($filter),
+            $perPage,
+            'catalog-products'
+        );
         $products = ProductListing::cards($filter, (string) $pagination->limit);
+        $priceBounds = ProductListing::priceBounds($filter);
         $breadcrumbs = self::breadcrumbs($filter);
         self::seo($filter, $breadcrumbs);
 
@@ -26,6 +33,7 @@ final class CatalogController
             'filter' => $filter,
             'products' => $products,
             'brands' => ProductListing::brands(),
+            'price_bounds' => $priceBounds,
             'pagination' => $pagination,
             'breadcrumbs' => $breadcrumbs,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
@@ -51,10 +59,15 @@ final class CatalogController
 
     private static function breadcrumbs(CatalogFilter $filter): array
     {
-        return [
+        $breadcrumbs = [
             ['url' => '/', 'name' => (string) __t('ecommerce.catalog.breadcrumb_home')],
             ['url' => '/prodotti/', 'name' => (string) __t('ecommerce.catalog.breadcrumb_products')],
             ...$filter->breadcrumbs(),
         ];
+        if ($filter->hasActiveFilters()) {
+            $breadcrumbs[array_key_last($breadcrumbs)]['name'] = $filter->title();
+        }
+
+        return $breadcrumbs;
     }
 }

@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
 use Throwable;
+use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
@@ -29,14 +30,11 @@ final class CartController
     private static function index(): void
     {
         $cart = CartSession::current(false);
-        $flash = self::pullFlash();
 
         self::seo();
         View::make(Ecommerce::viewPath('pages/cart/index.php'), [
             'cart' => $cart,
             'csrf_token' => AuthSession::csrfToken(),
-            'errors' => $flash['errors'],
-            'notice' => $flash['notice'],
             'coupons' => Gestionale::feature('coupons'),
             'step' => 'cart',
         ])->render();
@@ -101,7 +99,11 @@ final class CartController
             self::json(self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors));
         }
 
-        self::flash($errors, $errors === [] ? $notice : '');
+        if ($errors === []) {
+            FlashMessage::success($notice, (string) __t('ecommerce.cart.notice_title'));
+        } else {
+            FlashMessage::error(implode("\n", $errors), (string) __t('ecommerce.cart.error_title'));
+        }
 
         self::redirect(SafeRedirect::fromRequest(
             $_POST['continue'] ?? '',
@@ -131,26 +133,6 @@ final class CartController
 
         http_response_code(419);
         exit('CSRF token invalid');
-    }
-
-    public static function flash(array $errors = [], string $notice = ''): void
-    {
-        $_SESSION['ecommerce_cart_flash'] = [
-            'errors' => array_values(array_filter(array_map('strval', $errors))),
-            'notice' => trim($notice),
-        ];
-    }
-
-    /** @return array{errors: list<string>, notice: string} */
-    private static function pullFlash(): array
-    {
-        $flash = (array) ($_SESSION['ecommerce_cart_flash'] ?? []);
-        unset($_SESSION['ecommerce_cart_flash']);
-
-        return [
-            'errors' => array_values(array_filter(array_map('strval', (array) ($flash['errors'] ?? [])))),
-            'notice' => trim((string) ($flash['notice'] ?? '')),
-        ];
     }
 
     private static function number(mixed $value): float

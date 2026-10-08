@@ -30,6 +30,7 @@ $product = ProductDetail::make([
         'mpn' => 'DINO-VERDE',
         'regular_price' => 18,
         'sale_price' => 14,
+        'stock_managed' => true,
         'available' => true,
     ]],
 ]);
@@ -47,6 +48,24 @@ check('lo schema Product e valido e coincide con prezzo, valuta e disponibilita 
         && $schema['sku'] === 'SKU-42'
         && $schema['gtin'] === '1234567890123'
         && $schema['description'] === 'Sacchetta con cordino 34x44 cm';
+});
+
+check('la disponibilita schema.org viene omessa quando il negozio non vende a giacenza', function () {
+    $product = ProductDetail::make([
+        'id' => 8,
+        'name' => 'Prodotto su ordinazione',
+        'url' => 'https://shop.test/prodotto/su-ordinazione/',
+        'offers' => [[
+            'product_id' => 43,
+            'regular_price' => 20,
+            'stock_managed' => false,
+            'available' => false,
+        ]],
+    ]);
+
+    return $product->data()['available'] === true
+        && $product->data()['stock_managed'] === false
+        && !array_key_exists('availability', $product->schemaOrg()['offers']);
 });
 
 check('view_product usa identificativo e numeri coerenti con schema e carrello', function () use ($product) {
@@ -92,9 +111,11 @@ check('la pagina espone route, SEO, breadcrumb visibile e JSON-LD senza duplicar
 
     return str_contains($route, "'/prodotto/{slug}/'")
         && str_contains($route, "name('ecommerce.catalog.product')")
-        && str_contains($view, '<script type="application/ld+json">')
-        && str_contains($view, '<nav aria-label=')
-        && str_contains($view, 'aria-current="page"')
+        && (str_contains($view, '$SEO->schemaOrg') || str_contains($view, "$"."GLOBALS['SEO']->schemaOrg"))
+        && str_contains($view, "Breadcrumb::make(")
+        && str_contains($view, 'View::head(DataLayer::script(')
+        && str_contains($view, "ProductList::make(")
+        && str_contains($view, "data-product-options")
         && substr_count($view, '<h1') === 1
         && !str_contains($view, 'BreadcrumbList');
 });

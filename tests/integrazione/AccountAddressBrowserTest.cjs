@@ -22,7 +22,8 @@ const lib = path.resolve(__dirname, '../../../lib');
             const styles = (await login.text()).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g);
             for (const style of styles) { await page.addStyleTag({ content: style[1] }); }
             await page.addStyleTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/bootstrap/bootstrap-icons.css'), 'utf8') });
-            await page.addStyleTag({ content: '@font-face { font-family: bootstrap-icons; src: url("https://ecommerce.test/assets/lib/wonder-image/dist/fonts/bootstrap-icons.woff2") format("woff2"); }' });
+            const iconFont = fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/fonts/bootstrap-icons.woff2')).toString('base64');
+            await page.addStyleTag({ content: `@font-face { font-family: bootstrap-icons; src: url("data:font/woff2;base64,${iconFont}") format("woff2"); }` });
             await page.addScriptTag({ content: 'function check() {} function ajaxRequestError() { window.stateError = true; } const pathApi = "https://ecommerce.test/api";' });
             await page.addScriptTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/jquery/jquery.js'), 'utf8') });
             await page.route('https://ecommerce.test/api/states/', async route => {
@@ -40,6 +41,7 @@ const lib = path.resolve(__dirname, '../../../lib');
                     header.className = 'site-header';
                     header.style.height = '100px';
                     document.body.prepend(header);
+                    document.querySelector('#open-address').style.marginTop = '120px';
                 });
                 await page.addScriptTag({ content: 'function disableScroll() {} function enableScroll() {}' });
                 await page.addScriptTag({ content: fs.readFileSync(path.join(lib, 'src/build/frontend/js/modal.js'), 'utf8') });

@@ -7,7 +7,7 @@ final class DataLayer
 {
     /**
      * @param array<string, mixed> $page
-     * @param array<string, mixed>|null $event
+     * @param array<string, mixed>|list<array<string, mixed>>|null $event
      */
     public static function script(array $page, ?array $event = null, ?int $userId = null): string
     {
@@ -22,9 +22,12 @@ final class DataLayer
             ."    window.dataLayer.push({$base});\n";
 
         if ($event !== null) {
-            $payload = json_encode($event, $flags) ?: '{}';
-            $script .= "    window.dataLayer.push({ ecommerce: null });\n"
-                ."    window.dataLayer.push({$payload});\n";
+            $events = array_is_list($event) ? $event : [$event];
+            foreach ($events as $item) {
+                $payload = json_encode($item, $flags) ?: '{}';
+                $script .= "    window.dataLayer.push({ ecommerce: null });\n"
+                    ."    window.dataLayer.push({$payload});\n";
+            }
         }
 
         return $script."</script>";

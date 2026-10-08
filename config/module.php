@@ -8,9 +8,20 @@ return [
         'index_url' => '/prodotti/',
         'category_url' => '/prodotti/',
         'per_page' => 12,
+        // `model`: una card per articolo; `variant`: una card per variante.
+        'listing_entity' => 'model',
+        // Mostra sotto la card le miniature delle altre varianti.
+        'card_show_variants' => true,
         'category_max_depth' => 8,
         'new_days' => 30,
         'collection_tag' => 'collezione',
+        // `auto`: bottoni per opzioni visuali o fino a 4 valori, select oltre.
+        // Un sito puo forzare il controllo per slug: ['taglia' => 'buttons'].
+        'option_selector' => [
+            'default' => 'auto',
+            'attributes' => [],
+        ],
+        'recommendations_limit' => 12,
     ],
     // Partial del sito innestate negli slot delle view sigillate (piano 2):
     // chiave dello slot => percorso della partial dentro `custom/`.
