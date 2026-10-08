@@ -102,4 +102,29 @@ check('la query sceglie l\'opzione', function () use ($conPiu) {
     return $query !== [] && $scelta === $offerta['product_id'];
 });
 
+check('cambiando colore le opzioni compatibili restano selezionate', function () use ($conPiu) {
+    $first = ProductCatalog::resolve($conPiu['slug'], $conPiu['prima'])['detail']->data();
+    $tested = 0;
+    foreach ($first['offers'] as $offer) {
+        $query = [];
+        foreach ($first['option_groups'] as $group) {
+            foreach ($group['values'] as $value) {
+                if ((string) $value['id'] === (string) ($offer['attributes'][(string) $group['id']] ?? '')) {
+                    $query[$group['slug']] = $value['slug'];
+                }
+            }
+        }
+        if ($query === []) continue;
+        $other = ProductCatalog::resolve($conPiu['slug'], $conPiu['seconda'], $query)['detail']->data();
+        foreach ($other['offers'] as $candidate) {
+            if ($candidate['attributes'] !== $offer['attributes']) continue;
+            $selected = array_values(array_filter($other['offers'], static fn ($item) => $item['product_id'] === $other['selected_product_id']))[0];
+            if ($selected['attributes'] !== $offer['attributes']) return false;
+            $tested++;
+            break;
+        }
+    }
+    return $tested > 0;
+});
+
 summary();

@@ -39,4 +39,32 @@ foreach (['', 'maglietta', '<script>', ['malformed']] as $term) {
     });
 }
 
+foreach (['Maglietta Girocollo Ros', 'Maglietta Girocollo Rosso'] as $term) {
+    [$status, $html] = $request('/cerca/?q='.rawurlencode($term));
+    check('la ricerca composta trova la variante: '.$term, function () use ($status, $html) {
+        return $status === 200 && str_contains($html, 'Maglietta Girocollo Rosso')
+            && str_contains($html, '/prodotto/maglietta-girocollo/rosso/');
+    });
+}
+[$status, $body] = $request('/api/ecommerce/catalog/products/search/', ['search' => 'Maglietta Girocollo Ros']);
+check('il suggerimento della variante contiene il suo URL', function () use ($status, $body) {
+    $results = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+    return $status === 200 && count($results) === 1
+        && $results[0]['input-value'] === 'Maglietta Girocollo Rosso'
+        && str_ends_with($results[0]['value'], '/prodotto/maglietta-girocollo/rosso/');
+});
+[$status, $html] = $request('/prodotto/maglietta-girocollo/rosso/');
+check('la scheda conserva SEO e tracking senza il titolo Varianti', function () use ($status, $html) {
+    preg_match_all('~<script type="application/ld\+json">(.*?)</script>~s', $html, $scripts);
+    foreach ($scripts[1] as $json) json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    return $status === 200 && substr_count($html, '<h1') === 1
+        && !preg_match('~<h2[^>]*>Varianti</h2>~', $html)
+        && str_contains($html, 'product-details')
+        && str_contains($html, 'product.css')
+        && str_contains($html, 'aria-current="page"')
+        && str_contains($html, '"event":"view_product"')
+        && str_contains($html, '"user":{"id":null}')
+        && str_contains($html, 'https://ecommerce.test/prodotto/maglietta-girocollo/rosso/');
+});
+
 summary();

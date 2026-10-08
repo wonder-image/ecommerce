@@ -21,3 +21,19 @@ use Wonder\Elements\Components\Button;
         </form>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('search_product');
+    if (!form) return;
+    form.addEventListener('submit', function (event) {
+        const input = form.querySelector('[name="q"]');
+        const selected = form.querySelector('.wi-input-list input:checked');
+        if (!input || !selected || input.value !== selected.dataset.wiName) return;
+        const url = new URL(selected.value, window.location.href);
+        if (url.origin !== window.location.origin) return;
+        event.preventDefault();
+        window.location.assign(url.href);
+    });
+});
+</script>

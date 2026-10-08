@@ -1,0 +1,24 @@
+/* La colonna segue il contenuto, senza distribuire l’altezza della galleria. */
+main .product-details {
+    align-self: start;
+    align-content: start;
+    grid-auto-rows: max-content;
+}
+/* Misure modificabili dal CSS del sito senza riscrivere la scheda. */
+main .product-variants {
+    --variant-size: 5rem;
+    --variant-border-width: 1px;
+    --variant-selected-border-width: 3px;
+}
+main .product-variant {
+    box-sizing: border-box;
+    border-style: solid;
+    border-width: var(--variant-border-width) !important;
+    border-color: currentColor;
+}
+main .product-variant:has(img) {
+    width: var(--variant-size);
+}
+main .product-variant[aria-current="page"] {
+    border-width: var(--variant-selected-border-width) !important;
+}

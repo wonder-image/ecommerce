@@ -12,7 +12,7 @@ if ($term !== '') {
         $name = (string) $product['name'];
         // La lib compone i suggerimenti come HTML e attributi single-quoted.
         $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $results[] = ['value' => $safeName, 'label' => $safeName, 'input-value' => $safeName];
+        $results[] = ['value' => htmlspecialchars((string) $product['url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), 'label' => $safeName, 'input-value' => $safeName];
     }
 }
 

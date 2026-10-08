@@ -29,9 +29,17 @@ final class ProductListing
 
         $modelWhere = preg_replace('/^\s*WHERE\s+/i', '', $filter->where()) ?: '1 = 0';
 
+        $term = $filter->query()['q'] ?? '';
+        $term = is_scalar($term) ? trim((string) $term) : '';
+        $variantSearch = '';
+        if ($term !== '') {
+            $like = (new \Wonder\Sql\Query())->mysqli->real_escape_string($term);
+            $variantSearch = " AND EXISTS (SELECT 1 FROM `gst_product_models` sm WHERE sm.`id` = `gst_product_variants`.`product_model_id` AND (sm.`name` LIKE '%{$like}%' OR sm.`short_description` LIKE '%{$like}%' OR `gst_product_variants`.`name` LIKE '%{$like}%' OR CONCAT(sm.`name`, ' ', `gst_product_variants`.`name`) LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_products` sp WHERE sp.`product_variant_id` = `gst_product_variants`.`id` AND sp.`active` = 'true' AND sp.`deleted` = 'false' AND (sp.`name` LIKE '%{$like}%' OR sp.`sku` LIKE '%{$like}%' OR sp.`ean` LIKE '%{$like}%' OR sp.`mpn` LIKE '%{$like}%'))))";
+        }
+
         return "WHERE `visible` = 'true' AND `deleted` = 'false' "
             ."AND EXISTS (SELECT 1 FROM `gst_products` vp WHERE vp.`product_variant_id` = `gst_product_variants`.`id` AND vp.`active` = 'true' AND vp.`deleted` = 'false') "
-            ."AND EXISTS (SELECT 1 FROM `gst_product_models` WHERE `gst_product_models`.`id` = `gst_product_variants`.`product_model_id` AND {$modelWhere})";
+            ."AND EXISTS (SELECT 1 FROM `gst_product_models` WHERE `gst_product_models`.`id` = `gst_product_variants`.`product_model_id` AND {$modelWhere})".$variantSearch;
     }
 
     public static function cards(CatalogFilter $filter, string $limit): array

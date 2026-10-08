@@ -69,6 +69,9 @@ if ($similar_products !== []) $events[] = $listEvent('similar_products', (string
 if ($recent_products !== []) $events[] = $listEvent('recent_products', (string) __t('ecommerce.catalog.sliders.recent'), $recent_products);
 if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (string) __t('ecommerce.catalog.sliders.suggested'), $suggested_products);
 
+$productStyle = module_asset('ecommerce', 'css/product.css');
+if ($productStyle !== '') View::head('<link rel="stylesheet" href="'.e($productStyle).'">');
+
 Dependencies::swiper();
 Dependencies::fancyapps();
 View::head(DataLayer::script([
@@ -101,7 +104,7 @@ Ecommerce::layout('shop');
         <?php endif; ?>
     </div>
 
-    <div class="w-100 d-grid col-1 gap-3">
+    <div class="product-details w-100 d-grid col-1 gap-3">
 
         <?php if ($data['category'] !== ''): ?>
             <div>
@@ -128,22 +131,7 @@ Ecommerce::layout('shop');
 
         </div>
 
-        <?php if (count($data['variants']) > 1): ?>
-            <div class="w-100">
-                <h2 class="p-r f-start w-100 text-small fw-600 mb-2"><?=e(__t('ecommerce.catalog.variants'))?></h2>
-                <div class="d-flex f-wrap gap-3">
-                    <?php foreach ($data['variants'] as $variant): ?>
-                        <?php if (!empty($variant['image'])): ?>
-                            <a href="<?=e($variant['url'] ?? '')?>" class="d-block w-15 f-1-1 p-2 b-1 <?=!empty($variant['active']) ? 'tx-primary' : ''?>" style="border-color:currentColor" title="<?=e($variant['name'] ?? '')?>" aria-label="<?=e($variant['name'] ?? '')?>" <?=!empty($variant['active']) ? 'aria-current="page"' : ''?>>
-                                <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" width="120" height="120" loading="lazy" class="w-100 f-1-1 o-cover">
-                            </a>
-                        <?php else: ?>
-                            <a href="<?=e($variant['url'] ?? '')?>" class="btn btn-sm <?=!empty($variant['active']) ? 'btn-primary' : 'btn-light'?>" <?=!empty($variant['active']) ? 'aria-current="page"' : ''?>><?=e($variant['name'] ?? '')?></a>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endif; ?>
+        <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants']])?>
 
         <div class="mt-6">
             <?php if (count($data['offers']) === 1): ?>
@@ -250,6 +238,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     };
+    const variantLinks = Array.from(document.querySelectorAll('.product-variants a'));
+    const updateVariantLinks = function () {
+        variantLinks.forEach(link => {
+            const url = new URL(link.href, window.location.href);
+            Object.entries(slugs).forEach(([id, group]) => {
+                if (!group.slug) return;
+                const value = selected[id] ? (group.values[selected[id]] || selected[id]) : '';
+                if (value) url.searchParams.set(group.slug, value);
+                else url.searchParams.delete(group.slug);
+            });
+            link.href = url.href;
+        });
+    };
+    variantLinks.forEach(link => link.addEventListener('click', function (event) {
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        if (link.target && link.target !== '_self') return;
+        event.preventDefault();
+        if (link.getAttribute('aria-current') === 'page') return;
+        // I colori condividono una sola voce: Indietro torna alla pagina di ingresso.
+        window.location.replace(link.href);
+    }));
     const initial = offers.find(offer => Number(offer.product_id) === <?=json_encode((int) $data['selected_product_id'], JSON_HEX_TAG)?>) || offers[0];
     Object.assign(selected, initial.attributes || {});
     form.querySelectorAll('[data-option-group]').forEach(group => {
@@ -270,6 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 button.classList.toggle('btn-light', !active);
             });
         });
+        updateVariantLinks();
         const offer = offers.find(item => Object.entries(selected).every(([key, value]) => String((item.attributes || {})[key] || '') === String(value)));
         const product = form.querySelector('[name="product_id"]');
         const submit = form.querySelector('[data-product-submit]');
@@ -291,6 +301,10 @@ document.addEventListener('DOMContentLoaded', function () {
         sync();
         remember();
     }));
+    // Al ritorno dalla cache del browser, riallinea link e controlli ripristinati.
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) sync();
+    });
     sync();
 });
 </script>

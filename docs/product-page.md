@@ -9,6 +9,13 @@ La pagina usa `ProductCatalog` per assemblare modello, variante, opzioni,
 immagini, marchio, categoria principale e disponibilita; `ProductDetail`
 normalizza una sola volta i dati usati da HTML, schema.org e tracking.
 
+Il selettore varianti è in `view/components/catalog/variants.php`, sovrascrivibile
+nel sito in `custom/modules/ecommerce/view/components/catalog/variants.php`.
+Non mostra il titolo “Varianti”. Il CSS `resources/assets/css/product.css`
+espone `--variant-size`, `--variant-border-width` e
+`--variant-selected-border-width`: la variante corrente ha un bordo più spesso.
+La griglia dei dati usa righe dimensionate sul contenuto.
+
 Le varianti mostrano esclusivamente il proprio nome e, quando disponibile,
 una miniatura quadrata. Le opzioni seguono gli assi del modello (per esempio
 Taglia e Materiale) e mostrano soltanto il valore dell'asse. La configurazione
@@ -64,3 +71,28 @@ CSS e dataLayer sono registrati con `View::head()`; gli script checkout/carrello
 sono nell'head con `defer`. Anche font e stili di accesso/account vengono
 registrati nell'head. Eventi GA4, canonical e robots mantengono la semantica
 esistente; le pagine private non ricevono dati strutturati.
+
+## Ricerca
+
+Il filtro ricerca anche il nome composto da modello e variante e limita i
+risultati alle varianti visibili con articoli attivi. In modalità catalogo
+`variant`, il termine filtra anche la singola variante, evitando di mostrare
+gli altri colori quando si cerca un colore specifico.
+I suggerimenti contengono il nome e l’URL della scheda. Selezionando un
+suggerimento e inviando il form si apre quella scheda; modificando il testo,
+l’invio torna alla ricerca nel catalogo. Canonical, Product/ItemList,
+breadcrumb e dataLayer rimangono quelli della pagina di destinazione.
+
+## Cambio colore e cronologia
+
+I link dei colori includono gli slug delle opzioni correnti, anche per la
+selezione iniziale. Quando taglia o materiale cambiano, i link si aggiornano.
+La destinazione mantiene le opzioni compatibili tramite `OptionQuery`; valori
+assenti vengono ignorati e combinazioni inesistenti usano la scelta predefinita.
+Il cambio colore usa `location.replace`, mentre la modifica delle opzioni
+usa `replaceState`: tutti i colori condividono una sola voce nella cronologia.
+Indietro torna alla pagina da cui si è entrati nel prodotto; Avanti riapre
+l’ultima variante visitata, senza attraversare i cambi colore.
+Il clic sul colore già attivo non crea una voce duplicata.
+Canonical e breadcrumb restano privi dei parametri opzione; schema.org e
+tracking vengono generati dalla scheda della variante di destinazione.

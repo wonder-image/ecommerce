@@ -240,7 +240,7 @@ final class CatalogFilter
         $term = trim((string) $value);
         if ($term === '') return;
         $like = self::escape($term);
-        $this->conditions[] = "(`name` LIKE '%{$like}%' OR `short_description` LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`deleted` = 'false' AND (p.`name` LIKE '%{$like}%' OR p.`sku` LIKE '%{$like}%' OR p.`ean` LIKE '%{$like}%' OR p.`mpn` LIKE '%{$like}%')))";
+        $this->conditions[] = "(`name` LIKE '%{$like}%' OR `short_description` LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_product_variants` v WHERE v.`product_model_id` = `gst_product_models`.`id` AND v.`visible` = 'true' AND v.`deleted` = 'false' AND (v.`name` LIKE '%{$like}%' OR CONCAT(`gst_product_models`.`name`, ' ', v.`name`) LIKE '%{$like}%') AND EXISTS (SELECT 1 FROM `gst_products` vp WHERE vp.`product_variant_id` = v.`id` AND vp.`active` = 'true' AND vp.`deleted` = 'false')) OR EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`active` = 'true' AND p.`deleted` = 'false' AND (p.`name` LIKE '%{$like}%' OR p.`sku` LIKE '%{$like}%' OR p.`ean` LIKE '%{$like}%' OR p.`mpn` LIKE '%{$like}%')))";
     }
 
     private function applyAttributes(): void
