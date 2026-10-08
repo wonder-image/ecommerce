@@ -185,8 +185,9 @@ try {
         check('Dati personali: tre righe con Modifica che apre il proprio modal', fn () =>
             substr_count($html, 'data-wi-modal-target') >= 3 && str_contains($html, 'id="account-email"'));
         preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $html, $submits);
-        check('ogni submit ha wi-input-submit', fn () =>
-            $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
+        // Salva di Dati personali, Email e Password, più Esci.
+        check('ogni submit ha wi-input-submit, e sono almeno quattro', fn () =>
+            count($submits[0]) >= 4 && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
         check('Esci posta il csrf_token all\'auth, con l\'id logout di Google Tag Manager', fn () =>
             str_contains($html, 'name="csrf_token"') && str_contains($html, AccountRoutes::auth()->route('logout')) && str_contains($html, '<form id="logout"'));
         check('voce attiva e niente voci di moduli', fn () =>
@@ -204,9 +205,22 @@ try {
             && str_contains($errorHtml, 'value="Hopper"')
             && str_contains($errorHtml, (string) __t('account.personal.errors.birth_date')));
 
+        check('con errori in Dati personali, Email e Password restano chiusi', fn () =>
+            preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-password"/', $errorHtml) === 0
+            && preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-email"/', $errorHtml) === 0
+            && preg_match('/<section[^>]*class="[^"]*no-interaction[^"]*"[^>]*id="account-password"/', $errorHtml) === 1
+            && preg_match('/<section[^>]*id="account-password"[^>]*aria-hidden="true"[^>]*\binert\b/', $errorHtml) === 1);
+
         check('il modal riaperto dal server si può cliccare, quelli chiusi restano non cliccabili', fn () =>
             preg_match('/<section[^>]*class="[^"]*no-interaction[^"]*"[^>]*id="account-personal"/', $errorHtml) === 0
             && preg_match('/<section[^>]*class="[^"]*no-interaction[^"]*"[^>]*id="account-email"/', $errorHtml) === 1);
+
+        // La classe sola non basta: aria-hidden e inert lasciano il modal fuori dalla tastiera e dagli schermi.
+        check('il modal riaperto dal server non è aria-hidden né inert', function () use ($errorHtml) {
+            $tag = preg_match('/<section[^>]*id="account-personal"[^>]*>/', $errorHtml, $found) === 1 ? $found[0] : '';
+
+            return $tag !== '' && !str_contains($tag, 'aria-hidden') && preg_match('/\binert\b/', $tag) === 0;
+        });
 
         check('salvataggio riuscito: redirect alla pagina con avviso', fn () =>
             pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'personal', 'name' => 'Grace', 'surname' => 'Hopper', 'birth_date' => '1990-05-17']) === 'redirect '.Route::url('account.personal')
