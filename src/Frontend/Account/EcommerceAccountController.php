@@ -7,10 +7,11 @@ use Wonder\Auth\Frontend\AccountPagination;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
 
-/** Le pagine del core più quelle dell'ecommerce: metodi di pagamento, ordini e dettaglio dell'ordine. */
+/** Le pagine del core più quelle dell'ecommerce: metodi di pagamento, ordini, dettaglio dell'ordine e coupon. */
 class EcommerceAccountController extends AccountController
 {
     public function handle(string $action, array $parameters = []): void
@@ -19,6 +20,7 @@ class EcommerceAccountController extends AccountController
             'payment-methods' => $this->paymentMethods(),
             'orders' => $this->orders(),
             'orders.show' => $this->order((string) ($parameters['code'] ?? '')),
+            'coupons' => $this->coupons(),
             default => parent::handle($action, $parameters),
         };
     }
@@ -76,6 +78,28 @@ class EcommerceAccountController extends AccountController
             'title' => (string) __t('ecommerce.account.orders.order_title', ['number' => (string) $order['order_number']]),
             'seo_url' => Route::url('account.orders.show', ['code' => (string) $order['code']]),
             'order' => AccountOrder::present($order),
+        ]);
+    }
+
+    /** I coupon riservati al cliente che può usare adesso, a dieci per pagina. Con la funzionalità spenta la pagina non c'è. */
+    protected function coupons(): void
+    {
+        if (!Gestionale::feature('coupons')) {
+            $this->notFound();
+        }
+
+        $contact = $this->contact((int) $this->user()->id);
+        $contactId = (int) ($contact['id'] ?? 0);
+        $coupons = AccountCoupons::forCustomer($contactId, date('Y-m-d H:i:s'));
+        $pagination = AccountPagination::make(count($coupons), AccountPagination::requested());
+
+        $this->page(Ecommerce::viewPath('pages/account/coupons.php'), 'coupons', [
+            'title' => (string) __t('ecommerce.account.coupons.title'),
+            'seo_url' => Route::url('account.coupons'),
+            'errors' => $this->contactErrors($contact),
+            'coupons' => array_slice($coupons, $pagination['offset'], $pagination['per_page']),
+            'pagination' => $pagination,
+            'base_url' => Route::url('account.coupons'),
         ]);
     }
 

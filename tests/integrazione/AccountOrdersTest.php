@@ -28,6 +28,9 @@ use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
+use Wonder\Plugin\Gestionale\Models\Promotions\Coupon;
+use Wonder\Plugin\Gestionale\Models\Promotions\CouponCustomer;
+use Wonder\Plugin\Gestionale\Models\Promotions\CouponRedemption;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\Sales\OrderItem;
 use Wonder\Plugin\Gestionale\Models\Shipping\Carrier;
@@ -398,5 +401,61 @@ check('dettaglio: ogni stato dell\'ordine e del pagamento ha il suo testo, in it
     }
     return true;
 });
+
+/** Un coupon riservato alla scheda data: id. */
+function couponDelCliente(int $scheda, array $valori = []): int
+{
+    $id = (int) (Coupon::create($valori + [
+        'code' => 'C'.strtoupper(substr(uniqid(), -8)), 'name' => 'Riservato', 'discount_type' => 'percent', 'discount_value' => '10.00',
+        'applies_to_all' => 'true', 'applies_online' => 'true', 'active' => 'true',
+    ])->insert_id ?? 0);
+    CouponCustomer::create(['coupon_id' => $id, 'customer_id' => $scheda]);
+
+    return $id;
+}
+
+check('coupon: solo quelli in corso, con valore e usi del cliente', fn () => prova(static function (): bool {
+    accendiFunzionalita(['coupons']);
+    [$userId, $scheda] = clienteConScheda('coupon');
+    $tre = couponDelCliente($scheda, ['code' => 'TREUSI', 'usage_limit_per_customer' => '3']);
+    couponDelCliente($scheda, ['code' => 'CINQUE', 'discount_type' => 'amount', 'discount_value' => '5.00']);
+    couponDelCliente($scheda, ['code' => 'GRATIS', 'discount_type' => 'free_shipping', 'discount_value' => '0.00']);
+    couponDelCliente($scheda, ['code' => 'CREDITO', 'discount_type' => 'store_credit', 'discount_value' => '20.00']);
+    couponDelCliente($scheda, ['code' => 'SPENTO', 'active' => 'false']);
+    couponDelCliente($scheda, ['code' => 'SCADUTO', 'ends_at' => date('Y-m-d H:i:s', strtotime('-1 day'))]);
+    couponDelCliente($scheda, ['code' => 'FUTURO', 'starts_at' => date('Y-m-d H:i:s', strtotime('+1 day'))]);
+    $eliminato = couponDelCliente($scheda, ['code' => 'ELIMINATO']);
+    // `deleted` non è una colonna del modello: `Coupon::update()` la scarta, l'eliminazione morbida passa dalla query.
+    Coupon::query()->Update(Coupon::$table, ['deleted' => 'true'], 'id', $eliminato);
+    [$ordine] = ordineDelCliente($scheda, 'PRV-CPN', '2026-03-07 10:00:00');
+    CouponRedemption::create(['coupon_id' => $tre, 'order_id' => $ordine, 'customer_id' => $scheda, 'email' => 'a@example.com', 'discount_amount' => '1.00', 'redeemed_at' => date('Y-m-d H:i:s')]);
+    CouponRedemption::create(['coupon_id' => $tre, 'order_id' => $ordine, 'customer_id' => $scheda, 'email' => 'a@example.com', 'discount_amount' => '1.00', 'redeemed_at' => date('Y-m-d H:i:s'), 'released_at' => date('Y-m-d H:i:s')]);
+    CouponRedemption::create(['coupon_id' => $tre, 'order_id' => $ordine, 'customer_id' => $scheda + 999, 'email' => 'b@example.com', 'discount_amount' => '1.00', 'redeemed_at' => date('Y-m-d H:i:s')]);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('coupons');
+    $nav = AccountRoutes::panel()->navigation(\infoUser($userId, 'id'), 'coupons');
+
+    return str_contains($html, 'TREUSI') && str_contains($html, '10%') && str_contains($html, '1 / 3')
+        && str_contains($html, 'CINQUE') && str_contains($html, e(CartPresenter::money('5.00', 'EUR')))
+        && str_contains($html, e((string) __t('ecommerce.account.coupons.free_shipping')))
+        && str_contains($html, e((string) __t('ecommerce.account.coupons.store_credit')))
+        && str_contains($html, '0 / '.e((string) __t('ecommerce.account.coupons.unlimited')))
+        && !str_contains($html, 'SPENTO') && !str_contains($html, 'SCADUTO') && !str_contains($html, 'FUTURO') && !str_contains($html, 'ELIMINATO')
+        && str_contains($html, (string) __t('account.pagination.summary', ['from' => 1, 'to' => 4, 'total' => 4]))
+        && array_slice(array_keys($nav), 0, 3) === ['overview', 'orders', 'coupons'];
+}));
+
+check('coupon: senza coupon stato vuoto; funzionalità spenta dà 404 e niente voce', fn () => prova(static function (): bool {
+    [$userId] = clienteConScheda('coupon-vuoto');
+    $_SESSION['user_id'] = $userId;
+    accendiFunzionalita(['coupons']);
+    $vuoto = paginaNegozio('coupons');
+    spegniFunzionalita(['coupons']);
+    $spento = paginaNegozio('coupons');
+    $nav = AccountRoutes::panel()->navigation(\infoUser($userId, 'id'), '');
+
+    return str_contains($vuoto, 'wi-empty-state') && str_contains($vuoto, e((string) __t('ecommerce.account.coupons.empty')))
+        && $spento === '404' && !isset($nav['coupons']);
+}));
 
 summary();

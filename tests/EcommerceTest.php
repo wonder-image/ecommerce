@@ -46,13 +46,14 @@ check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua 
     return in_array('pages/account', Ecommerce::sealedViews(), true)
         && is_file($root.'/view/pages/account/payment-methods.php')
         && is_file($root.'/view/pages/account/orders.php')
+        && is_file($root.'/view/pages/account/coupons.php')
         && !is_dir($root.'/view/components/account')
         && !is_file($root.'/view/layout/frontend/ecommerce.account.php')
         && !is_file($root.'/src/Frontend/Account/EcommerceAccountPanel.php')
         && str_contains($routes, 'AccountRoutes::register(new $panelClass(), new $authProfileClass())')
         && str_contains($routes, 'AccountRoutes::extend(new EcommerceAccountExtension())')
         && !str_contains($routes, "Route::name('ecommerce.account.')")
-        // account.index, account.personal, account.payment-methods, account.orders e account.orders.show, con i percorsi italiani
+        // account.index, account.personal, account.payment-methods, account.orders, account.orders.show e account.coupons, con i percorsi italiani
         && str_contains($coreRoutes, "Route::get('/', \$handler, ['account_action' => 'index'])->name('index')")
         && str_contains($coreRoutes, "\$page('/dati-personali/', 'personal')")
         && str_contains($coreRoutes, '->guarded()->permit(self::panel()->authorities())')
@@ -61,6 +62,7 @@ check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua 
         && str_contains($extension, "Route::get('/ordini/', \$handler, ['account_action' => 'orders'])->name('orders')")
         && str_contains($extension, "Route::get('/ordini/{code}/', \$handler, ['account_action' => 'orders.show'])->name('orders.show')")
         && strpos($extension, "'/ordini/'") < strpos($extension, "'/ordini/{code}/'")
+        && str_contains($extension, "Route::get('/coupon/', \$handler, ['account_action' => 'coupons'])->name('coupons')")
         && str_contains($extension, 'AccountRoutes::group(');
 });
 

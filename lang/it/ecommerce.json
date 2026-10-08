@@ -294,6 +294,16 @@
                 "partially_refunded": "Rimborsato in parte",
                 "refunded": "Rimborsato"
             }
+        },
+        "coupons": {
+            "title": "Coupon",
+            "empty": "Non hai coupon attivi",
+            "code": "Codice",
+            "value": "Valore",
+            "uses": "Usi",
+            "unlimited": "illimitato",
+            "free_shipping": "Spedizione gratuita",
+            "store_credit": "Credito"
         }
     },
     "impersonation": {

@@ -239,6 +239,16 @@
                 "partially_refunded": "Partially refunded",
                 "refunded": "Refunded"
             }
+        },
+        "coupons": {
+            "title": "Coupons",
+            "empty": "You have no active coupons",
+            "code": "Code",
+            "value": "Value",
+            "uses": "Uses",
+            "unlimited": "unlimited",
+            "free_shipping": "Free shipping",
+            "store_credit": "Credit"
         }
     },
     "impersonation": { "active": "Impersonation active", "operating_as": "You are acting as", "started_by": "started by", "stop": "Return to your account" }

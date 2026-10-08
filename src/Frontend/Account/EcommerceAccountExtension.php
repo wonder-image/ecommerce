@@ -8,6 +8,7 @@ use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
+use Wonder\Plugin\Gestionale\Gestionale;
 
 /** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio, font e stile. */
 final class EcommerceAccountExtension extends BaseAccountExtension
@@ -20,13 +21,18 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             // `/ordini/` prima di `/ordini/{code}/`.
             Route::get('/ordini/', $handler, ['account_action' => 'orders'])->name('orders');
             Route::get('/ordini/{code}/', $handler, ['account_action' => 'orders.show'])->name('orders.show');
+            // La route c'è sempre: con la funzionalità spenta è il controller a dare 404.
+            Route::get('/coupon/', $handler, ['account_action' => 'coupons'])->name('coupons');
         });
     }
 
-    /** Ordini va subito dopo Panoramica. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
+    /** Ordini, e Coupon se la funzionalità è accesa, vanno subito dopo Panoramica. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
     public function navigation(array $items, object $user): array
     {
         $own = ['orders' => ['label' => (string) __t('ecommerce.account.orders.title'), 'href' => Route::url('account.orders'), 'icon' => 'bi bi-bag']];
+        if (Gestionale::feature('coupons')) {
+            $own['coupons'] = ['label' => (string) __t('ecommerce.account.coupons.title'), 'href' => Route::url('account.coupons'), 'icon' => 'bi bi-ticket-perforated'];
+        }
         $at = array_search('overview', array_keys($items), true);
         $at = $at === false ? 0 : $at + 1;
         $items = array_slice($items, 0, $at, true) + $own + array_slice($items, $at, null, true);
