@@ -26,12 +26,12 @@ check('viewPath cade sul modulo quando il sito non ha override', function () use
     return Ecommerce::viewPath('pages/frontend/stato.php') === $root.'/view/pages/frontend/stato.php';
 });
 
-check('la configurazione tiene disabilitato di default il checkout ospite', function () use ($root, $core) {
+check('la configurazione non porta il checkout ospite: si accende dal backend', function () use ($root, $core) {
     $config = require $root.'/config/module.php';
 
     return $config['extensions'] === []
         && $config['slots'] === []
-        && $config['checkout']['guest_enabled'] === false
+        && !isset($config['checkout'])
         && $config['auth']['federated']['google'] === true
         && $config['auth']['federated']['apple'] === false;
 });
