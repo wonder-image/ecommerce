@@ -427,15 +427,68 @@ try {
         $userId = clienteDiProva('account-shop');
         $_SESSION['user_id'] = $userId;
 
+        $routeMetodi = array_values(array_filter(Route::all(), static fn ($r) => str_ends_with((string) ($r['path'] ?? ''), '/account/metodi-di-pagamento/')));
         check('l\'ecommerce aggiunge la route dei metodi di pagamento, protetta', fn () =>
-            $paymentUrl !== '' && str_ends_with($paymentUrl, '/account/metodi-di-pagamento/'));
+            str_ends_with($paymentUrl, '/account/metodi-di-pagamento/')
+            && count($routeMetodi) === 1
+            && ($routeMetodi[0]['private'] ?? false) === true
+            && ($routeMetodi[0]['permit'] ?? null) === ['client']);
+
+        // Il sito accende o spegne i metodi di pagamento con `account.payment_methods.enabled`: qui si forza
+        // sulla stessa configurazione che il codice legge.
+        $forzaMetodi = static function (bool $acceso): void {
+            Ecommerce::forgetConfig();
+            Ecommerce::config();
+            $proprieta = new ReflectionProperty(Ecommerce::class, 'config');
+            $config = (array) $proprieta->getValue(null);
+            $config['account']['payment_methods']['enabled'] = $acceso;
+            $proprieta->setValue(null, $config);
+        };
+        $label = htmlspecialchars((string) __t('ecommerce.account.payment_methods.label'), ENT_QUOTES);
+        $gestisci = htmlspecialchars((string) __t('account.actions.manage'), ENT_QUOTES);
+        $presto = htmlspecialchars((string) __t('ecommerce.account.payment_methods.soon'), ENT_QUOTES);
+        $rigaMetodi = static function (string $html) use ($label): string {
+            foreach (array_slice(explode('<div class="wi-data-row">', $html), 1) as $riga) {
+                // Solo la riga: l'ultima arriva fino a fine pagina, con i modal e i loro bottoni spenti.
+                if (str_contains($riga, $label) && preg_match('~^.*?<div class="wi-data-row__action">.*?</div>~s', $riga, $trovata)) {
+                    return $trovata[0];
+                }
+            }
+            return '';
+        };
+
+        try {
+            $forzaMetodi(false);
+            $spento = pagina('personal');
+            $rigaSpenta = $rigaMetodi($spento);
+            check('riga Metodi di pagamento in Dati personali', fn () => $rigaSpenta !== '');
+            check('Metodi di pagamento spenti: Gestisci è un bottone spento, con «presto disponibile»', fn () =>
+                (bool) preg_match('~<button\b[^>]*\bdisabled\b[^>]*>~', $rigaSpenta)
+                && str_contains($rigaSpenta, $gestisci)
+                && str_contains($rigaSpenta, $presto)
+                && !str_contains($rigaSpenta, 'href="'.$paymentUrl.'"'));
+            $paginaSpenta = pagina('payment-methods', [], 'GET', [], ControllerEcommerceDiProva::class);
+            check('Metodi di pagamento spenti: avviso di attesa', fn () =>
+                str_contains($paginaSpenta, htmlspecialchars((string) __t('ecommerce.account.payment_methods.pending'), ENT_QUOTES))
+                && str_contains($paginaSpenta, 'tx-warning'));
+
+            $forzaMetodi(true);
+            $acceso = pagina('personal');
+            $rigaAccesa = $rigaMetodi($acceso);
+            check('Metodi di pagamento accesi: Gestisci è un link attivo alla pagina dei metodi', fn () =>
+                (bool) preg_match('~<a\b[^>]*href="'.preg_quote($paymentUrl, '~').'"[^>]*>~', $rigaAccesa)
+                && str_contains($rigaAccesa, $gestisci)
+                && !preg_match('~\bdisabled\b~', $rigaAccesa)
+                && !str_contains($rigaAccesa, $presto));
+            $paginaAccesa = pagina('payment-methods', [], 'GET', [], ControllerEcommerceDiProva::class);
+            check('Metodi di pagamento accesi: avviso informativo Stripe', fn () =>
+                str_contains($paginaAccesa, htmlspecialchars((string) __t('ecommerce.account.payment_methods.ready'), ENT_QUOTES))
+                && str_contains($paginaAccesa, 'bi-info-circle') && !str_contains($paginaAccesa, 'tx-warning'));
+        } finally {
+            Ecommerce::forgetConfig();
+        }
+
         $withShop = pagina('personal');
-        $enabled = Ecommerce::config('account.payment_methods.enabled', false) === true;
-        check('riga Metodi di pagamento in Dati personali', fn () => str_contains($withShop, (string) __t('ecommerce.account.payment_methods.label')));
-        check('Metodi di pagamento: Gestisci attivo solo se acceso', fn () =>
-            $enabled
-                ? str_contains($withShop, 'href="'.$paymentUrl.'"')
-                : str_contains($withShop, (string) __t('ecommerce.account.payment_methods.soon')));
         check('Metodi di pagamento fuori dal menu', fn () => str_contains($withShop, 'wi-side-nav__link" href="'.$personalUrl)
             && !str_contains($withShop, 'wi-side-nav__link" href="'.$paymentUrl));
 
@@ -456,6 +509,21 @@ try {
         preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $payment, $submits);
         check('Metodi di pagamento: ogni submit ha wi-input-submit', fn () =>
             $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
+
+        // Il ricaricamento vero: `__r` con un nome che non c'è fa rileggere le route del sito (Route::load le
+        // azzera), e il pannello del core con la sua estensione deve ritornare, la prima volta e le successive.
+        unset($GLOBALS['REGISTRA']);
+        Route::reset();
+        AccountRoutes::reset();
+        __r('nessuna-route-con-questo-nome');
+        $dopoIlPrimo = [Route::url('account.index'), Route::url('account.payment-methods')];
+        __r('nessuna-route-con-questo-nome');
+        $dopoIlSecondo = [Route::url('account.index'), Route::url('account.payment-methods')];
+        check('dopo il ricaricamento delle route restano account.index e account.payment-methods', fn () =>
+            str_ends_with($dopoIlPrimo[0], '/account/') && str_ends_with($dopoIlPrimo[1], '/account/metodi-di-pagamento/'));
+        check('dopo un secondo ricaricamento le route dell\'account ci sono ancora, una volta sola', fn () =>
+            $dopoIlSecondo === $dopoIlPrimo
+            && count(array_filter(Route::all(), static fn ($r) => str_ends_with((string) ($r['path'] ?? ''), '/account/metodi-di-pagamento/'))) === 1);
 
         throw new AnnullaAccountCore();
     });
