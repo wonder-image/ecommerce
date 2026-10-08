@@ -264,7 +264,36 @@
             "empty": "Non hai ancora effettuato ordini",
             "order": "Ordine",
             "number": "N° {{number}}",
-            "view": "Visualizza"
+            "view": "Visualizza",
+            "order_title": "Ordine N° {{number}}",
+            "of_date": "del {{date}}",
+            "info": "Informazioni",
+            "status_label": "Stato",
+            "payment": "Pagamento",
+            "payment_status_label": "Stato pagamento",
+            "tracking": "N° spedizione",
+            "carrier": "Corriere",
+            "products": "Prodotti",
+            "summary": "Riepilogo",
+            "choice": "Scelta",
+            "delivery_address": "Indirizzo di consegna",
+            "pickup_address": "Indirizzo di ritiro",
+            "back": "Torna agli ordini",
+            "status": {
+                "pending": "In attesa",
+                "confirmed": "Confermato",
+                "processing": "In preparazione",
+                "completed": "Completato",
+                "cancelled": "Annullato"
+            },
+            "payment_status": {
+                "unpaid": "Da pagare",
+                "pending": "In attesa di pagamento",
+                "partially_paid": "Pagato in parte",
+                "paid": "Pagato",
+                "partially_refunded": "Rimborsato in parte",
+                "refunded": "Rimborsato"
+            }
         }
     },
     "impersonation": {

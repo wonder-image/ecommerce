@@ -10,7 +10,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
 
-/** Le pagine del core più quelle dell'ecommerce: metodi di pagamento e ordini. */
+/** Le pagine del core più quelle dell'ecommerce: metodi di pagamento, ordini e dettaglio dell'ordine. */
 class EcommerceAccountController extends AccountController
 {
     public function handle(string $action, array $parameters = []): void
@@ -18,6 +18,7 @@ class EcommerceAccountController extends AccountController
         match ($action) {
             'payment-methods' => $this->paymentMethods(),
             'orders' => $this->orders(),
+            'orders.show' => $this->order((string) ($parameters['code'] ?? '')),
             default => parent::handle($action, $parameters),
         };
     }
@@ -41,7 +42,8 @@ class EcommerceAccountController extends AccountController
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
         $total = $contactId > 0 ? (int) (self::rows(Order::find($condition, null, null, null, 'COUNT(*) AS total'))[0]['total'] ?? 0) : 0;
         $pagination = AccountPagination::make($total, AccountPagination::requested());
-        $orders = $total > 0 ? self::rows(Order::find($condition, $pagination['limit'], 'ordered_at', 'DESC')) : [];
+        // A pari data decide l'id: senza, le pagine potrebbero ripetere o saltare un ordine.
+        $orders = $total > 0 ? self::rows(Order::find($condition, $pagination['limit'], 'ordered_at DESC, id', 'DESC')) : [];
 
         $this->page(Ecommerce::viewPath('pages/account/orders.php'), 'orders', [
             'title' => (string) __t('ecommerce.account.orders.title'),
@@ -58,13 +60,36 @@ class EcommerceAccountController extends AccountController
         ]);
     }
 
-    /** Le righe di un `find()`: una riga sola, una lista o niente diventano sempre una lista. */
+    /**
+     * Un ordine del cliente. Lo cerca per codice con le stesse regole dell'elenco (`stage = order`, la scheda del cliente):
+     * ordini di altri, carrelli, ordini degli ospiti e codici inesistenti danno tutti 404, e senza scheda non si cerca nulla.
+     */
+    protected function order(string $code): void
+    {
+        $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
+        $order = $code !== '' && $contactId > 0 ? Order::find(['code' => $code, 'stage' => 'order'], 1) : null;
+        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId) {
+            $this->notFound();
+        }
+
+        $this->page(Ecommerce::viewPath('pages/account/order.php'), 'orders', [
+            'title' => (string) __t('ecommerce.account.orders.order_title', ['number' => (string) $order['order_number']]),
+            'seo_url' => Route::url('account.orders.show', ['code' => $code]),
+            'order' => AccountOrder::present($order),
+        ]);
+    }
+
+    /**
+     * Le righe di un `find()`: una riga sola, una lista o niente diventano sempre una lista.
+     *
+     * @return list<array<string, mixed>>
+     */
     protected static function rows(mixed $found): array
     {
         if (!is_array($found) || $found === []) {
             return [];
         }
 
-        return array_key_exists('id', $found) || array_key_exists('total', $found) ? [$found] : array_values(array_filter($found, 'is_array'));
+        return array_is_list($found) ? array_values(array_filter($found, 'is_array')) : [$found];
     }
 }

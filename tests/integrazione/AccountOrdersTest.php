@@ -27,7 +27,11 @@ use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountController;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Models\Sales\OrderItem;
+use Wonder\Plugin\Gestionale\Models\Shipping\Carrier;
+use Wonder\Plugin\Gestionale\Models\Shipping\Shipment;
 use Wonder\Plugin\Gestionale\Support\Catalog\Code;
 use Wonder\Plugin\Gestionale\Support\Codes;
 use Wonder\Sql\Transaction;
@@ -212,6 +216,113 @@ check('ogni submit della pagina ha wi-input-submit', fn () => prova(static funct
     preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', paginaNegozio('orders'), $submits);
 
     return $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === [];
+}));
+
+check('elenco: a pari data, prima l\'ordine inserito dopo', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('ordini-pari');
+    foreach (['PRV-P1', 'PRV-P2', 'PRV-P3'] as $numero) {
+        ordineDelCliente($scheda, $numero, '2026-04-01 10:00:00');
+    }
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('orders');
+
+    return strpos($html, 'PRV-P3') < strpos($html, 'PRV-P2') && strpos($html, 'PRV-P2') < strpos($html, 'PRV-P1');
+}));
+
+check('rows(): niente, una riga sola, una lista e voci che non sono righe', function (): bool {
+    $rows = Closure::bind(static fn (mixed $found): array => EcommerceAccountController::rows($found), null, ControllerOrdiniDiProva::class);
+
+    return $rows(null) === [] && $rows([]) === [] && $rows('testo') === []
+        && $rows(['code' => 'ord_x']) === [['code' => 'ord_x']]
+        && $rows([['id' => 1], ['id' => 2]]) === [['id' => 1], ['id' => 2]]
+        && $rows([['total' => 3]]) === [['total' => 3]]
+        && $rows([['id' => 1], 'testo', 7, ['id' => 2]]) === [['id' => 1], ['id' => 2]];
+});
+
+check('dettaglio: un ordine non del cliente dà 404', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio-404');
+    [, $altra] = clienteConScheda('dettaglio-altro');
+    [, $altrui] = ordineDelCliente($altra, 'PRV-D-ALTRUI', '2026-03-01 10:00:00');
+    [, $ospite] = ordineDelCliente(0, 'PRV-D-OSPITE', '2026-03-01 10:00:00');
+    [, $carrello] = ordineDelCliente($scheda, 'PRV-D-CARRELLO', '2026-03-01 10:00:00', ['stage' => 'cart']);
+    $_SESSION['user_id'] = $userId;
+
+    foreach ([$altrui, $ospite, $carrello, 'ord_inesistente', ''] as $code) {
+        if (paginaNegozio('orders.show', ['code' => $code]) !== '404') {
+            return false;
+        }
+    }
+    return true;
+}));
+
+check('dettaglio: senza scheda del cliente niente ordini degli ospiti', fn () => prova(static function (): bool {
+    [$userId] = clienteConScheda('dettaglio-senza-scheda', false);
+    [, $altra] = clienteConScheda('dettaglio-conflitto');
+    Contact::update(['email' => \infoUser($userId, 'id')->email], $altra);
+    [, $ospite] = ordineDelCliente(0, 'PRV-D-OSPITE2', '2026-03-01 10:00:00');
+    $_SESSION['user_id'] = $userId;
+
+    return paginaNegozio('orders.show', ['code' => $ospite]) === '404';
+}));
+
+check('dettaglio: informazioni, tracking, prodotti, riepilogo e indirizzi', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio');
+    $metodo = metodo('Corriere espresso');
+    $pagamento = (int) (PaymentMethod::create([
+        'code' => 'tst_'.uniqid(), 'name' => 'Carta di prova', 'provider' => 'bank_transfer', 'timing' => 'deferred',
+        'fee_type' => 'none', 'fee_value' => '0.00', 'fee_percent' => '0.00', 'available_for' => 'all',
+        'active' => 'true', 'position' => 1, 'icons' => 'visa,master',
+    ])->insert_id ?? 0);
+    $corriere = (int) (Carrier::create([
+        'code' => 'car_acc-'.uniqid(), 'name' => 'Corriere di prova',
+        'tracking_url_template' => 'https://traccia.example/{tracking}', 'active' => 'true',
+    ])->insert_id ?? 0);
+    [$id, $code] = ordineDelCliente($scheda, 'PRV-DET', '2026-03-05 09:30:00', [
+        'shipping_method_id' => $metodo, 'payment_method_id' => $pagamento,
+        'discount_total' => '4.00', 'coupon_code' => 'BENVENUTO', 'fees_total' => '1.50', 'total' => '42.50',
+        'shipping_name' => 'Ada', 'shipping_surname' => 'Spedita', 'shipping_street' => 'Via Roma', 'shipping_number' => '1',
+        'shipping_cap' => '20100', 'shipping_city' => 'Milano', 'shipping_province' => 'MI',
+        'billing_name' => 'Ada', 'billing_surname' => 'Fatturata', 'billing_street' => 'Via Verdi', 'billing_number' => '2',
+        'billing_cap' => '10100', 'billing_city' => 'Torino', 'billing_province' => 'TO',
+    ]);
+    $riga = (int) (OrderItem::create(['order_id' => $id, 'type' => 'product', 'position' => 1, 'name' => 'Tazza <b>blu</b>', 'image' => '', 'quantity' => '2.000', 'unit_price' => '20.00', 'line_total' => '40.00'])->insert_id ?? 0);
+    OrderItem::create(['order_id' => $id, 'type' => 'product', 'position' => 2, 'parent_item_id' => $riga, 'bundle_option_id' => 7, 'name' => 'Piattino scelto', 'quantity' => '1.000', 'unit_price' => '0.00', 'line_total' => '0.00']);
+    OrderItem::create(['order_id' => $id, 'type' => 'shipping', 'position' => 3, 'name' => 'RIGA-SPEDIZIONE', 'quantity' => '1.000', 'unit_price' => '5.00', 'line_total' => '5.00']);
+    Shipment::create(['code' => Code::make(Shipment::class, Codes::SHIPMENT), 'order_id' => $id, 'type' => 'delivery', 'status' => 'in_transit', 'carrier_id' => $corriere, 'tracking_number' => 'TRK123']);
+    Shipment::create(['code' => Code::make(Shipment::class, Codes::SHIPMENT), 'order_id' => $id, 'type' => 'delivery', 'status' => 'cancelled', 'carrier_id' => $corriere, 'tracking_number' => 'ANNULLATA']);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('orders.show', ['code' => $code]);
+    $money = static fn (string $v): string => e(CartPresenter::money($v, 'EUR'));
+
+    return str_contains($html, e((string) __t('ecommerce.account.orders.order_title', ['number' => 'PRV-DET'])))
+        && str_contains($html, '05/03/2026 09:30')
+        && str_contains($html, e((string) __t('ecommerce.account.orders.status.confirmed')))
+        && str_contains($html, e((string) __t('ecommerce.account.orders.payment_status.paid')))
+        // I nomi dei metodi li scrive il modello con le iniziali maiuscole (`sanitizeFirst()`).
+        && str_contains($html, 'Corriere Espresso') && str_contains($html, 'Carta Di Prova') && str_contains($html, 'payment-icons/visa.svg')
+        && str_contains($html, 'TRK123') && str_contains($html, 'href="https://traccia.example/TRK123"') && !str_contains($html, 'ANNULLATA')
+        && str_contains($html, 'Tazza &lt;b&gt;blu&lt;/b&gt;') && !str_contains($html, 'Tazza <b>blu</b>')
+        && str_contains($html, 'Piattino scelto') && str_contains($html, e((string) __t('ecommerce.account.orders.choice')))
+        && !str_contains($html, 'RIGA-SPEDIZIONE')
+        && str_contains($html, 'BENVENUTO') && str_contains($html, $money('4.00')) && str_contains($html, $money('1.50')) && str_contains($html, $money('42.50'))
+        && str_contains($html, 'Spedita') && str_contains($html, 'Fatturata')
+        && strpos($html, e((string) __t('ecommerce.account.orders.delivery_address'))) < strpos($html, e((string) __t('ecommerce.checkout.billing')));
+}));
+
+check('dettaglio: ritiro in sede con la sede, o il ripiego se la sede non c\'è più', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio-ritiro');
+    $punto = sede();
+    [, $conSede] = ordineDelCliente($scheda, 'PRV-RIT', '2026-03-06 10:00:00', ['fulfillment_type' => 'pickup', 'location_id' => $punto, 'shipping_total' => '0.00']);
+    [, $senzaSede] = ordineDelCliente($scheda, 'PRV-RIT2', '2026-03-06 11:00:00', ['fulfillment_type' => 'pickup', 'location_id' => 999999, 'shipping_total' => '0.00', 'payment_method_id' => 999999]);
+    $_SESSION['user_id'] = $userId;
+    $con = paginaNegozio('orders.show', ['code' => $conSede]);
+    $senza = paginaNegozio('orders.show', ['code' => $senzaSede]);
+    $ritiro = e((string) __t('ecommerce.checkout.fulfillment_pickup'));
+
+    return str_contains($con, 'Prova ritiro') && str_contains($con, e((string) __t('ecommerce.account.orders.pickup_address')))
+        && !str_contains($con, e((string) __t('ecommerce.account.orders.delivery_address')))
+        && str_contains($senza, $ritiro) && str_contains($senza, e((string) __t('ecommerce.account.orders.payment')))
+        && str_contains($senza, 'PRV-RIT2');
 }));
 
 summary();

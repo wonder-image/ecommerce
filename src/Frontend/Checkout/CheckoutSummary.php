@@ -73,6 +73,25 @@ final class CheckoutSummary
     }
 
     /**
+     * I loghi di un metodo di pagamento: solo le chiavi note, con il loro svg.
+     *
+     * @param list<string> $keys
+     * @return list<array{src: string, alt: string}>
+     */
+    public static function paymentIcons(array $keys): array
+    {
+        $icons = [];
+        foreach ($keys as $key) {
+            $src = isset(PaymentMethod::ICONS[$key]) ? (string) module_asset('ecommerce', 'payment-icons/'.$key.'.svg') : '';
+            if ($src !== '') {
+                $icons[] = ['src' => $src, 'alt' => PaymentMethod::ICONS[$key]];
+            }
+        }
+
+        return $icons;
+    }
+
+    /**
      * Loghi, commissione e pannello di un'opzione di pagamento.
      *
      * @param array<string, mixed> $option
@@ -80,20 +99,12 @@ final class CheckoutSummary
      */
     private static function paymentDisplay(array $option, string $currency): array
     {
-        $icons = [];
-        foreach ((array) ($option['icons'] ?? []) as $key) {
-            $src = isset(PaymentMethod::ICONS[$key]) ? (string) module_asset('ecommerce', 'payment-icons/'.$key.'.svg') : '';
-            if ($src !== '') {
-                $icons[] = ['src' => $src, 'alt' => PaymentMethod::ICONS[$key]];
-            }
-        }
-
         // La commissione la calcola il gestionale come quando la applica
         // (contrassegno dal listino, percentuale fino al 100%).
         $fee = (float) ($option['fee'] ?? 0);
 
         return [
-            'icon_urls' => $icons,
+            'icon_urls' => self::paymentIcons((array) ($option['icons'] ?? [])),
             'fee_display' => $fee > 0 ? '+ '.CartPresenter::money($fee, $currency) : '',
             'panel' => !empty($option['manual'])
                 ? (string) ($option['instructions'] ?? '')
