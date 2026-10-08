@@ -179,11 +179,21 @@ final class ProductDetail
             ];
         }
 
+        // L'opzione chiesta dalla query, se è una di queste; poi la prima disponibile.
         $selected = null;
+        $preferred = (int) ($row['preferred_product_id'] ?? 0);
         foreach ($offers as $offer) {
-            if ($offer['available']) {
+            if ($preferred > 0 && $offer['product_id'] === $preferred) {
                 $selected = $offer;
                 break;
+            }
+        }
+        if ($selected === null) {
+            foreach ($offers as $offer) {
+                if ($offer['available']) {
+                    $selected = $offer;
+                    break;
+                }
             }
         }
         $selected ??= $offers[0] ?? [

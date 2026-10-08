@@ -99,4 +99,20 @@ check('la pagina espone route, SEO, breadcrumb visibile e JSON-LD senza duplicar
         && !str_contains($view, 'BreadcrumbList');
 });
 
+check('l\'opzione chiesta dalla query vince sulla prima disponibile, se esiste', function () {
+    $scheda = static fn (int $preferita): int => ProductDetail::make([
+        'id' => 1,
+        'name' => 'Maglietta',
+        'url' => 'https://shop.test/prodotto/maglietta/',
+        'stock_managed' => true,
+        'offers' => [
+            ['product_id' => 42, 'item_id' => '42', 'name' => 'S', 'sku' => 'M-S', 'regular_price' => 10, 'stock_managed' => true, 'available' => true],
+            ['product_id' => 43, 'item_id' => '43', 'name' => 'M', 'sku' => 'M-M', 'regular_price' => 10, 'stock_managed' => true, 'available' => false],
+        ],
+        'preferred_product_id' => $preferita,
+    ])->data()['selected_product_id'];
+
+    return $scheda(43) === 43 && $scheda(99) === 42 && $scheda(0) === 42;
+});
+
 summary();
