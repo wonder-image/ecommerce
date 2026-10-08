@@ -2,6 +2,7 @@
 
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 
 // Rotte pubbliche del negozio. Le demo dei componenti non sono esposte dal modulo.
 Route::area('frontend')
@@ -74,32 +75,11 @@ Route::area('frontend')
         }
         \Wonder\Auth\Frontend\AuthRoutes::register(new $authProfileClass());
 
-        Route::name('ecommerce.account.')
-            ->prefix('/account')
-            ->guarded()
-            ->permit(['client'])
-            ->group(function () {
-                $handler = Ecommerce::handlerPath('frontend/account.php');
-
-                Route::get('/', $handler, ['account_action' => 'index'])->name('index');
-
-                foreach ([
-                    'profile' => '/personal-data/',
-                    'billing' => '/billing-address/',
-                    'shipping' => '/shipping-addresses/',
-                    'shipping.create' => '/shipping-addresses/new/',
-                    'payment-methods' => '/payment-methods/',
-                    'password' => '/password/',
-                ] as $action => $path) {
-                    Route::get($path, $handler, ['account_action' => $action])->name($action);
-                    Route::post($path, $handler, ['account_action' => $action]);
-                }
-
-                Route::get('/shipping-addresses/{id}/', $handler, ['account_action' => 'shipping.edit'])
-                    ->where('id', '[0-9]+')
-                    ->name('shipping.edit');
-                Route::post('/shipping-addresses/{id}/', $handler, ['account_action' => 'shipping.edit'])
-                    ->where('id', '[0-9]+');
-            });
+        $panelClass = Ecommerce::config('account.panel', \Wonder\Auth\Frontend\AccountPanel::class);
+        if (!is_a($panelClass, \Wonder\Auth\Frontend\AccountPanel::class, true)) {
+            throw new \LogicException('Invalid ecommerce account panel');
+        }
+        \Wonder\Auth\Frontend\AccountRoutes::register(new $panelClass(), new $authProfileClass());
+        \Wonder\Auth\Frontend\AccountRoutes::extend(new EcommerceAccountExtension());
 
     });

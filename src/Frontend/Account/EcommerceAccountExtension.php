@@ -1,0 +1,56 @@
+<?php
+
+namespace Wonder\Plugin\Ecommerce\Frontend\Account;
+
+use Wonder\Auth\Frontend\AccountRoutes;
+use Wonder\Auth\Frontend\BaseAccountExtension;
+use Wonder\Http\Route;
+use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
+use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
+
+/** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio, font e stile. */
+final class EcommerceAccountExtension extends BaseAccountExtension
+{
+    public function routes(): void
+    {
+        AccountRoutes::group(static function (): void {
+            $handler = Ecommerce::handlerPath('frontend/account.php');
+            Route::get('/metodi-di-pagamento/', $handler, ['account_action' => 'payment-methods'])->name('payment-methods');
+        });
+    }
+
+    /** Ordini e Coupon arrivano nel piano 2. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
+    public function navigation(array $items, object $user): array
+    {
+        foreach ((array) Ecommerce::config('account.navigation', []) as $key => $item) {
+            if ($item === false) {
+                unset($items[$key]);
+            } elseif (is_array($item)) {
+                if (!isset($item['href']) && isset($item['route'])) {
+                    $item['href'] = Route::url((string) $item['route']);
+                }
+                $items[$key] = array_replace($items[$key] ?? [], $item);
+            }
+        }
+        return $items;
+    }
+
+    public function personalRows(array $rows, object $user): array
+    {
+        $enabled = Ecommerce::config('account.payment_methods.enabled', false) === true;
+        $rows[] = [
+            'key' => 'payment_methods',
+            'columns' => [['label' => (string) __t('ecommerce.account.payment_methods.label'), 'value' => (string) __t('ecommerce.account.payment_methods.summary')]],
+            'action' => $enabled
+                ? ['label' => (string) __t('account.actions.manage'), 'href' => Route::url('account.payment-methods'), 'modal' => '', 'icon' => 'bi bi-credit-card', 'disabled' => false, 'hint' => '']
+                : ['label' => (string) __t('account.actions.manage'), 'href' => '', 'modal' => '', 'icon' => 'bi bi-credit-card', 'disabled' => true, 'hint' => (string) __t('ecommerce.account.payment_methods.soon')],
+        ];
+        return $rows;
+    }
+
+    public function head(): string
+    {
+        return StoreFont::style('account').StoreStyle::sheet();
+    }
+}

@@ -282,9 +282,14 @@ check('il check-out rapido non ha ancora bottoni (arrivano coi pagamenti online)
 );
 
 check('accesso, account e checkout stampano il loro font', function (): bool {
-    $dir = dirname(__DIR__).'/view/layout/frontend/';
-    foreach (['auth', 'account', 'checkout'] as $area) {
-        if (!str_contains((string) file_get_contents($dir.'ecommerce.'.$area.'.php'), "StoreFont::style('".$area."')")) {
+    $root = dirname(__DIR__);
+    $sources = [
+        'auth' => $root.'/view/layout/frontend/ecommerce.auth.php',
+        'account' => $root.'/src/Frontend/Account/EcommerceAccountExtension.php', // l'account sta nel pannello del core
+        'checkout' => $root.'/view/layout/frontend/ecommerce.checkout.php',
+    ];
+    foreach ($sources as $area => $file) {
+        if (!str_contains((string) file_get_contents($file), "StoreFont::style('".$area."')")) {
             return false;
         }
     }
@@ -295,7 +300,7 @@ check('accesso, account e checkout stampano il loro font', function (): bool {
 check('accesso, account, checkout e carrello caricano le misure dei testi del negozio', function (): bool {
     $root = dirname(__DIR__);
     $files = [
-        $root.'/view/layout/frontend/ecommerce.auth.php', $root.'/view/layout/frontend/ecommerce.account.php',
+        $root.'/view/layout/frontend/ecommerce.auth.php', $root.'/src/Frontend/Account/EcommerceAccountExtension.php',
         $root.'/view/layout/frontend/ecommerce.checkout.php', $root.'/view/pages/cart/index.php',
     ];
     foreach ($files as $file) {

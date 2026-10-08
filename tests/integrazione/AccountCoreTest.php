@@ -23,13 +23,16 @@ use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\ContactAccount;
 use Wonder\Http\Csrf;
 use Wonder\Http\Route;
+use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountController;
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAccountCore extends RuntimeException {}
 final class UscitaDiProva extends RuntimeException {}
 
-/** Come il controller vero, ma senza `exit` e senza spedire posta: la posta finisce in `$GLOBALS['POSTA']`. */
-final class ControllerDiProva extends AccountController
+/** Uscite del controller vero senza `exit` e posta che non parte: la posta finisce in `$GLOBALS['POSTA']`. */
+trait UsciteDiProva
 {
     protected function redirect(string $url): never { throw new UscitaDiProva('redirect '.$url); }
     protected function notFound(): never { throw new UscitaDiProva('404'); }
@@ -43,13 +46,24 @@ final class ControllerDiProva extends AccountController
     }
 }
 
-function pagina(string $action, array $parameters = [], string $method = 'GET', array $post = []): string
+final class ControllerDiProva extends AccountController
+{
+    use UsciteDiProva;
+}
+
+/** Il controller dell'ecommerce, con le stesse uscite di prova. */
+final class ControllerEcommerceDiProva extends EcommerceAccountController
+{
+    use UsciteDiProva;
+}
+
+function pagina(string $action, array $parameters = [], string $method = 'GET', array $post = [], string $controller = ControllerDiProva::class): string
 {
     $_SERVER['REQUEST_METHOD'] = $method;
     $_POST = $post;
     ob_start();
     try {
-        (new ControllerDiProva(AccountRoutes::panel(), AccountRoutes::auth()))->handle($action, $parameters);
+        (new $controller(AccountRoutes::panel(), AccountRoutes::auth()))->handle($action, $parameters);
         // I <script> portano il dizionario delle traduzioni: con quelli dentro, un
         // controllo sul testo di un messaggio passerebbe anche se il messaggio non c'è.
         return (string) preg_replace('~<script\b[^>]*>.*?</script>~si', '', (string) ob_get_clean());
@@ -378,6 +392,63 @@ try {
         $billing = pagina('billing');
         check('Fatturazione: righe e modal con Salva wi-input-submit', fn () =>
             str_contains($billing, 'wi-data-row') && str_contains($billing, 'id="account-billing"'));
+
+        throw new AnnullaAccountCore();
+    });
+} catch (AnnullaAccountCore) {
+}
+
+// L'ecommerce si aggancia al pannello del core: estensione, route dei metodi di pagamento, pagina.
+try {
+    Transaction::run(static function (): void {
+        // Il layout del sito chiede alle route nomi che qui non sono registrati (carrello, accesso):
+        // `__r` allora ricarica le route del core e cancella quelle del pannello. Prima di ogni
+        // pagina si registrano di nuovo, e gli indirizzi si leggono prima di stamparla.
+        $registra = static function (): void {
+            Route::reset();
+            AccountRoutes::reset();
+            AccountRoutes::register(new AccountPanel());
+            AccountRoutes::extend(new EcommerceAccountExtension());
+        };
+        $registra();
+        $paymentUrl = Route::url('account.payment-methods');
+        $personalUrl = Route::url('account.personal');
+
+        $userId = clienteDiProva('account-shop');
+        $_SESSION['user_id'] = $userId;
+
+        check('l\'ecommerce aggiunge la route dei metodi di pagamento, protetta', fn () =>
+            $paymentUrl !== '' && str_ends_with($paymentUrl, '/account/metodi-di-pagamento/'));
+        $withShop = pagina('personal');
+        $enabled = Ecommerce::config('account.payment_methods.enabled', false) === true;
+        check('riga Metodi di pagamento in Dati personali', fn () => str_contains($withShop, (string) __t('ecommerce.account.payment_methods.label')));
+        check('Metodi di pagamento: Gestisci attivo solo se acceso', fn () =>
+            $enabled
+                ? str_contains($withShop, 'href="'.$paymentUrl.'"')
+                : str_contains($withShop, (string) __t('ecommerce.account.payment_methods.soon')));
+        check('Metodi di pagamento fuori dal menu', fn () => str_contains($withShop, 'wi-side-nav__link" href="'.$personalUrl)
+            && !str_contains($withShop, 'wi-side-nav__link" href="'.$paymentUrl));
+
+        $registra();
+        $payment = pagina('payment-methods', [], 'GET', [], ControllerEcommerceDiProva::class);
+        check('Metodi di pagamento: titolo, avviso Stripe e torna a Dati personali', fn () =>
+            str_contains($payment, 'wi-side-layout__title') && str_contains($payment, htmlspecialchars((string) __t('ecommerce.account.payment_methods.title'), ENT_QUOTES))
+            && str_contains($payment, 'Stripe')
+            && str_contains($payment, 'href="'.$personalUrl.'"') && str_contains($payment, htmlspecialchars((string) __t('account.actions.back'), ENT_QUOTES)));
+        check('Metodi di pagamento: la voce attiva del menu è Dati personali', fn () =>
+            (bool) preg_match('~<a class="wi-side-nav__link" href="'.preg_quote($personalUrl, '~').'" aria-current="page"~', $payment));
+        check('Metodi di pagamento: SEO privata', fn () => str_contains($payment, 'NOINDEX,NOFOLLOW'));
+        check('Metodi di pagamento: l\'estensione mette font e foglio di stile del negozio nell\'head', fn () =>
+            str_contains($payment, 'store.css'));
+        $registra();
+        $notFound = pagina('nessuna', [], 'GET', [], ControllerEcommerceDiProva::class);
+        $registra();
+        $billing = pagina('billing', [], 'GET', [], ControllerEcommerceDiProva::class);
+        check('le azioni del core passano ancora dal controller dell\'ecommerce', fn () =>
+            $notFound === '404' && str_contains($billing, 'id="account-billing"'));
+        preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $payment, $submits);
+        check('Metodi di pagamento: ogni submit ha wi-input-submit', fn () =>
+            $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
 
         throw new AnnullaAccountCore();
     });
