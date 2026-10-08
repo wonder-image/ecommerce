@@ -5,6 +5,7 @@ declare(strict_types=1);
 define('SITE', getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site');
 
 chdir(SITE);
+$_SERVER['DOCUMENT_ROOT'] = SITE; // il layout del sito legge custom/config da qui
 $GLOBALS['ROOT'] = SITE;
 require SITE.'/vendor/autoload.php';
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
@@ -15,12 +16,48 @@ use Wonder\App\Models\Contacts\Contact;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\AccountAddresses;
 use Wonder\Auth\Frontend\AccountBilling;
+use Wonder\Auth\Frontend\AccountController;
 use Wonder\Auth\Frontend\AccountPanel;
 use Wonder\Auth\Frontend\AccountPersonal;
+use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Http\Csrf;
+use Wonder\Http\Route;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAccountCore extends RuntimeException {}
+final class UscitaDiProva extends RuntimeException {}
+
+/** Come il controller vero, ma senza `exit` e senza spedire posta: la posta finisce in `$GLOBALS['POSTA']`. */
+final class ControllerDiProva extends AccountController
+{
+    protected function redirect(string $url): never { throw new UscitaDiProva('redirect '.$url); }
+    protected function notFound(): never { throw new UscitaDiProva('404'); }
+    protected function invalidCsrf(): never { throw new UscitaDiProva('419'); }
+    protected function mailer(): ?callable
+    {
+        return static function (string $to, string $subject, string $body): bool {
+            $GLOBALS['POSTA'][] = ['to' => $to, 'subject' => $subject, 'body' => $body];
+            return empty($GLOBALS['POSTA_FALLITA']);
+        };
+    }
+}
+
+function pagina(string $action, array $parameters = [], string $method = 'GET', array $post = []): string
+{
+    $_SERVER['REQUEST_METHOD'] = $method;
+    $_POST = $post;
+    ob_start();
+    try {
+        (new ControllerDiProva(AccountRoutes::panel(), AccountRoutes::auth()))->handle($action, $parameters);
+        // I <script> portano il dizionario delle traduzioni: con quelli dentro, un
+        // controllo sul testo di un messaggio passerebbe anche se il messaggio non c'è.
+        return (string) preg_replace('~<script\b[^>]*>.*?</script>~si', '', (string) ob_get_clean());
+    } catch (UscitaDiProva $e) {
+        ob_end_clean();
+        return $e->getMessage();
+    }
+}
 
 /** Come la fixture di AuthAccountTest.php:140-163: User::create, email verificata, password con user(). */
 function clienteDiProva(string $prefix): int
@@ -129,6 +166,130 @@ try {
 
         $badBilling = AccountBilling::save($contactId, ['type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
         check('una fatturazione incompleta non si salva e dà messaggi', fn () => !$badBilling->success && $badBilling->messages !== []);
+
+        throw new AnnullaAccountCore();
+    });
+} catch (AnnullaAccountCore) {
+}
+
+// Pagine del pannello del core: controller, markup, modal con errori.
+try {
+    Transaction::run(static function (): void {
+        Route::reset();
+        AccountRoutes::reset();
+        AccountRoutes::register(new AccountPanel()); // senza moduli: nessuna estensione
+
+        $userId = clienteDiProva('account-http');
+        $_SESSION['user_id'] = $userId;
+        $html = pagina('personal');
+        check('Dati personali: tre righe con Modifica che apre il proprio modal', fn () =>
+            substr_count($html, 'data-wi-modal-target') >= 3 && str_contains($html, 'id="account-email"'));
+        preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $html, $submits);
+        check('ogni submit ha wi-input-submit', fn () =>
+            $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
+        check('Esci posta il csrf_token all\'auth, con l\'id logout di Google Tag Manager', fn () =>
+            str_contains($html, 'name="csrf_token"') && str_contains($html, AccountRoutes::auth()->route('logout')) && str_contains($html, '<form id="logout"'));
+        check('voce attiva e niente voci di moduli', fn () =>
+            str_contains($html, 'aria-current="page"') && !str_contains($html, '/account/ordini/'));
+        check('il titolo della pagina è nel layout del pannello', fn () =>
+            str_contains($html, 'wi-side-layout__title') && str_contains($html, 'wi-data-row__action'));
+
+        check('POST senza CSRF: 419', fn () => pagina('personal', [], 'POST', ['form' => 'personal', 'name' => 'X']) === '419');
+
+        $csrf = Csrf::token();
+        $errorHtml = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'personal', 'name' => '', 'surname' => 'Hopper', 'birth_date' => '1990-02-31']);
+        check('con errori si riapre solo il modal giusto, con errori e valori', fn () =>
+            preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-personal"/', $errorHtml) === 1
+            && preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-email"/', $errorHtml) === 0
+            && str_contains($errorHtml, 'value="Hopper"')
+            && str_contains($errorHtml, (string) __t('account.personal.errors.birth_date')));
+
+        check('il modal riaperto dal server si può cliccare, quelli chiusi restano non cliccabili', fn () =>
+            preg_match('/<section[^>]*class="[^"]*no-interaction[^"]*"[^>]*id="account-personal"/', $errorHtml) === 0
+            && preg_match('/<section[^>]*class="[^"]*no-interaction[^"]*"[^>]*id="account-email"/', $errorHtml) === 1);
+
+        check('salvataggio riuscito: redirect alla pagina con avviso', fn () =>
+            pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'personal', 'name' => 'Grace', 'surname' => 'Hopper', 'birth_date' => '1990-05-17']) === 'redirect '.Route::url('account.personal')
+            && ($_SESSION['wonder_account_notice'] ?? '') !== '');
+
+        check('un form sconosciuto: 404', fn () => pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'altro']) === '404');
+
+        $overview = pagina('index');
+        check('Panoramica: saluto e codice cliente', fn () =>
+            str_contains($overview, '<strong>Grace</strong>')
+            && str_contains($overview, (string) Contact::find(['user_id' => $userId], 1)['code']));
+        // Il testo sta anche nel dizionario JSON della pagina: si guarda il corpo dell'avviso.
+        $savedAlert = "<div class='wi-alert-body'>".__t('account.saved').'</div>';
+        check('l\'avviso del salvataggio si vede una volta sola', fn () =>
+            str_contains($overview, $savedAlert) && !str_contains(pagina('index'), $savedAlert));
+
+        check('azione sconosciuta: 404', fn () => pagina('nessuna') === '404');
+
+        // Cambio email: ogni errore arriva tradotto nel modal giusto.
+        $wrong = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => 'nuova-'.bin2hex(random_bytes(4)).'@example.com', 'current_password' => 'sbagliata']);
+        check('email con password sbagliata: modal email aperto con il messaggio', fn () =>
+            preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-email"/', $wrong) === 1
+            && preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-personal"/', $wrong) === 0
+            && str_contains($wrong, (string) __t('auth.validation.errors.current_password_wrong')));
+        $invalid = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => 'non-una-email', 'current_password' => 'password-di-prova-123']);
+        check('email non valida: messaggio tradotto', fn () => str_contains($invalid, (string) __t('auth.validation.errors.email_invalid')));
+        $current = (string) infoUser($userId, 'id')->email;
+        $same = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => strtoupper($current), 'current_password' => 'password-di-prova-123']);
+        check('email uguale alla attuale: messaggio tradotto', fn () => str_contains($same, (string) __t('account.email.errors.same')));
+        $takenEmail = (string) infoUser(clienteDiProva('account-taken'), 'id')->email;
+        $taken = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => $takenEmail, 'current_password' => 'password-di-prova-123']);
+        check('email già registrata: messaggio tradotto', fn () => str_contains($taken, (string) __t('auth.validation.errors.email_exists')));
+        check('gli errori sull\'email non lasciano il valore della password nel markup', fn () => !str_contains($taken, 'password-di-prova-123'));
+
+        // Posta non partita: `mail:send` ha il suo messaggio, nel modal dell'email.
+        $GLOBALS['POSTA_FALLITA'] = true;
+        $notSent = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => 'posta-'.bin2hex(random_bytes(4)).'@example.com', 'current_password' => 'password-di-prova-123']);
+        unset($GLOBALS['POSTA_FALLITA']);
+        check('posta non partita: modal email aperto con il messaggio d\'invio', fn () =>
+            preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-email"/', $notSent) === 1
+            && str_contains($notSent, htmlspecialchars((string) __t('account.email.errors.send'), ENT_QUOTES))
+            && !str_contains($notSent, (string) __t('auth.validation.review')));
+
+        // Posta partita: avviso con l'email nuova scritta una volta sola (l'Alert fa l'escape).
+        $GLOBALS['POSTA'] = [];
+        $newEmail = "o'neill-".bin2hex(random_bytes(4)).'@example.com';
+        $sent = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => $newEmail, 'current_password' => 'password-di-prova-123']);
+        check('email nuova: redirect, un solo messaggio di posta al nuovo indirizzo', fn () =>
+            $sent === 'redirect '.Route::url('account.personal') && count($GLOBALS['POSTA']) === 1 && $GLOBALS['POSTA'][0]['to'] === strtolower($newEmail));
+        $afterSent = pagina('personal');
+        check('l\'avviso nomina l\'email nuova, con l\'escape una volta sola', fn () =>
+            str_contains($afterSent, 'neill-') && str_contains($afterSent, htmlspecialchars($newEmail, ENT_QUOTES))
+            && !str_contains($afterSent, '&amp;#039;') && !str_contains($afterSent, '&amp;amp;'));
+
+        // Cambio password.
+        $weak = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'password', 'current_password' => 'password-di-prova-123', 'password' => 'corta']);
+        check('password troppo corta: modal password aperto con il messaggio', fn () =>
+            preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-password"/', $weak) === 1
+            && str_contains($weak, (string) __t('auth.validation.errors.password_too_short')));
+        $changed = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'password', 'current_password' => 'password-di-prova-123', 'password' => 'un-altra-password-456', 'is_admin' => '1']);
+        check('password cambiata: redirect e avviso', fn () =>
+            $changed === 'redirect '.Route::url('account.personal') && ($_SESSION['wonder_account_notice'] ?? '') === (string) __t('account.password.saved'));
+        unset($_SESSION['wonder_account_notice']);
+
+        // Conferma dell'email: solo il rendering dell'esito, la logica è nel test dell'email.
+        $_GET['token'] = 'inventato';
+        $confirm = pagina('email.confirm');
+        check('conferma con un link inventato: testo di link non valido, senza pannello', fn () =>
+            str_contains($confirm, htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES)) && !str_contains($confirm, 'wi-side-layout'));
+        unset($_GET['token']);
+
+        // Account senza password (accesso social): la riga email non apre il modal e dice cosa fare.
+        $socialId = clienteDiProva('account-social');
+        sqlModify('user', ['password' => ''], 'id', $socialId);
+        $_SESSION['user_id'] = $socialId;
+        $social = pagina('personal');
+        check('senza password: niente modal email, riga email con la nota', fn () =>
+            !str_contains($social, 'id="account-email"') && !str_contains($social, '#account-email')
+            && str_contains($social, htmlspecialchars((string) __t('account.email.needs_password'), ENT_QUOTES))
+            && str_contains($social, 'id="account-password"') && str_contains($social, 'id="account-personal"'));
+        check('senza password: un POST del form email è un 404', fn () =>
+            pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => 'x@example.com', 'current_password' => 'x']) === '404');
+        $_SESSION['user_id'] = $userId;
 
         throw new AnnullaAccountCore();
     });
