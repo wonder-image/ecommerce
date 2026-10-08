@@ -38,7 +38,8 @@ foreach ($payments as $p) {
 $couponCode = (string) ($summary['coupon']['code'] ?? ($order['coupon_code'] ?? ''));
 $same = (string) ($values['same_as_shipping'] ?? '1') !== '0';
 $invoice = !empty($values['invoice']);
-$business = ($values['billing_type'] ?? 'private') === 'business';
+// Aprendo «Mi serve fattura» parte «Azienda»; con la fattura già chiesta vale la scelta fatta.
+$business = !$invoice || ($values['billing_type'] ?? 'business') === 'business';
 $shippingNotice = $shippingOptions !== [] ? '' : ($addressComplete ? 'no_shipping' : 'shipping_methods_pending');
 
 $order = ($summary['order'] ?? null) !== null ? $summary['order'] + ['fulfillment_type' => $fulfillment] : $order;

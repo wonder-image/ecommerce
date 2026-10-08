@@ -583,4 +583,34 @@ check('l\'ospite ottiene account e link prima dell\'ordine, e la conferma non mo
         && is_string($en['checkout']['completed']['shop'] ?? null);
 });
 
+check('il totale non ha la valuta davanti: il simbolo lo mette già money()', function () use ($root): bool {
+    $totali = (string) file_get_contents($root.'/view/components/checkout/totals.php');
+
+    return !str_contains($totali, 'wi-checkout__currency')
+        && !str_contains((string) file_get_contents($root.'/resources/assets/css/checkout.css'), 'wi-checkout__currency');
+});
+
+check('aprendo «Mi serve fattura» è già scelta «Azienda»; una scelta fatta con la fattura resta', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+
+    // Senza fattura il dato salvato è sempre «privato»: non deve decidere la scelta.
+    return str_contains($v, "\$business = !\$invoice || (\$values['billing_type'] ?? 'business') === 'business';");
+});
+
+check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto a 88px e il codice sconto in un riquadro a parte', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+
+    // −/+ mandano la quantità nuova col bottone stesso: niente JS e niente «Aggiorna».
+    return substr_count($v, "->attr('name', 'quantity')") === 2
+        && str_contains($v, "__t('ecommerce.cart.decrease')") && str_contains($v, "__t('ecommerce.cart.increase')")
+        && !str_contains($v, "__t('ecommerce.cart.update')")
+        && str_contains($v, 'bi-trash3')
+        && str_contains($v, '--wi-thumb-size: 88px')
+        && str_contains($v, "'coupons' => false")
+        && str_contains($v, "Accordion::make((string) __t('ecommerce.checkout.coupon_title'))")
+        // Il tema Wonder non rende `Text`/`RichText`: il form entra nell'accordion come HTML già pronto.
+        && !str_contains($v, 'RichText')
+        && str_contains($v, 'components/checkout/coupon.php');
+});
+
 summary();
