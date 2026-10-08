@@ -17,12 +17,20 @@ final class EcommerceAccountExtension extends BaseAccountExtension
         AccountRoutes::group(static function (): void {
             $handler = Ecommerce::handlerPath('frontend/account.php');
             Route::get('/metodi-di-pagamento/', $handler, ['account_action' => 'payment-methods'])->name('payment-methods');
+            // `/ordini/` prima di `/ordini/{code}/`.
+            Route::get('/ordini/', $handler, ['account_action' => 'orders'])->name('orders');
+            Route::get('/ordini/{code}/', $handler, ['account_action' => 'orders.show'])->name('orders.show');
         });
     }
 
-    /** Ordini e Coupon arrivano nel piano 2. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
+    /** Ordini va subito dopo Panoramica. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
     public function navigation(array $items, object $user): array
     {
+        $own = ['orders' => ['label' => (string) __t('ecommerce.account.orders.title'), 'href' => Route::url('account.orders'), 'icon' => 'bi bi-bag']];
+        $at = array_search('overview', array_keys($items), true);
+        $at = $at === false ? 0 : $at + 1;
+        $items = array_slice($items, 0, $at, true) + $own + array_slice($items, $at, null, true);
+
         foreach ((array) Ecommerce::config('account.navigation', []) as $key => $item) {
             if ($item === false) {
                 unset($items[$key]);

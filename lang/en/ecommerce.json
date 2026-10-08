@@ -203,6 +203,13 @@
             "pending": "The Stripe portal entry point is ready, but it remains disabled until the management module exposes the Stripe customer identifier.",
             "ready": "You will be redirected to Stripe's secure portal to manage payment methods.",
             "soon": "Coming soon"
+        },
+        "orders": {
+            "title": "Orders",
+            "empty": "You haven't placed any orders yet",
+            "order": "Order",
+            "number": "No. {{number}}",
+            "view": "View"
         }
     },
     "impersonation": { "active": "Impersonation active", "operating_as": "You are acting as", "started_by": "started by", "stop": "Return to your account" }

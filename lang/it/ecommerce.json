@@ -258,6 +258,13 @@
             "pending": "Il collegamento al portale Stripe è predisposto, ma resterà disattivato finché il gestionale non esporrà l’identificativo cliente Stripe.",
             "ready": "Verrai reindirizzato al portale sicuro di Stripe per gestire i metodi di pagamento.",
             "soon": "Presto disponibile"
+        },
+        "orders": {
+            "title": "Ordini",
+            "empty": "Non hai ancora effettuato ordini",
+            "order": "Ordine",
+            "number": "N° {{number}}",
+            "view": "Visualizza"
         }
     },
     "impersonation": {
