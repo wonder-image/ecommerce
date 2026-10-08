@@ -124,22 +124,26 @@ solo quando ha una prova automatica o una verifica descritta.
   `forge start --driver=herd`. Sync API esterna non disponibile.
 
 - [x] C0 Layout account responsive con riepilogo, navigazione laterale, stato
-  attivo e logout; ordini e coupon restano fuori dal menu fino alla loro fase.
-  Ora è il pannello del core (`AccountRoutes`): l'ecommerce lo estende con
-  `EcommerceAccountExtension` (metodi di pagamento, menu, font e stile).
+  attivo e logout. Dal 2026-10-08 è il pannello del core (`AccountRoutes`; spec del
+  gestionale `2026-10-08-pannello-account-design.md`): l'ecommerce lo estende con
+  `EcommerceAccountExtension` (metodi di pagamento, ordini, coupon, menu, font e stile).
 - [x] C1 Profilo cliente e aggiornamento del cellulare.
 - [x] C2 Indirizzi di spedizione e fatturazione separati dalla registrazione.
 - [ ] C3 Consultazione consensi e cambio password. Il cambio password è fatto
   (modal in «Dati personali», piano 1 del pannello account); restano i consensi.
-- [ ] C4 Integrazione della navigazione già predisposta con ordini, resi e coupon.
-  Tocca al piano 2 del pannello account: Ordini e Coupon arrivano come sezioni di
-  `EcommerceAccountExtension`, nel menu del core.
+- [x] C4 Integrazione della navigazione con ordini e coupon, senza i resi
+  (2026-10-08, spec del gestionale `2026-10-08-pannello-account-design.md`, piano 2):
+  Ordini (`/account/ordini/`, con paginazione), dettaglio dell'ordine
+  (`/account/ordini/{code}/`) e Coupon (`/account/coupon/`, solo con la funzionalità
+  accesa) sono sezioni di `EcommerceAccountExtension`, nel menu del core.
+- [ ] C4b Resi nel pannello del cliente: fuori ambito della spec del pannello account
+  (§10), da rifare quando ci sarà il progetto dei resi.
 - [ ] C5 Collegare “Metodi di pagamento” al Billing Portal Stripe quando il
   gestionale esporrà in modo verificato il customer id; fino ad allora il
   percorso resta visibile ma non apre sessioni Stripe.
 
-Ordini e coupon della fase C restano sospesi in attesa delle rispettive
-strutture definitive del gestionale.
+Della fase C restano sospesi i resi (C4b) e i consensi (C3), che aspettano la
+loro struttura nel gestionale e un progetto a parte.
 
 ## Fase D — Carrello e checkout
 

@@ -41,8 +41,35 @@ versionamento semantico.
   personali» come voce attiva), la riga «Metodi di pagamento» in «Dati personali»
   (spenta finché `account.payment_methods.enabled` è `false`) e il font e lo stile
   del negozio nell'head del pannello. Panoramica, dati personali (con data di
-  nascita e cambio email), indirizzi e fatturazione sono del core. Ordini e coupon
-  arrivano col piano 2.
+  nascita e cambio email), indirizzi e fatturazione sono del core. Ordini, dettaglio
+  dell'ordine e Coupon sono qui sotto.
+- Ordini, dettaglio dell'ordine e Coupon nel pannello del cliente, come sezioni di
+  `EcommerceAccountExtension` (le azioni `orders`, `orders.show` e `coupons` di
+  `EcommerceAccountController`):
+  - `account.orders` su `/account/ordini/`: gli ordini della scheda del cliente (in qualsiasi
+    stato, i carrelli no), dal più recente, a dieci per pagina (`?pagina=N`, paginazione del core), con numero,
+    data, totale e «Visualizza ›». Senza ordini c'è lo stato vuoto; con la scheda mancante
+    non si cerca nulla (`customer_id = 0` sono gli ordini degli ospiti) ed esce l'errore
+    sul contatto.
+  - `account.orders.show` su `/account/ordini/{code}/`: informazioni (stato, consegna o
+    ritiro, pagamento con i loghi, stato del pagamento, tracking e corriere), prodotti con
+    immagine, personalizzazioni e scelte dei prodotti composti, riepilogo e schede
+    dell'indirizzo di consegna (o della sede di ritiro) e della fatturazione, da
+    `AccountOrder::present()`. L'ordine si cerca per `code`: carrelli, ordini di altri
+    clienti o degli ospiti e codici che non esistono danno tutti 404. Se un metodo di
+    pagamento o di spedizione o la sede non ci sono più, il dettaglio si apre con un
+    ripiego.
+  - `account.coupons` su `/account/coupon/`: i coupon riservati al cliente che può usare
+    adesso (attivi, non scaduti né programmati; quelli con tutti gli usi spesi restano), con
+    codice, valore e usi (`AccountCoupons::forCustomer()`, sopra `Coupons::reserved()` del
+    gestionale). La pagina e la voce di menu ci sono solo con la funzionalità Coupon
+    accesa (la route risponde 404 se è spenta).
+  - Ordini e Coupon entrano nel menu subito dopo Panoramica; `account.navigation` li
+    ritocca con le chiavi `orders` e `coupons`. Testi in `ecommerce.account.orders.*` e
+    `ecommerce.account.coupons.*`.
+- `CheckoutSummary::paymentIcons(array $keys)` è pubblico: dà i loghi di un metodo di
+  pagamento (solo le chiavi note, con il loro svg). Lo usano il checkout, come prima, e il
+  dettaglio dell'ordine.
 - Checkout ospite (`checkout.guest_enabled`): `GuestCheckout` trova o crea l'account
   dall'email, collega contatto e consensi e manda nell'email dell'ordine il link per
   scegliere la password (non a chi entra con Google, senza annullare i link già
@@ -57,8 +84,10 @@ versionamento semantico.
 - Il default di `account.panel` è `\Wonder\Auth\Frontend\AccountPanel` (era
   `EcommerceAccountPanel`). La rotta del pannello controlla con `is_a` che la classe
   sia un `AccountPanel`.
-- `account.navigation` ritocca il menu del core per chiave: `overview`, `personal`,
-  `addresses`, `billing` (`false` toglie la voce, un array la ritocca o la aggiunge).
+- `account.navigation` ritocca il menu per chiave: `overview`, `personal`,
+  `addresses`, `billing` del core e `orders` e `coupons` (`coupons` solo con la
+  funzionalità Coupon accesa) dell'ecommerce; `false` toglie la voce, un array la
+  ritocca o la aggiunge.
   Le chiavi precedenti `profile`, `shipping`, `payment-methods` e `password` non
   esistono più.
 - Gli URL dell'account sono in italiano, come quelli del core: `/account/dati-personali/`,
@@ -100,15 +129,24 @@ pannello (`side-nav`, `row-table`, apertura dei modal dal server).
   `account.email.confirm`. Gli URL `/account/auth/…` non cambiano.
 - **Menu del sito.** Una voce che punta a `ecommerce.account.index` passa a `account.index`.
 - **`account.navigation`.** Le chiavi `profile`, `shipping`, `payment-methods` e
-  `password` sono ignorate; quelle valide sono `overview`, `personal`, `addresses` e
-  `billing`. Una vecchia chiave a `false` non fa più nulla. Una vecchia chiave con un
-  array che ha `href` e `label` propri compare come voce nuova; con un `route` che non
-  risolve più l'`href` resta vuoto e la voce sparisce.
+  `password` sono ignorate; quelle valide sono `overview`, `personal`, `addresses`,
+  `billing`, `orders` e `coupons`. Una vecchia chiave a `false` non fa più nulla. Una
+  vecchia chiave con un array che ha `href` e `label` propri compare come voce nuova; con
+  un `route` che non risolve più l'`href` resta vuoto e la voce sparisce. Lo stesso vale
+  per una chiave ancora valida (`overview`, `billing`, `orders`…) con un `route` che non
+  risolve più, per esempio `ecommerce.account.index`: l'`href` si svuota al posto di
+  tenere quello del core e la voce sparisce dal menu.
 - **`account.panel`.** `EcommerceAccountPanel` non esiste più. Un sito che lo nomina,
   o che nomina una classe che non estende `Wonder\Auth\Frontend\AccountPanel`, fa lanciare
   `LogicException('Invalid ecommerce account panel')` a `route.frontend.php`, e così
   nessuna rotta del frontend viene registrata (non solo quelle dell'account). Togliere
-  la chiave o puntarla a una sottoclasse di `AccountPanel`.
+  la chiave o puntarla a una sottoclasse di `AccountPanel`. Una classe che *estende*
+  `EcommerceAccountPanel` non arriva nemmeno a quel controllo: PHP dà un errore fatale per
+  classe non trovata mentre la carica, prima che `is_a` possa lanciare la `LogicException`.
+  Una sottoclasse di `AccountPanel` che sovrascrive il vecchio
+  `navigation(object $user): array` deve adottare `navigation(object $user, string $active = ''): array`
+  e il ritorno per chiave (partendo da `parent::navigation($user, $active)`): con la firma
+  vecchia PHP dà un errore fatale di dichiarazione incompatibile.
 - **Viste e componenti.** Le sostituzioni in `custom/view` delle viste e dei
   componenti rimossi non servono più: le viste del pannello sono sigillate.
 - **Password.** `/account/password/` e la sua voce di menu non esistono più.
