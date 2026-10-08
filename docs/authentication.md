@@ -7,7 +7,8 @@
   layout account e token colore generici (`Wonder\Auth\Frontend`).
 - `wonder-image/ecommerce` definisce `EcommerceAuthProfile`, il cliente, i
   consensi ecommerce, il cellulare obbligatorio e il collegamento a
-  `contacts`; `EcommerceAccountPanel` personalizza la navigazione del core.
+  `contacts`; `EcommerceAccountExtension` aggiunge al pannello del core la
+  riga e la pagina dei metodi di pagamento.
 - Il sito configura credenziali, colori, testi consentiti dagli slot e flag del
   modulo. Non duplica controller o logica account.
 
@@ -49,8 +50,9 @@ sono mostrati nell'alert di pagina.
   `fields()`, `validate()`, `validationMessages()`, `userValues()` e
   `afterUserSaved()` insieme, non solo il campo visibile. La policy Google è
   separata (`validateFederated()` / `requiresCompletion()`).
-- `account.panel`: classe che estende `EcommerceAccountPanel` per navigazione,
-  riepilogo e dati personali (campi, validazione e whitelist backend);
+- `account.panel`: classe che estende `Wonder\Auth\Frontend\AccountPanel` del core
+  per navigazione, riepilogo e dati personali (campi, validazione e whitelist
+  backend);
 - `account.navigation`: override per chiave (`label`, `icon`, `route`, `href`)
   o `false` per nascondere una voce; nascondere non cambia le autorizzazioni;
 - `auth.federated.google` e `auth.federated.apple`;
