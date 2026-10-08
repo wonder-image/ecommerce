@@ -40,7 +40,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>">
         <div class="w-100 col-2 col-t-1 wi-box h-auto p-5 d-flex d-column gap-4">
-            <h1 class="subtitle mb-2"><?=e(__t('ecommerce.cart.title'))?> <span class="fw-400">(<?=e(__t('ecommerce.cart.count', ['count' => CartPresenter::count($items)]))?>)</span></h1>
+            <h1 class="subtitle mb-2"><?=e(__t('ecommerce.cart.title'))?> <span class="fw-400">(<?=e(__t(($count = CartPresenter::count($items)) === 1 ? 'ecommerce.cart.count_one' : 'ecommerce.cart.count', ['count' => $count]))?>)</span></h1>
             <?php foreach ($items as $index => $item): ?>
                 <?php
                 $id = (int) ($item['id'] ?? 0);

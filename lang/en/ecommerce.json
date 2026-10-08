@@ -46,6 +46,7 @@
         "title": "Cart",
         "seo": "Review the products in your cart before checkout.",
         "count": "{{count}} items",
+        "count_one": "1 item",
         "empty_title": "Your cart is empty",
         "empty_text": "Add a product to start your purchase.",
         "sku": "SKU: {{sku}}",

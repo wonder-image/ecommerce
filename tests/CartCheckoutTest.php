@@ -643,4 +643,14 @@ check('le operazioni del carrello mostrano lo spinner per un tempo minimo e lo t
         && str_contains($js, "'pageshow'");
 });
 
+check('con un solo articolo il titolo del carrello dice «1 articolo»', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return ($it['cart']['count_one'] ?? '') === '1 articolo'
+        && ($en['cart']['count_one'] ?? '') === '1 item'
+        && str_contains($v, "'ecommerce.cart.count_one'");
+});
+
 summary();

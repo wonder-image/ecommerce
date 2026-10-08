@@ -57,6 +57,7 @@
         "title": "Carrello",
         "seo": "Controlla i prodotti nel carrello prima di procedere al checkout.",
         "count": "{{count}} articoli",
+        "count_one": "1 articolo",
         "empty_title": "Il carrello è vuoto",
         "empty_text": "Aggiungi un prodotto per iniziare il tuo acquisto.",
         "sku": "Codice: {{sku}}",
