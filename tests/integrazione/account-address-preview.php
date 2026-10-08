@@ -22,9 +22,9 @@ $address = ($argv[1] ?? '') === 'billing'
     : \Wonder\App\Models\Contacts\ContactAddress::address();
 $fields = \Wonder\Auth\Frontend\AccountAddressForm::fields($address, ['province' => 'BG']);
 if (($argv[1] ?? '') === 'modal') {
-    $fields = ['label' => \Wonder\App\ResourceSchema\FormField::key('label')->text()->label('Etichetta'), ...$fields];
-    echo \Wonder\Elements\Components\Button::make('Aggiungi indirizzo')->attr('id', 'open-address')->opensModal('preview-address')->render();
-    echo \Wonder\Auth\Frontend\AccountAddressModal::make('preview-address', 'Indirizzo', $fields, '/account/shipping-addresses/new/', '/account/shipping-addresses/', 'test-token')->render();
+    // Come lo manda il server dopo un errore: aperto (`wi-show`), con il suo Salva spento finché mancano i campi.
+    echo \Wonder\Elements\Components\Button::make('Aggiungi indirizzo')->attr('id', 'open-address')->opensModal('account-address-new')->render();
+    echo \Wonder\Auth\Frontend\AccountModal::make('account-address-new', 'Nuovo indirizzo', $fields, '#', [], [], true)->render();
     exit;
 }
 echo '<section><div style="width:100%;padding:24px;box-sizing:border-box"><form>';

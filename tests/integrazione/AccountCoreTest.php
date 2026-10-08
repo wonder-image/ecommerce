@@ -167,6 +167,24 @@ try {
         $badBilling = AccountBilling::save($contactId, ['type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
         check('una fatturazione incompleta non si salva e dà messaggi', fn () => !$badBilling->success && $badBilling->messages !== []);
 
+        // Una sezione spenta non risponde nemmeno se la route fosse raggiunta: 404.
+        $senzaIndirizzi = new class extends AccountPanel {
+            public function sections(): array { return ['overview', 'personal']; }
+        };
+        foreach (['addresses', 'addresses.create', 'addresses.edit', 'addresses.delete', 'billing'] as $azione) {
+            check('sezione spenta: '.$azione.' dà 404', function () use ($azione, $senzaIndirizzi) {
+                ob_start();
+                try {
+                    (new ControllerDiProva($senzaIndirizzi, AccountRoutes::auth()))->handle($azione, ['id' => 1]);
+                } catch (UscitaDiProva $e) {
+                    ob_end_clean();
+                    return $e->getMessage() === '404';
+                }
+                ob_end_clean();
+                return false;
+            });
+        }
+
         throw new AnnullaAccountCore();
     });
 } catch (AnnullaAccountCore) {
@@ -304,6 +322,62 @@ try {
         check('senza password: un POST del form email è un 404', fn () =>
             pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'email', 'email' => 'x@example.com', 'current_password' => 'x']) === '404');
         $_SESSION['user_id'] = $userId;
+
+        // Indirizzi: schede, modal, ripiego senza JS, eliminazione.
+        $contactId = (int) Contact::find(['user_id' => $userId], 1)['id'];
+        $empty = pagina('addresses');
+        check('senza indirizzi: stato vuoto e bottone per aggiungere', fn () =>
+            str_contains($empty, 'wi-empty-state') && str_contains($empty, 'data-wi-modal-target="#account-address-new"'));
+
+        $address = ['_csrf' => $csrf, 'name' => 'Ada', 'surname' => 'Lovelace', 'phone_prefix' => '+39', 'phone' => '3331234567', 'country' => 'IT', 'province' => 'MI', 'cap' => '20100', 'city' => 'Milano', 'street' => 'Via Roma', 'number' => '1'];
+        check('aggiunta: redirect all\'elenco', fn () => pagina('addresses.create', [], 'POST', $address) === 'redirect '.Route::url('account.addresses'));
+        $id = (int) (AccountAddresses::all($contactId)[0]['id'] ?? 0);
+        $list = pagina('addresses');
+        check('scheda con nome, tel: e righe dell\'indirizzo', fn () =>
+            str_contains($list, 'wi-address-card__name') && str_contains($list, 'href="tel:+393331234567"')
+            && str_contains($list, 'Via Roma 1, 20100') && str_contains($list, 'Milano (MI)'));
+
+        $aperti = static fn (string $html): int => (int) preg_match_all('/<section\b[^>]*class="[^"]*\bwi-show\b/', $html);
+        check('elenco: per ogni indirizzo il modal di modifica e quello di conferma, tutti chiusi', fn () =>
+            str_contains($list, 'id="account-address-'.$id.'"') && str_contains($list, 'id="account-address-delete-'.$id.'"')
+            && str_contains($list, 'id="account-address-new"') && str_contains($list, 'Via Roma 1, 20100, Milano (MI)')
+            && $aperti($list) === 0);
+        $fallback = pagina('addresses.edit', ['id' => $id]);
+        check('ripiego senza JS: form con CSRF, valori, Salva e link per tornare', fn () =>
+            str_contains($fallback, '<form method="post"') && str_contains($fallback, 'name="_csrf"')
+            && str_contains($fallback, 'Lovelace') && str_contains($fallback, 'wi-input-submit')
+            && str_contains($fallback, 'href="'.Route::url('account.addresses').'"'));
+
+        $invalidHtml = pagina('addresses.edit', ['id' => $id], 'POST', ['cap' => ''] + $address);
+        check('modifica con errori: si riapre il modal di quell\'indirizzo', fn () =>
+            preg_match('/<section(?=[^>]*\bid="account-address-'.$id.'")(?=[^>]*class="[^"]*\bwi-show\b)[^>]*>/', $invalidHtml) === 1);
+        check('modifica con errori: si apre solo quel modal, con gli errori', fn () =>
+            $aperti($invalidHtml) === 1 && str_contains($invalidHtml, 'wi-alert'));
+        $newInvalid = pagina('addresses.create', [], 'POST', ['cap' => ''] + $address);
+        check('nuovo indirizzo con errori: si apre solo il modal del nuovo', fn () =>
+            $aperti($newInvalid) === 1
+            && preg_match('/<section(?=[^>]*\bid="account-address-new")(?=[^>]*class="[^"]*\bwi-show\b)[^>]*>/', $newInvalid) === 1
+            && count(AccountAddresses::all($contactId)) === 1);
+
+        $otherUser = clienteDiProva('account-http-other');
+        $_SESSION['user_id'] = $otherUser;
+        check('indirizzo altrui: 404 in modifica', fn () => pagina('addresses.edit', ['id' => $id]) === '404');
+        check('indirizzo altrui: 404 in eliminazione', fn () => pagina('addresses.delete', ['id' => $id], 'POST', ['_csrf' => $csrf]) === '404');
+        $_SESSION['user_id'] = $userId;
+        check('eliminazione senza CSRF: 419', fn () => pagina('addresses.delete', ['id' => $id], 'POST', []) === '419');
+        check('eliminazione propria', fn () =>
+            pagina('addresses.delete', ['id' => $id], 'POST', ['_csrf' => $csrf]) === 'redirect '.Route::url('account.addresses')
+            && AccountAddresses::find($contactId, $id) === null);
+
+        $billingInvalid = pagina('billing', [], 'POST', ['_csrf' => $csrf, 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
+        check('Fatturazione con errori: si riapre il modal con gli errori', fn () =>
+            $aperti($billingInvalid) === 1 && preg_match('/<section(?=[^>]*\bid="account-billing")(?=[^>]*class="[^"]*\bwi-show\b)[^>]*>/', $billingInvalid) === 1);
+        check('Fatturazione valida: redirect alla pagina', fn () =>
+            pagina('billing', [], 'POST', ['_csrf' => $csrf, 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT', 'province' => 'MI', 'cap' => '20100', 'city' => 'Milano', 'street' => 'Via Roma', 'number' => '1'])
+            === 'redirect '.Route::url('account.billing'));
+        $billing = pagina('billing');
+        check('Fatturazione: righe e modal con Salva wi-input-submit', fn () =>
+            str_contains($billing, 'wi-data-row') && str_contains($billing, 'id="account-billing"'));
 
         throw new AnnullaAccountCore();
     });

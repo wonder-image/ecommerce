@@ -7,6 +7,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/Users/andreamari
 const site = process.env.WI_TEST_SITE || '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
 const siteUrl = process.env.WI_TEST_URL || 'https://ecommerce.test';
 const lib = path.resolve(__dirname, '../../../lib');
+// Il vero check() della lib: spegne i `.wi-submit` dei form finché mancano i campi obbligatori.
+const inputSource = fs.readFileSync(path.join(lib, 'src/build/frontend/js/form/input.js'), 'utf8');
+const realCheck = inputSource.slice(inputSource.indexOf('function check()'), inputSource.indexOf('function togglePassword'));
+assert.ok(realCheck.startsWith('function check()') && realCheck.includes('.wi-submit'), 'check() not found in input.js');
 (async () => {
     const browser = await chromium.launch({ channel: 'chrome', headless: true });
     try {
@@ -25,7 +29,7 @@ const lib = path.resolve(__dirname, '../../../lib');
             await page.addStyleTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/bootstrap/bootstrap-icons.css'), 'utf8') });
             const iconFont = fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/fonts/bootstrap-icons.woff2')).toString('base64');
             await page.addStyleTag({ content: `@font-face { font-family: bootstrap-icons; src: url("data:font/woff2;base64,${iconFont}") format("woff2"); }` });
-            await page.addScriptTag({ content: 'function check() {} function ajaxRequestError() { window.stateError = true; } const pathApi = "' + siteUrl + '/api";' });
+            await page.addScriptTag({ content: realCheck + ' function ajaxRequestError() { window.stateError = true; } const pathApi = "' + siteUrl + '/api";' });
             await page.addScriptTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/jquery/jquery.js'), 'utf8') });
             await page.route(`${siteUrl}/api/states/`, async route => {
                 const response = await context.request.post(`${siteUrl}/api/states/`, { form: Object.fromEntries(new URLSearchParams(route.request().postData())) });
@@ -46,35 +50,63 @@ const lib = path.resolve(__dirname, '../../../lib');
                 });
                 await page.addScriptTag({ content: 'function disableScroll() {} function enableScroll() {}' });
                 await page.addScriptTag({ content: fs.readFileSync(path.join(lib, 'src/build/frontend/js/modal.js'), 'utf8') });
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), true);
-                await page.locator('#open-address').click();
-                await page.waitForFunction(() => document.querySelector('#preview-address').classList.contains('wi-show'));
-                assert.equal(await page.evaluate(() => document.elementFromPoint(5, 5).closest('.wi-modal')?.id), 'preview-address', 'Modal backdrop must cover the header');
-                assert.equal(await page.locator('[name="label"]').getAttribute('required'), null);
-                assert.equal(await page.locator('form').getAttribute('action'), '/account/shipping-addresses/new/');
-                assert.equal(await page.locator('[name="csrf_token"]').inputValue(), 'test-token');
-                const footer = page.locator('#preview-address .wi-modal-footer');
-                assert.deepEqual(await footer.locator('button').allTextContents(), ['Annulla', 'Salva modifiche']);
-                assert.equal(await page.locator('form button[type="submit"], form .wi-close-modal, form a').count(), 0, 'Modal actions belong outside the body form');
-                assert.equal(await footer.locator('[type="submit"]').evaluate(el => el.form.id), await page.locator('form').getAttribute('id'));
-                await page.evaluate(() => document.querySelector('form').addEventListener('submit', event => {
+                const dialog = page.locator('#account-address-new');
+                // Il server lo manda aperto: visibile, cliccabile e collegato come uno aperto dallo script.
+                assert.equal(await dialog.evaluate(el => el.classList.contains('wi-show')), true);
+                assert.equal(await dialog.evaluate(el => el.inert), false, 'A server-opened modal must be interactive');
+                assert.equal(await dialog.getAttribute('aria-hidden'), 'false');
+                assert.equal(await page.evaluate(() => document.elementFromPoint(5, 5).closest('.wi-modal')?.id), 'account-address-new', 'Modal backdrop must cover the header');
+                assert.equal(await dialog.locator('form').getAttribute('action'), '#');
+                // Come fa setInput() della lib: i campi con data-wi-check ricontrollano il form.
+                await page.evaluate(() => {
+                    document.querySelectorAll("[data-wi-check='true']").forEach(element => {
+                        ['keyup', 'change', 'focusin', 'focusout'].forEach(name => element.addEventListener(name, check));
+                    });
+                    check();
+                });
+                const footer = dialog.locator('.wi-modal-footer');
+                const save = dialog.locator('button[type=submit].wi-input-submit');
+                assert.deepEqual(await footer.locator('button').allTextContents(), ['Salva']);
+                assert.equal(await dialog.locator('button[type=submit]').count(), 1, 'Only Salva submits');
+                assert.equal(await save.evaluate(el => !!el.form && el.form.contains(el)), true, 'Salva sits inside the form');
+                assert.equal(await save.isDisabled(), true, 'Salva is off while required fields are empty');
+                const required = dialog.locator('input[required]:not([type=hidden])');
+                const requiredNames = await required.evaluateAll(list => list.map(el => el.name));
+                assert.ok(requiredNames.length >= 5, `required fields expected, got ${requiredNames}`);
+                for (const name of requiredNames) {
+                    const field = dialog.locator(`input[name="${name}"]`);
+                    if ((await field.inputValue()) === '') await field.pressSequentially(name === 'phone' ? '3331234567' : name === 'cap' ? '20100' : 'Test');
+                }
+                assert.equal(await save.isDisabled(), false, 'Salva turns on once the required fields are filled');
+                await dialog.locator('input[name="name"]').fill('');
+                await dialog.locator('input[name="name"]').dispatchEvent('change');
+                assert.equal(await save.isDisabled(), true, 'Emptying a required field turns Salva off again');
+                await dialog.locator('input[name="name"]').pressSequentially('Ada');
+                assert.equal(await save.isDisabled(), false);
+                await page.evaluate(() => document.querySelector('#account-address-new form').addEventListener('submit', event => {
                     event.preventDefault();
-                    window.previewSubmission = { csrf: new FormData(event.target).get('csrf_token'), external: !event.target.contains(event.submitter) };
+                    window.previewSubmission = { inside: event.target.contains(event.submitter), save: event.submitter.classList.contains('wi-input-submit') };
                 }));
-                await footer.locator('[type="submit"]').click();
-                assert.deepEqual(await page.evaluate(() => window.previewSubmission), { csrf: 'test-token', external: true });
-                await footer.locator('[type="button"]').click();
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), true);
+                await save.click();
+                assert.deepEqual(await page.evaluate(() => window.previewSubmission), { inside: true, save: true });
+                // Si chiude con Esc e si riapre dal bottone; il fuoco torna al bottone.
+                await page.keyboard.press('Escape');
+                assert.equal(await dialog.evaluate(el => el.inert), true);
+                assert.equal(await dialog.evaluate(el => el.classList.contains('wi-show')), false);
+                await page.locator('#open-address').click();
+                await page.waitForFunction(() => document.querySelector('#account-address-new').classList.contains('wi-show'));
+                assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true);
+                await page.keyboard.press('Shift+Tab');
+                assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true, 'Tab must remain in the dialog');
+                await dialog.locator('.wi-modal-close').click();
+                assert.equal(await dialog.evaluate(el => el.inert), true);
                 assert.equal(await page.locator('#open-address').evaluate(el => el === document.activeElement), true);
                 await page.locator('#open-address').click();
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.contains(document.activeElement)), true);
-                await page.keyboard.press('Shift+Tab');
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.contains(document.activeElement)), true, 'Tab must remain in the dialog');
                 await page.keyboard.press('Escape');
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), true);
+                assert.equal(await dialog.evaluate(el => el.inert), true);
                 assert.equal(await page.locator('#open-address').evaluate(el => el === document.activeElement), true);
-                await page.evaluate(() => { modal('#preview-address'); setUpModal('#preview-address'); setUpModal('#preview-address'); });
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), false, 'Legacy modal API must still open');
+                await page.evaluate(() => { modal('#account-address-new'); setUpModal('#account-address-new'); setUpModal('#account-address-new'); });
+                assert.equal(await dialog.evaluate(el => el.inert), false, 'Legacy modal API must still open');
                 await page.evaluate(() => {
                     const second = document.createElement('section');
                     second.id = 'second-modal';
@@ -83,10 +115,10 @@ const lib = path.resolve(__dirname, '../../../lib');
                     document.body.appendChild(second);
                     modal('#second-modal');
                 });
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), true, 'Previous stacked dialog must be suspended');
+                assert.equal(await dialog.evaluate(el => el.inert), true, 'Previous stacked dialog must be suspended');
                 await page.keyboard.press('Escape');
                 assert.equal(await page.locator('#second-modal').evaluate(el => el.inert), true);
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), false);
+                assert.equal(await dialog.evaluate(el => el.inert), false);
                 assert.equal(await page.evaluate(() => modal('#missing-modal')), false);
                 await page.locator('#second-modal').evaluate(el => el.remove());
             }
@@ -144,7 +176,7 @@ const lib = path.resolve(__dirname, '../../../lib');
             await province.locator('.select-items input[role="combobox"]').fill('berl');
             await page.keyboard.press('Escape');
             assert.equal(await province.locator('.select-selected').evaluate(el => el === document.activeElement), true);
-            if (form === 'modal') assert.equal(await page.locator('#preview-address').evaluate(el => !el.inert), true, 'First Esc closes only the select');
+            if (form === 'modal') assert.equal(await page.locator('#account-address-new').evaluate(el => !el.inert), true, 'First Esc closes only the select');
             await page.keyboard.press('ArrowDown');
             await province.locator('.select-items input[role="combobox"]').fill('berl');
             await page.keyboard.press('Enter');
@@ -162,7 +194,7 @@ const lib = path.resolve(__dirname, '../../../lib');
             for (const width of [1280, 768, 390]) {
                 await page.setViewportSize({ width, height: 1100 });
                 const layout = await page.evaluate(() => {
-                    const grid = document.querySelector('form > .d-grid');
+                    const grid = document.querySelector('form .d-grid');
                     const cells = Array.from(grid.children).filter(el => getComputedStyle(el).display !== 'none');
                     return {
                         overflow: document.documentElement.scrollWidth > window.innerWidth,
@@ -186,14 +218,13 @@ const lib = path.resolve(__dirname, '../../../lib');
                         };
                         return {
                             title: rect('.wi-modal-title'), close: rect('.wi-modal-close'), header: rect('.wi-modal-header'),
-                            cancel: rect('.wi-modal-footer [type="button"]'), save: rect('.wi-modal-footer [type="submit"]'), footer: rect('.wi-modal-footer'),
+                            save: rect('.wi-modal-footer [type="submit"]'), footer: rect('.wi-modal-footer'),
                         };
                     });
                     assert.ok(boxes.close.x >= boxes.title.right, `Close icon on the right at ${width}`);
                     assert.ok(Math.abs(boxes.header.right - boxes.close.right - 16) < 2);
-                    assert.ok(boxes.cancel.right <= boxes.save.x, 'Cancel precedes Save');
-                    assert.ok(Math.abs(boxes.cancel.y - boxes.save.y) < 2, 'Actions share a row');
-                    assert.ok(Math.abs(boxes.footer.right - boxes.save.right - 16) < 2, `Footer actions aligned right at ${width}`);
+                    assert.ok(Math.abs(boxes.footer.right - boxes.save.right - 16) < 2, `Salva reaches the right edge at ${width}`);
+                    assert.ok(Math.abs(boxes.save.x - boxes.footer.x - 16) < 2, `Salva is full width at ${width}`);
                     assert.ok(boxes.save.bottom < 1100, 'Footer remains in the viewport');
                 }
                 if (width > 768) {
@@ -206,8 +237,8 @@ const lib = path.resolve(__dirname, '../../../lib');
             console.log(`${form}: grid, conditional fields, real country API and interactive province OK`);
             if (form === 'modal') {
                 await page.locator('.wi-modal-close').click();
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.classList.contains('wi-show')), false);
-                assert.equal(await page.locator('#preview-address').evaluate(el => el.inert), true);
+                assert.equal(await page.locator('#account-address-new').evaluate(el => el.classList.contains('wi-show')), false);
+                assert.equal(await page.locator('#account-address-new').evaluate(el => el.inert), true);
             }
             await page.close();
         }
