@@ -155,4 +155,12 @@ check('la variante ha la sua route, il controller rimanda con un 301, gli indiri
         && str_contains($catalog, "'slug' => OptionQuery::slug(");
 });
 
+check('il cambio d\'opzione riscrive la query senza aggiungere cronologia', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+
+    return str_contains($view, 'history.replaceState(')
+        && !str_contains($view, 'history.pushState(')
+        && str_contains($view, 'remember()');
+});
+
 summary();
