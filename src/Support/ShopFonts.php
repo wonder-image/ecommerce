@@ -6,7 +6,7 @@ use Throwable;
 
 /**
  * I font fra cui sceglie il negozio: le righe visibili di `css_font`, che la
- * testa del sito carica già tutte. Si nominano per `name`.
+ * testa del sito carica già tutte. Si scelgono per `id`.
  */
 final class ShopFonts
 {
@@ -18,7 +18,7 @@ final class ShopFonts
         }
 
         try {
-            $rows = (array) (sqlSelect('css_font', ['visible' => 'true'])->row ?? []);
+            $rows = (array) (sqlSelect('css_font', ['visible' => 'true', 'deleted' => 'false'])->row ?? []);
         } catch (Throwable) {
             return [];
         }
@@ -30,21 +30,21 @@ final class ShopFonts
     }
 
     /**
-     * La riga col nome dato, senza badare a spazi e maiuscole.
+     * La riga con l'id dato, anche scritto come testo.
      *
      * @param list<array<string, mixed>> $rows
      * @return array<string, mixed>|null
      */
-    public static function find(string $name, array $rows): ?array
+    public static function find(int|string|null $id, array $rows): ?array
     {
-        $name = strtolower(trim($name));
+        $id = trim((string) $id);
 
-        if ($name === '') {
+        if (!ctype_digit($id) || (int) $id <= 0) {
             return null;
         }
 
         foreach ($rows as $row) {
-            if (strtolower(trim((string) ($row['name'] ?? ''))) === $name) {
+            if ((int) ($row['id'] ?? 0) === (int) $id) {
                 return $row;
             }
         }

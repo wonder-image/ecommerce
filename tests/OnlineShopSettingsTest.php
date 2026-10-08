@@ -35,23 +35,29 @@ check('il modulo porta il riquadro «Negozio online» nelle Impostazioni di Set 
         && count($riquadri) === 1 && $riquadri[0] instanceof OnlineShopSettings;
 });
 
-check('le colonne: quattro font, il checkout parte da Inter, gli ordini senza account spenti', function () use ($riquadro, $perNome) {
+check('le colonne: quattro font legati all\'id di css_font, vuoti di partenza, gli ordini senza account spenti', function () use ($riquadro, $perNome) {
     $colonne = $perNome($riquadro->columns());
     $dati = $perNome($riquadro->data());
-    $chiavi = ['font_auth', 'font_account', 'font_checkout', 'font_cart', 'checkout_guest'];
+    $chiavi = ['font_auth_id', 'font_account_id', 'font_checkout_id', 'font_cart_id', 'checkout_guest'];
+
+    foreach (['font_auth_id', 'font_account_id', 'font_checkout_id', 'font_cart_id'] as $chiave) {
+        if (!isset($colonne[$chiave])
+            || $colonne[$chiave]->getSchema('foreign_table') !== 'css_font'
+            || (string) ($colonne[$chiave]->getSchema('default') ?? '') !== '') {
+            return false;
+        }
+    }
 
     return array_keys($colonne) === array_keys($dati)
         && array_diff($chiavi, array_keys($colonne)) === [] && count($colonne) === 5
-        && (string) $colonne['font_checkout']->getSchema('default') === 'Inter'
-        && (string) $colonne['checkout_guest']->getSchema('default') === 'false'
-        && (string) ($colonne['font_auth']->getSchema('default') ?? '') === '';
+        && (string) $colonne['checkout_guest']->getSchema('default') === 'false';
 });
 
-check('i font si scelgono fra quelli della tabella css_font, più «Come il sito»', function () use ($riquadro, $perNome) {
+check('i font si scelgono per id fra quelli della tabella css_font, più «Come il sito»', function () use ($riquadro, $perNome) {
     $campi = $perNome($riquadro->fields());
-    $attese = ['' => 'Come il sito', 'Roboto' => 'Roboto', 'Inter' => 'Inter', 'Open Sans' => 'Open Sans'];
+    $attese = ['' => 'Come il sito', 1 => 'Roboto', 3 => 'Inter', 9 => 'Open Sans'];
 
-    foreach (['font_auth', 'font_account', 'font_checkout', 'font_cart'] as $chiave) {
+    foreach (['font_auth_id', 'font_account_id', 'font_checkout_id', 'font_cart_id'] as $chiave) {
         if (!isset($campi[$chiave]) || (array) $campi[$chiave]->get('options') !== $attese) {
             return false;
         }
@@ -62,10 +68,10 @@ check('i font si scelgono fra quelli della tabella css_font, più «Come il sito
 
 check('ogni campo ha la sua etichetta', fn () =>
     $riquadro->labels() === [
-        'font_auth' => 'Font accesso',
-        'font_account' => 'Font account',
-        'font_checkout' => 'Font checkout',
-        'font_cart' => 'Font carrello',
+        'font_auth_id' => 'Font accesso',
+        'font_account_id' => 'Font account',
+        'font_checkout_id' => 'Font checkout',
+        'font_cart_id' => 'Font carrello',
         'checkout_guest' => 'Ordini senza account',
     ]
 );
@@ -84,25 +90,25 @@ check('il riquadro si chiama «Negozio online» e porta anche gli ordini senza a
 
     return $titoli[0] === 'Negozio online'
         && in_array('Ordini senza account', $titoli, true)
-        && $chieste === ['font_auth', 'font_account', 'font_checkout', 'font_cart', 'checkout_guest'];
+        && $chieste === ['font_auth_id', 'font_account_id', 'font_checkout_id', 'font_cart_id', 'checkout_guest'];
 });
 
-check('un font si salva col nome della sua riga; uno che non c\'è torna «Come il sito»', function () use ($riquadro) {
+check('un font si salva con l\'id della sua riga; uno che non c\'è, o un nome, torna «Come il sito»', function () use ($riquadro) {
     $valori = $riquadro->mutate([
-        'font_auth' => ' inter ',
-        'font_account' => 'OPEN SANS',
-        'font_checkout' => 'Comic Sans',
-        'font_cart' => '',
+        'font_auth_id' => ' 3 ',
+        'font_account_id' => 9,
+        'font_checkout_id' => '42',
+        'font_cart_id' => 'Inter',
         'tax_regime' => 'RF01',
     ]);
 
     return $valori === [
-        'font_auth' => 'Inter',
-        'font_account' => 'Open Sans',
-        'font_checkout' => '',
-        'font_cart' => '',
+        'font_auth_id' => '3',
+        'font_account_id' => '9',
+        'font_checkout_id' => '',
+        'font_cart_id' => '',
         'tax_regime' => 'RF01',
-    ];
+    ] && $riquadro->mutate(['font_cart_id' => ''])['font_cart_id'] === '';
 });
 
 check('gli ordini senza account si salvano accesi o spenti, nient\'altro', fn () =>
@@ -114,8 +120,8 @@ check('gli ordini senza account si salvano accesi o spenti, nient\'altro', fn ()
 check('senza il database del sito la scelta resta solo «Come il sito»', function () use ($perNome) {
     $campi = $perNome((new OnlineShopSettings())->fields());
 
-    return (array) $campi['font_cart']->get('options') === ['' => 'Come il sito']
-        && (new OnlineShopSettings())->mutate(['font_cart' => 'Inter'])['font_cart'] === '';
+    return (array) $campi['font_cart_id']->get('options') === ['' => 'Come il sito']
+        && (new OnlineShopSettings())->mutate(['font_cart_id' => '3'])['font_cart_id'] === '';
 });
 
 summary();

@@ -59,10 +59,11 @@ della consegna finché il cliente non li cambia.
 
 `StoreFont::style($area)` stampa il font scelto per una delle quattro aree
 (`auth`, `account`, `checkout` e `cart`) nel riquadro «Negozio online» delle
-Impostazioni di Set Up (`OnlineShopSettings`, colonne `font_*` del gestionale).
-Si sceglie fra le righe visibili di `css_font`, salvate per `name`; vuoto vuol
-dire «come il sito». Cambia solo le variabili del sito, perché la testa carica
-già ogni font di `css_font`.
+Impostazioni di Set Up (`OnlineShopSettings`, colonne `font_<area>_id` del
+gestionale, chiavi esterne verso `css_font`). Si sceglie fra le righe visibili
+e non cancellate di `css_font`, salvate per `id`; NULL vuol dire «come il
+sito», anche quando la riga sparisce. Cambia solo le variabili del sito, perché
+la testa carica già ogni font di `css_font`.
 
 ## Consegna e coupon
 

@@ -34,7 +34,7 @@ final class StoreFont
             }
         }
 
-        $row = ShopFonts::find((string) ($settings['font_'.$area] ?? ''), $fonts ?? ShopFonts::visible());
+        $row = ShopFonts::find($settings['font_'.$area.'_id'] ?? null, $fonts ?? ShopFonts::visible());
         $css = $row === null ? '' : WebFonts::variables((string) ($row['font_family'] ?? ''));
 
         return $css === '' ? '' : '<style>'.$css.'</style>';

@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Settings;
 
 use Closure;
+use Wonder\App\Models\Css\CssFont;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Data\UploadSchema as Field;
 use Wonder\Elements\Components\Card;
@@ -15,8 +16,8 @@ use Wonder\Sql\TableSchema as Column;
  * Il riquadro «Negozio online» nelle Impostazioni di Set Up: il font di
  * accesso, account, checkout e carrello e gli ordini senza account.
  *
- * Un font è il `name` di una riga visibile di `css_font`; vuoto vuol dire
- * «come il sito». Rinominare la riga riporta la scelta al font del sito.
+ * Un font è l'`id` di una riga visibile di `css_font`; vuoto (NULL) vuol dire
+ * «come il sito», e ci torna da solo se la riga sparisce.
  */
 final class OnlineShopSettings extends SettingsSection
 {
@@ -42,8 +43,7 @@ final class OnlineShopSettings extends SettingsSection
         $columns = [];
 
         foreach (array_keys(self::FONTS) as $area) {
-            $column = Column::key('font_'.$area)->length(40);
-            $columns[] = $area === 'checkout' ? $column->default('Inter') : $column;
+            $columns[] = Column::key('font_'.$area.'_id')->int()->foreign(CssFont::$table);
         }
 
         $columns[] = Column::key('checkout_guest')->enum(['true', 'false'])->default('false');
@@ -56,7 +56,7 @@ final class OnlineShopSettings extends SettingsSection
         $data = [];
 
         foreach (array_keys(self::FONTS) as $area) {
-            $data[] = Field::key('font_'.$area)->text()->sanitize(false);
+            $data[] = Field::key('font_'.$area.'_id')->text()->sanitize(false);
         }
 
         $data[] = Field::key('checkout_guest')->text()->sanitize(false);
@@ -69,14 +69,13 @@ final class OnlineShopSettings extends SettingsSection
         $options = ['' => 'Come il sito'];
 
         foreach ($this->fonts() as $row) {
-            $name = (string) ($row['name'] ?? '');
-            $options[$name] = $name;
+            $options[(string) $row['id']] = (string) ($row['name'] ?? '');
         }
 
         $fields = [];
 
         foreach (self::FONTS as $area => $label) {
-            $fields[] = FormField::key('font_'.$area)->select($options)->label($label);
+            $fields[] = FormField::key('font_'.$area.'_id')->select($options)->label($label);
         }
 
         $fields[] = FormField::key('checkout_guest')->toggle()->value('false')->label('Ordini senza account');
@@ -89,7 +88,7 @@ final class OnlineShopSettings extends SettingsSection
         $labels = [];
 
         foreach (self::FONTS as $area => $label) {
-            $labels['font_'.$area] = $label;
+            $labels['font_'.$area.'_id'] = $label;
         }
 
         return $labels + ['checkout_guest' => 'Ordini senza account'];
@@ -101,10 +100,10 @@ final class OnlineShopSettings extends SettingsSection
             SectionTitle::make('Negozio online')
                 ->tooltip('Il font delle pagine di accesso, account, checkout e carrello. «Come il sito» usa quello del tema.')
                 ->columnSpan(12),
-            $input('font_auth')->columnSpan(6),
-            $input('font_account')->columnSpan(6),
-            $input('font_checkout')->columnSpan(6),
-            $input('font_cart')->columnSpan(6),
+            $input('font_auth_id')->columnSpan(6),
+            $input('font_account_id')->columnSpan(6),
+            $input('font_checkout_id')->columnSpan(6),
+            $input('font_cart_id')->columnSpan(6),
             SectionTitle::make('Ordini senza account')
                 ->tooltip('Chi non ha un account ordina con la sola email: l\'account nasce senza password e l\'email dell\'ordine porta il link per sceglierla. Spento, il checkout chiede di accedere o registrarsi.')
                 ->columnSpan(12),
@@ -112,13 +111,15 @@ final class OnlineShopSettings extends SettingsSection
         ])->columns(12)->columnSpan(12);
     }
 
-    /** Un font si salva col nome della sua riga; uno che non c'è torna «come il sito». */
+    /** Un font si salva con l'id della sua riga; uno che non c'è torna «come il sito». */
     public function mutate(array $values): array
     {
         foreach (array_keys(self::FONTS) as $area) {
-            if (array_key_exists('font_'.$area, $values)) {
-                $row = ShopFonts::find((string) $values['font_'.$area], $this->fonts());
-                $values['font_'.$area] = $row === null ? '' : (string) $row['name'];
+            $key = 'font_'.$area.'_id';
+
+            if (array_key_exists($key, $values)) {
+                $row = ShopFonts::find($values[$key], $this->fonts());
+                $values[$key] = $row === null ? '' : (string) $row['id'];
             }
         }
 
