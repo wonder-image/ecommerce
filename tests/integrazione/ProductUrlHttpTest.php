@@ -2,7 +2,7 @@
 /** php tests/integrazione/ProductUrlHttpTest.php */
 declare(strict_types=1);
 
-const SITE = '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+define('SITE', getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site');
 
 chdir(SITE);
 $GLOBALS['ROOT'] = SITE;
@@ -15,7 +15,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
 
 $request = static function (string $path): array {
-    $curl = curl_init('https://ecommerce.test'.$path);
+    $curl = curl_init((getenv('WI_TEST_URL') ?: 'https://ecommerce.test').$path);
     curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_HEADER => true,
         CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
     $response = curl_exec($curl);
@@ -58,7 +58,7 @@ if ($conPiu === null || $conUna === null) {
     summary();
 }
 
-$base = 'https://ecommerce.test/prodotto/';
+$base = (getenv('WI_TEST_URL') ?: 'https://ecommerce.test').'/prodotto/';
 
 check('il modello con più varianti mostra la prima e la dichiara canonical', function () use ($request, $canonical, $conPiu, $base) {
     [$status, , $html] = $request('/prodotto/'.$conPiu['slug'].'/');

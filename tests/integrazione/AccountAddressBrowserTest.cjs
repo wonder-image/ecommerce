@@ -5,6 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/Users/andreamarinoni/.cache/wonder-tooling/playwright/node_modules/playwright-core');
 const site = process.env.WI_TEST_SITE || '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+const siteUrl = process.env.WI_TEST_URL || 'https://ecommerce.test';
 const lib = path.resolve(__dirname, '../../../lib');
 (async () => {
     const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -18,16 +19,16 @@ const lib = path.resolve(__dirname, '../../../lib');
             await page.setContent(html);
             if (form !== 'modal') assert.equal(await page.locator('[name="country"]').isVisible(), true, 'Native select remains usable without JS');
             await page.addStyleTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/frontend/lib.css'), 'utf8') });
-            const login = await context.request.get('https://ecommerce.test/account/auth/login/');
+            const login = await context.request.get(`${siteUrl}/account/auth/login/`);
             const styles = (await login.text()).matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g);
             for (const style of styles) { await page.addStyleTag({ content: style[1] }); }
             await page.addStyleTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/bootstrap/bootstrap-icons.css'), 'utf8') });
             const iconFont = fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/fonts/bootstrap-icons.woff2')).toString('base64');
             await page.addStyleTag({ content: `@font-face { font-family: bootstrap-icons; src: url("data:font/woff2;base64,${iconFont}") format("woff2"); }` });
-            await page.addScriptTag({ content: 'function check() {} function ajaxRequestError() { window.stateError = true; } const pathApi = "https://ecommerce.test/api";' });
+            await page.addScriptTag({ content: 'function check() {} function ajaxRequestError() { window.stateError = true; } const pathApi = "' + siteUrl + '/api";' });
             await page.addScriptTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/jquery/jquery.js'), 'utf8') });
-            await page.route('https://ecommerce.test/api/states/', async route => {
-                const response = await context.request.post('https://ecommerce.test/api/states/', { form: Object.fromEntries(new URLSearchParams(route.request().postData())) });
+            await page.route(`${siteUrl}/api/states/`, async route => {
+                const response = await context.request.post(`${siteUrl}/api/states/`, { form: Object.fromEntries(new URLSearchParams(route.request().postData())) });
                 await route.fulfill({ status: response.status(), contentType: 'application/json', body: await response.body() });
             });
             await page.addScriptTag({ content: fs.readFileSync(path.join(lib, 'src/build/frontend/js/form/select.js'), 'utf8') });
