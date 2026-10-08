@@ -6,6 +6,7 @@
         "breadcrumb_products": "Products",
         "listing": {
             "all": { "title": "All products", "description": "Discover all products available in the catalogue." },
+            "filtered": { "title": "Filtered products", "description": "All products filtered according to your search." },
             "offers": { "title": "Offers", "description": "Discover the products currently on offer." },
             "new": { "title": "New arrivals", "description": "Discover the latest products added to the catalogue." },
             "collection": { "title": "Collection", "description": "Explore the selected collection." },
@@ -15,15 +16,20 @@
             "results": "{{count}} products",
             "empty": "No products match the selected filters"
         },
+        "search": { "label": "Search...", "submit": "Search", "open": "Search products", "close": "Close search" },
         "filters": {
             "label": "Product filters",
             "brand": "Brand",
             "any_brand": "All brands",
             "price": "Price",
-            "price_placeholder": "e.g. 20-100, 50+ or -80",
+            "price_from": "From",
+            "price_to": "To",
+            "price_range": "From 0 to {{max}}",
             "any_value": "All",
+            "open": "Filters",
+            "close": "Close filters",
             "apply": "Apply filters",
-            "reset": "Reset filters",
+            "reset": "Cancel",
             "order": {
                 "label": "Sort",
                 "default": "Featured",
@@ -37,6 +43,7 @@
         "pagination": { "label": "Product pages" },
         "variants": "Variants",
         "options": "Options",
+        "sliders": { "similar": "Similar items", "recent": "Recently viewed", "suggested": "You may also like" },
         "description": "Description",
         "price_range": "From {{min}} to {{max}}",
         "availability": { "in_stock": "Available", "out_of_stock": "Unavailable" },

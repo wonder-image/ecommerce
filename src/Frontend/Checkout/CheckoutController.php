@@ -5,9 +5,9 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
+use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
-use Wonder\Plugin\Ecommerce\Frontend\Cart\CartController;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
@@ -20,7 +20,7 @@ use Wonder\View\View;
 
 final class CheckoutController
 {
-    private const FLASH = 'ecommerce_checkout_flash';
+    private const FORM_STATE = 'ecommerce_checkout_form_state';
     private const COMPLETED = 'ecommerce_checkout_completed';
     private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note'];
 
@@ -48,11 +48,11 @@ final class CheckoutController
             self::redirect(self::route('ecommerce.cart.index'));
         }
 
-        $flash = self::pullFlash();
+        $formState = self::pullFormState();
         $fromCart = array_filter(self::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
-        $values = $flash['values'] !== [] ? self::defaults($flash['values']) : $fromCart + self::defaults([]);
+        $values = $formState !== [] ? self::defaults($formState) : $fromCart + self::defaults([]);
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
-        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $flash['values'] === []);
+        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $formState === []);
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
         $cart = CartSession::current(false);
         $user = CartSession::user();
@@ -78,8 +78,6 @@ final class CheckoutController
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
             'csrf_token' => AuthSession::csrfToken(),
-            'errors' => $flash['errors'],
-            'notice' => $flash['notice'],
         ])->render();
     }
 
@@ -139,7 +137,7 @@ final class CheckoutController
                 CheckoutRules::paymentErrors($post, $billing, $asked)
             )));
             if ($missing !== []) {
-                self::flash(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post);
+                self::rememberErrors(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post);
                 self::redirect(self::route('ecommerce.checkout.index'));
             }
 
@@ -195,12 +193,12 @@ final class CheckoutController
             ];
             self::redirect(self::route('ecommerce.checkout.completed'));
         } catch (UserError $error) {
-            self::flash([$error->getMessage()], $post);
+            self::rememberErrors([$error->getMessage()], $post);
         } catch (RuntimeException $error) {
-            self::flash([$error->getMessage()], $post);
+            self::rememberErrors([$error->getMessage()], $post);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.place');
-            self::flash([(string) __t('ecommerce.checkout.errors.generic')], $post);
+            self::rememberErrors([(string) __t('ecommerce.checkout.errors.generic')], $post);
         }
 
         self::redirect(self::route('ecommerce.checkout.index'));
@@ -246,7 +244,12 @@ final class CheckoutController
 
         $errors = $payload['error'] !== '' ? [$payload['error']] : [];
         $notice = $errors === [] ? (string) __t('ecommerce.checkout.'.($action === 'remove' ? 'coupon_removed' : 'coupon_applied')) : '';
-        $return === 'cart' ? CartController::flash($errors, $notice) : self::flash($errors, [], $notice);
+        $title = (string) __t('ecommerce.'.($return === 'cart' ? 'cart' : 'checkout').'.'.($errors === [] ? 'notice_title' : 'error_title'));
+        if ($errors === []) {
+            FlashMessage::success($notice, $title);
+        } else {
+            FlashMessage::error(implode("\n", $errors), $title);
+        }
         self::redirect($back);
     }
 
@@ -317,8 +320,6 @@ final class CheckoutController
         self::seo((string) __t('ecommerce.checkout.completed.title'), self::route('ecommerce.checkout.completed'));
         View::make(Ecommerce::viewPath('pages/checkout/completed.php'), [
             'result' => $result,
-            'errors' => [],
-            'notice' => '',
         ])->render();
     }
 
@@ -410,31 +411,28 @@ final class CheckoutController
         return self::route('ecommerce.auth.login').'?continue='.rawurlencode(self::route('ecommerce.checkout.index'));
     }
 
-    private static function flash(array $errors, array $values = [], string $notice = ''): void
+    private static function rememberErrors(array $errors, array $values = []): void
     {
         unset(
             $values['csrf_token'],
             $values['g-recaptcha-token'],
             $values['g-recaptcha-action']
         );
-        $_SESSION[self::FLASH] = [
-            'errors' => array_values(array_filter(array_map('strval', $errors))),
-            'values' => $values,
-            'notice' => trim($notice),
-        ];
+        $errors = array_values(array_filter(array_map('strval', $errors)));
+        if ($errors !== []) {
+            FlashMessage::error(implode("\n", $errors), (string) __t('ecommerce.checkout.error_title'));
+        }
+
+        $_SESSION[self::FORM_STATE] = $values;
     }
 
-    /** @return array{errors: list<string>, values: array<string, mixed>, notice: string} */
-    private static function pullFlash(): array
+    /** @return array<string, mixed> */
+    private static function pullFormState(): array
     {
-        $flash = (array) ($_SESSION[self::FLASH] ?? []);
-        unset($_SESSION[self::FLASH]);
+        $values = $_SESSION[self::FORM_STATE] ?? [];
+        unset($_SESSION[self::FORM_STATE]);
 
-        return [
-            'errors' => array_values(array_filter(array_map('strval', (array) ($flash['errors'] ?? [])))),
-            'values' => is_array($flash['values'] ?? null) ? $flash['values'] : [],
-            'notice' => trim((string) ($flash['notice'] ?? '')),
-        ];
+        return is_array($values) ? $values : [];
     }
 
     private static function seo(string $title, string $url): void

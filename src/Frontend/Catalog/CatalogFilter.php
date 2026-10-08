@@ -24,6 +24,10 @@ final class CatalogFilter
     private string $canonical = '/prodotti/';
     private string $order = 'position, name';
     private string $direction = 'ASC';
+    private string $priceContextWhere = '';
+    private ?float $priceMin = null;
+    private ?float $priceMax = null;
+    private bool $filtered = false;
 
     private function __construct(private readonly array $query)
     {
@@ -38,11 +42,20 @@ final class CatalogFilter
         $filter->applyRoute($action, $parameters);
 
         if ($filter->valid) {
+            $routeConditions = count($filter->conditions);
             $filter->applyBrand($query['marca'] ?? null);
-            $filter->applyPrice($query['prezzo'] ?? null);
             $filter->applySearch($action === 'search' ? ($query['q'] ?? null) : null);
             $filter->applyAttributes();
+            // Il massimo disponibile dipende dal catalogo corrente, non
+            // dall'intervallo prezzo già selezionato dall'utente.
+            $filter->priceContextWhere = $filter->where();
+            $filter->applyPrice(
+                $query['prezzo_da'] ?? null,
+                $query['prezzo_a'] ?? null,
+                $query['prezzo'] ?? null
+            );
             $filter->applyOrder($query['ordina'] ?? null);
+            $filter->filtered = count($filter->conditions) > $routeConditions;
         }
 
         return $filter;
@@ -54,11 +67,15 @@ final class CatalogFilter
     public function where(): string { return 'WHERE '.implode(' AND ', $this->conditions); }
     public function order(): string { return $this->order; }
     public function direction(): string { return $this->direction; }
-    public function title(): string { return $this->routeTitle !== '' ? $this->routeTitle : (string) __t($this->titleKey); }
-    public function description(): string { return $this->routeDescription !== '' ? $this->routeDescription : (string) __t($this->descriptionKey); }
+    public function title(): string { return $this->filtered ? (string) __t('ecommerce.catalog.listing.filtered.title') : ($this->routeTitle !== '' ? $this->routeTitle : (string) __t($this->titleKey)); }
+    public function description(): string { return $this->filtered ? (string) __t('ecommerce.catalog.listing.filtered.description') : ($this->routeDescription !== '' ? $this->routeDescription : (string) __t($this->descriptionKey)); }
+    public function hasActiveFilters(): bool { return $this->filtered; }
     public function canonical(): string { return $this->canonical; }
     public function query(): array { return $this->query; }
     public function attributes(): array { return $this->attributes; }
+    public function priceContextWhere(): string { return $this->priceContextWhere !== '' ? $this->priceContextWhere : $this->where(); }
+    /** @return array{min:?float,max:?float} */
+    public function selectedPriceRange(): array { return ['min' => $this->priceMin, 'max' => $this->priceMax]; }
 
     /** @return list<array{url:string,name:string}> */
     public function breadcrumbs(): array
@@ -177,19 +194,39 @@ final class CatalogFilter
 
     private function applyBrand(mixed $value): void
     {
-        $slug = trim((string) $value);
-        if ($slug === '' || str_contains($this->where(), '`brand_id` =')) {
+        $slugs = self::values($value);
+        if ($slugs === [] || str_contains($this->where(), '`brand_id` =')) {
             return;
         }
-        $brand = Brand::find(['slug' => $slug, 'visible' => 'true', 'deleted' => 'false'], 1);
-        if (is_array($brand) && (int) ($brand['id'] ?? 0) > 0) {
-            $this->conditions[] = '`brand_id` = '.(int) $brand['id'];
+
+        $ids = [];
+        foreach ($slugs as $slug) {
+            $brand = Brand::find(['slug' => $slug, 'visible' => 'true', 'deleted' => 'false'], 1);
+            if (is_array($brand) && (int) ($brand['id'] ?? 0) > 0) {
+                $ids[] = (int) $brand['id'];
+            }
+        }
+
+        if ($ids !== []) {
+            $this->conditions[] = '`brand_id` IN ('.implode(',', array_unique($ids)).')';
         }
     }
 
-    private function applyPrice(mixed $value): void
+    private function applyPrice(mixed $from, mixed $to, mixed $legacy): void
     {
-        [$min, $max] = self::range((string) $value);
+        $hasRangeFields = trim((string) $from) !== '' || trim((string) $to) !== '';
+        if ($hasRangeFields) {
+            $min = self::amount($from);
+            $max = self::amount($to);
+            if ($min !== null && $max !== null && $min > $max) {
+                [$min, $max] = [$max, $min];
+            }
+        } else {
+            [$min, $max] = self::range((string) $legacy);
+        }
+
+        $this->priceMin = $min;
+        $this->priceMax = $max;
         if ($min === null && $max === null) return;
         $price = '(CASE WHEN p.`sale_price` > 0 AND p.`sale_price` < p.`price` THEN p.`sale_price` ELSE p.`price` END)';
         $range = [];
@@ -215,13 +252,13 @@ final class CatalogFilter
             $values = self::rows(AttributeValue::find(['attribute_id' => (int) $attribute['id'], 'deleted' => 'false'], null, 'position, label', 'ASC'));
             $attribute['values'] = $values;
             $this->attributes[] = $attribute;
-            $selected = trim((string) ($this->query[$slug] ?? ''));
-            if ($selected === '') continue;
+            $selected = self::values($this->query[$slug] ?? null);
+            if ($selected === []) continue;
             $this->applyAttribute($attribute, $values, $selected);
         }
     }
 
-    private function applyAttribute(array $attribute, array $values, string $selected): void
+    private function applyAttribute(array $attribute, array $values, array $selected): void
     {
         $attributeId = (int) $attribute['id'];
         $level = (string) ($attribute['level'] ?? 'product');
@@ -233,24 +270,23 @@ final class CatalogFilter
         };
 
         if (in_array($type, ['select', 'color', 'pattern', 'icon'], true)) {
-            $wanted = array_filter(array_map('trim', explode(',', $selected)));
             $ids = [];
             foreach ($values as $value) {
-                if (in_array((string) ($value['id'] ?? ''), $wanted, true) || in_array(mb_strtolower((string) ($value['label'] ?? '')), array_map('mb_strtolower', $wanted), true)) {
+                if (in_array((string) ($value['id'] ?? ''), $selected, true) || in_array(mb_strtolower((string) ($value['label'] ?? '')), array_map('mb_strtolower', $selected), true)) {
                     $ids[] = (int) $value['id'];
                 }
             }
             if ($ids === []) return;
             $match = 'a.`attribute_value_id` IN ('.implode(',', array_unique($ids)).')';
         } elseif ($type === 'number') {
-            [$min, $max] = self::range($selected);
+            [$min, $max] = self::range((string) ($selected[0] ?? ''));
             $parts = [];
             if ($min !== null) $parts[] = 'a.`value_number` >= '.self::decimal($min);
             if ($max !== null) $parts[] = 'a.`value_number` <= '.self::decimal($max);
             if ($parts === []) return;
             $match = implode(' AND ', $parts);
         } else {
-            $match = "a.`value_text` LIKE '%".self::escape($selected)."%'";
+            $match = "a.`value_text` LIKE '%".self::escape((string) ($selected[0] ?? ''))."%'";
         }
 
         $this->conditions[] = "EXISTS (SELECT 1 FROM `{$table}` a WHERE a.`attribute_id` = {$attributeId} AND a.`deleted` = 'false' AND {$relation} AND {$match})";
@@ -296,6 +332,33 @@ final class CatalogFilter
         if (preg_match('/^([0-9]+(?:\.[0-9]+)?)\s*-\s*([0-9]+(?:\.[0-9]+)?)$/', $value, $m)) return [(float) min($m[1], $m[2]), (float) max($m[1], $m[2])];
         if (is_numeric($value)) return [(float) $value, (float) $value];
         return [null, null];
+    }
+
+    private static function amount(mixed $value): ?float
+    {
+        $value = preg_replace('/[^0-9,.-]/', '', trim((string) $value)) ?? '';
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            // Il separatore più a destra è quello decimale; l'altro raggruppa.
+            $commaIsDecimal = strrpos($value, ',') > strrpos($value, '.');
+            $value = $commaIsDecimal
+                ? str_replace(['.', ','], ['', '.'], $value)
+                : str_replace(',', '', $value);
+        } elseif (str_contains($value, ',')) {
+            $value = str_replace(',', '.', $value);
+        }
+        if ($value === '' || !is_numeric($value)) return null;
+        return max(0.0, (float) $value);
+    }
+
+    /** @return list<string> */
+    private static function values(mixed $value): array
+    {
+        $values = is_array($value) ? $value : explode(',', (string) $value);
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            $values
+        ), static fn (string $item): bool => $item !== '')));
     }
 
     private static function escape(string $value): string { return (new Query())->mysqli->real_escape_string($value); }

@@ -19,11 +19,11 @@ foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
 
-Ecommerce::layout('shop', compact('errors', 'notice'));
+Ecommerce::layout('shop');
 ?>
-<?=\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart')?>
-<?=\Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet()?>
 <?php
+View::head(\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart'));
+View::head(\Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet());
 // La quantità che −/+ mandano, col punto: il carrello la rilegge così.
 $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
 ?>
@@ -104,8 +104,8 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
             <?php endif; ?>
         </div>
     </div>
-    <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== ''): ?>
-        <script src="<?=e($checkoutJs)?>"></script>
-    <?php endif; ?>
+    <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+        View::head('<script src="'.e($checkoutJs).'" defer></script>');
+    } ?>
 <?php endif; ?>
 <?php View::end(); ?>

@@ -4,13 +4,18 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
+use Wonder\Plugin\Gestionale\Models\Catalog\Attribute;
+use Wonder\Plugin\Gestionale\Models\Catalog\AttributeValue;
 use Wonder\Plugin\Gestionale\Models\Catalog\Category;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductImage;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModelCategory;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
+use Wonder\Plugin\Gestionale\Models\Locations\Location;
 use Wonder\Plugin\Gestionale\Models\Stock\Stock as StockRow;
+use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
+use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 use Wonder\Plugin\Gestionale\Support\Stock\Stock;
 
@@ -97,6 +102,8 @@ final class ProductCatalog
         $name = self::productName($modelName, $variantName, count($variants));
         $url = self::absolute(self::productUrl((string) ($variant['slug'] ?? $model['slug'] ?? '')));
         $offers = [];
+        $stockManaged = self::stockManaged();
+        $optionGroups = self::optionGroups($model, $products);
 
         foreach ($products as $product) {
             $quantity = 0.0;
@@ -109,20 +116,26 @@ final class ProductCatalog
                 'product_id' => (int) $product['id'],
                 'item_id' => (string) $product['id'],
                 'name' => trim((string) ($product['name'] ?? '')),
+                'option_name' => self::optionName((string) ($product['name'] ?? ''), $modelName, $variantName),
                 'sku' => $sku,
                 'gtin' => trim((string) ($product['ean'] ?? '')),
                 'mpn' => trim((string) ($product['mpn'] ?? '')),
                 'regular_price' => (float) ($product['price'] ?? 0),
                 'sale_price' => (float) ($product['sale_price'] ?? 0),
-                'available' => $quantity > 0 || Stock::allowsBackorder($product),
+                'stock_managed' => $stockManaged,
+                'available' => !$stockManaged || $quantity > 0 || Stock::allowsBackorder($product),
+                'attributes' => self::productOptions((int) $product['id'], $optionGroups),
             ];
         }
 
         $variantCards = [];
         foreach ($variants as $row) {
+            $variantImages = ProductImages::for($allImages, (int) ($row['id'] ?? 0));
+            $variantImage = $variantImages[0] ?? [];
             $variantCards[] = [
-                'name' => self::productName($modelName, (string) ($row['name'] ?? ''), count($variants)),
+                'name' => trim((string) ($row['name'] ?? '')),
                 'url' => self::productUrl((string) ($row['slug'] ?? '')),
+                'image' => is_array($variantImage) ? self::absolute(ProductImages::url($variantImage)) : '',
                 'active' => (int) ($row['id'] ?? 0) === $variantId,
             ];
         }
@@ -163,9 +176,90 @@ final class ProductCatalog
             'breadcrumbs' => $breadcrumbs,
             'images' => $images,
             'offers' => $offers,
+            'option_groups' => $optionGroups,
+            'stock_managed' => $stockManaged,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
             'details' => self::details($model),
         ]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function optionGroups(array $model, array $products): array
+    {
+        $ids = array_values(array_filter(array_map('intval', explode('-', (string) ($model['axes_order'] ?? '')))));
+        $groups = [];
+
+        foreach ($ids as $attributeId) {
+            $attribute = Attribute::find(['id' => $attributeId, 'level' => 'product'], 1);
+            if (!is_array($attribute)) continue;
+
+            $values = [];
+            foreach ($products as $product) {
+                $link = ProductAttributes::read('product', (int) $product['id'])[$attributeId] ?? null;
+                if (!is_array($link)) continue;
+
+                $valueId = (int) ($link['attribute_value_id'] ?? 0);
+                $value = $valueId > 0 ? AttributeValue::find(['id' => $valueId], 1) : [];
+                $label = Attributes::format($attribute, $link, is_array($value) ? [$valueId => $value] : []);
+                if ($label === '') continue;
+
+                $key = $valueId > 0 ? (string) $valueId : sha1($label);
+                $visual = is_array($value)
+                    ? Attributes::valueVisual((string) ($attribute['type'] ?? ''), $value, AttributeValue::imageUrl($value))
+                    : [];
+                $values[$key] = ['id' => $key, 'label' => $label] + $visual;
+            }
+
+            if ($values === []) continue;
+            $slug = trim((string) ($attribute['slug'] ?? ''));
+            $override = (string) Ecommerce::config('catalog.option_selector.attributes.'.$slug, '');
+            $default = (string) Ecommerce::config('catalog.option_selector.default', 'auto');
+            $selector = in_array($override, ['buttons', 'select'], true) ? $override : $default;
+            if ($selector === 'auto') {
+                $hasVisuals = array_filter($values, static fn (array $value): bool => isset($value['image']) || isset($value['color'])) !== [];
+                $selector = $hasVisuals || count($values) <= 4 ? 'buttons' : 'select';
+            }
+
+            $groups[] = [
+                'id' => $attributeId,
+                'slug' => $slug,
+                'name' => trim((string) ($attribute['name'] ?? '')),
+                'selector' => $selector,
+                'values' => array_values($values),
+            ];
+        }
+
+        return $groups;
+    }
+
+    /** @param list<array<string, mixed>> $groups @return array<string, string> */
+    private static function productOptions(int $productId, array $groups): array
+    {
+        $links = ProductAttributes::read('product', $productId);
+        $options = [];
+
+        foreach ($groups as $group) {
+            $attributeId = (int) ($group['id'] ?? 0);
+            $link = $links[$attributeId] ?? null;
+            if (!is_array($link)) continue;
+            $valueId = (int) ($link['attribute_value_id'] ?? 0);
+            if ($valueId > 0) {
+                $options[(string) $attributeId] = (string) $valueId;
+                continue;
+            }
+            $attribute = Attribute::find(['id' => $attributeId], 1);
+            if (is_array($attribute)) {
+                $options[(string) $attributeId] = sha1(Attributes::format($attribute, $link));
+            }
+        }
+
+        return $options;
+    }
+
+    private static function stockManaged(): bool
+    {
+        $location = Location::find(['has_stock' => 'true', 'active' => 'true', 'deleted' => 'false'], 1);
+        return is_array($location) && $location !== [];
     }
 
     /** @return list<array<string, mixed>> */
@@ -229,7 +323,24 @@ final class ProductCatalog
             return $model;
         }
 
+        if ($model === '' || str_starts_with(mb_strtolower($variant), mb_strtolower($model))) return $variant;
+
         return trim($model.' '.$variant);
+    }
+
+    private static function optionName(string $name, string $model, string $variant): string
+    {
+        $option = trim((string) preg_replace(
+            array_values(array_filter([
+                $model !== '' ? '/'.preg_quote($model, '/').'/iu' : null,
+                $variant !== '' ? '/'.preg_quote($variant, '/').'/iu' : null,
+            ])),
+            '',
+            $name
+        ));
+        $option = trim($option, " \t\n\r\0\x0B-–—|/");
+
+        return $option !== '' ? $option : trim($name);
     }
 
     private static function productUrl(string $slug): string

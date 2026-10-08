@@ -9,9 +9,9 @@ $line = static function (array $item) use ($currency): string {
         .'<span class="wi-thumb" style="--wi-thumb-size: 64px">'
         .($image === '' ? '' : '<img src="'.e($image).'" alt="" loading="lazy" data-line-image>')
         .'<span class="badge badge-dark" data-line-quantity>'.e($item['quantity_display'] ?? CartPresenter::quantity($item['quantity'] ?? 1)).'</span></span>'
-        .'<span class="w-100"><span class="d-block fw-600" data-line-name>'.e($item['name'] ?? '').'</span>'
+        .'<span class="w-100"><span class="d-block" data-line-name>'.e($item['name'] ?? '').'</span>'
         .'</span>'
-        .'<span class="fw-600 a-r" data-line-total>'.e($item['line_total_display'] ?? CartPresenter::money($item['line_total'] ?? 0, $currency)).'</span>'
+        .'<span class="a-r" data-line-total>'.e($item['line_total_display'] ?? CartPresenter::money($item['line_total'] ?? 0, $currency)).'</span>'
         .'</div>';
 };
 ?>
