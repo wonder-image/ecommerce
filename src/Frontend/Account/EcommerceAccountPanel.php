@@ -7,7 +7,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 
 class EcommerceAccountPanel extends AccountPanel
 {
-    public function navigation(object $user): array
+    public function navigation(object $user, string $active = ''): array
     {
         $defaults = [
             'overview' => ['route' => 'ecommerce.account.index', 'icon' => 'bi bi-person-fill', 'label' => __t('ecommerce.account.navigation.overview')],
