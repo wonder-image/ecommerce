@@ -76,7 +76,7 @@ final class ProductListing
             $variantImage = $variantImages[0] ?? [];
             $variantCards[] = [
                 'name' => (string) ($variant['name'] ?? ''),
-                'url' => self::productUrl((string) ($variant['slug'] ?? $model['slug'] ?? '')),
+                'url' => ProductUrl::make((string) ($model['slug'] ?? ''), ProductUrl::variantSlugFor($variant, count($variants))),
                 'image' => is_array($variantImage) ? ProductImages::url($variantImage) : '',
                 'active' => $index === 0,
             ];
@@ -85,7 +85,8 @@ final class ProductListing
         return [
             'id' => $modelId,
             'name' => (string) ($model['name'] ?? ''),
-            'url' => self::productUrl((string) ($firstVariant['slug'] ?? $model['slug'] ?? '')),
+            // La card è del modello, e porta al modello.
+            'url' => ProductUrl::make((string) ($model['slug'] ?? '')),
             'image' => $image,
             'image_alt' => (string) ($firstImage['alt'] ?? $model['name'] ?? ''),
             'price' => $regular,
@@ -105,12 +106,6 @@ final class ProductListing
         $price = (float) ($product['price'] ?? 0);
         $sale = (float) ($product['sale_price'] ?? 0);
         return $sale > 0 && $sale < $price ? $sale : $price;
-    }
-
-    private static function productUrl(string $slug): string
-    {
-        return __r('ecommerce.catalog.product', ['slug' => $slug])
-            ?: '/prodotto/'.rawurlencode($slug).'/';
     }
 
     private static function rows(mixed $rows): array
