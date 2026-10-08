@@ -120,4 +120,47 @@ check('la pagina espone route, SEO, breadcrumb visibile e JSON-LD senza duplicar
         && !str_contains($view, 'BreadcrumbList');
 });
 
+check('l\'opzione chiesta dalla query vince sulla prima disponibile, se esiste', function () {
+    $scheda = static fn (int $preferita): int => ProductDetail::make([
+        'id' => 1,
+        'name' => 'Maglietta',
+        'url' => 'https://shop.test/prodotto/maglietta/',
+        'stock_managed' => true,
+        'offers' => [
+            ['product_id' => 42, 'item_id' => '42', 'name' => 'S', 'sku' => 'M-S', 'regular_price' => 10, 'stock_managed' => true, 'available' => true],
+            ['product_id' => 43, 'item_id' => '43', 'name' => 'M', 'sku' => 'M-M', 'regular_price' => 10, 'stock_managed' => true, 'available' => false],
+        ],
+        'preferred_product_id' => $preferita,
+    ])->data()['selected_product_id'];
+
+    return $scheda(43) === 43 && $scheda(99) === 42 && $scheda(0) === 42;
+});
+
+check('la variante ha la sua route, il controller rimanda con un 301, gli indirizzi hanno un solo costruttore', function () {
+    $root = dirname(__DIR__);
+    $route = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Catalog/ProductController.php');
+    $handler = (string) file_get_contents($root.'/http/frontend/product.php');
+    $catalog = (string) file_get_contents($root.'/src/Frontend/Catalog/ProductCatalog.php');
+    $listing = (string) file_get_contents($root.'/src/Frontend/Catalog/ProductListing.php');
+
+    return str_contains($route, "'/prodotto/{slug}/{variante}/'")
+        && str_contains($route, "name('ecommerce.catalog.product.variant')")
+        && str_contains($controller, 'ProductCatalog::resolve(')
+        && str_contains($controller, ', 301)')
+        && str_contains($handler, "\$ROUTE_PARAMETERS['variante']")
+        && !str_contains($catalog, 'function productUrl')
+        && !str_contains($listing, 'function productUrl')
+        && str_contains($catalog, 'OptionQuery::match(')
+        && str_contains($catalog, "'slug' => OptionQuery::slug(");
+});
+
+check('il cambio d\'opzione riscrive la query senza aggiungere cronologia', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+
+    return str_contains($view, 'history.replaceState(')
+        && !str_contains($view, 'history.pushState(')
+        && str_contains($view, 'remember()');
+});
+
 summary();

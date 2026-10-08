@@ -35,6 +35,10 @@ Route::area('frontend')
             '/prodotto/{slug}/',
             Ecommerce::handlerPath('frontend/product.php')
         )->name('ecommerce.catalog.product');
+        Route::get(
+            '/prodotto/{slug}/{variante}/',
+            Ecommerce::handlerPath('frontend/product.php')
+        )->name('ecommerce.catalog.product.variant');
 
         Route::name('ecommerce.cart.')
             ->prefix('/cart')

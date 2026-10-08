@@ -22,48 +22,82 @@ use Wonder\Plugin\Gestionale\Support\Stock\Stock;
 /** Legge una scheda pubblica dalle tabelle catalogo del gestionale. */
 final class ProductCatalog
 {
-    public static function find(string $slug): ?ProductDetail
+    /**
+     * La scheda di `/prodotto/{modello}/` o `/prodotto/{modello}/{variante}/`,
+     * oppure dove rimandare. Tutti e due null: il modello non c'è, è un 404.
+     *
+     * @param array<mixed> $query la query della richiesta: sceglie l'opzione
+     * @return array{detail: ?ProductDetail, redirect: ?string}
+     */
+    public static function resolve(string $modelSlug, string $variantSlug = '', array $query = []): array
     {
-        $slug = trim($slug);
+        $none = ['detail' => null, 'redirect' => null];
+        $modelSlug = trim($modelSlug);
+        $variantSlug = trim($variantSlug);
 
-        if ($slug === '') {
-            return null;
+        if ($modelSlug === '') {
+            return $none;
         }
 
-        $variant = ProductVariant::find(['slug' => $slug, 'visible' => 'true'], 1);
-        $model = is_array($variant) && (int) ($variant['product_model_id'] ?? 0) > 0
-            ? ProductModel::find([
-                'id' => (int) $variant['product_model_id'],
-                'visible' => 'true',
-                'visible_online' => 'true',
-            ], 1)
-            : ProductModel::find([
-                'slug' => $slug,
-                'visible' => 'true',
-                'visible_online' => 'true',
-            ], 1);
+        $model = ProductModel::find([
+            'slug' => $modelSlug,
+            'visible' => 'true',
+            'visible_online' => 'true',
+            'deleted' => 'false',
+        ], 1);
 
         if (!is_array($model) || (int) ($model['id'] ?? 0) <= 0) {
-            return null;
+            return $none;
         }
 
-        $modelId = (int) $model['id'];
         $variants = self::rows(ProductVariant::find(
-            ['product_model_id' => $modelId, 'visible' => 'true'],
+            ['product_model_id' => (int) $model['id'], 'visible' => 'true', 'deleted' => 'false'],
             null,
             'position',
             'ASC'
         ));
+        $variant = $variants[0] ?? null;
 
-        if (!is_array($variant) || (int) ($variant['product_model_id'] ?? 0) !== $modelId) {
-            $variant = $variants[0] ?? null;
+        if ($variantSlug !== '') {
+            $variant = null;
+
+            foreach ($variants as $row) {
+                if ((string) ($row['slug'] ?? '') === $variantSlug) {
+                    $variant = $row;
+                    break;
+                }
+            }
+
+            // Variante sconosciuta o nascosta, o modello con una sola
+            // variante: l'indirizzo giusto è quello del modello.
+            if ($variant === null || count($variants) < 2) {
+                return ['detail' => null, 'redirect' => ProductUrl::make($modelSlug, '', $query)];
+            }
         }
 
         if (!is_array($variant) || (int) ($variant['id'] ?? 0) <= 0) {
-            return null;
+            return $none;
         }
 
+        return ['detail' => self::build($model, $variant, $variants, $query), 'redirect' => null];
+    }
+
+    /** Solo la scheda del modello, senza rimandi. */
+    public static function find(string $slug): ?ProductDetail
+    {
+        return self::resolve($slug)['detail'];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $variants le varianti visibili, per posizione
+     * @param array<mixed> $query sceglie l'opzione, se combacia
+     */
+    private static function build(array $model, array $variant, array $variants, array $query = []): ?ProductDetail
+    {
+        $modelId = (int) $model['id'];
         $variantId = (int) $variant['id'];
+        $visible = count($variants);
+        $modelSlug = (string) ($model['slug'] ?? '');
         $products = self::rows(Product::find([
             'product_model_id' => $modelId,
             'product_variant_id' => $variantId,
@@ -100,7 +134,7 @@ final class ProductCatalog
         $variantName = trim((string) ($variant['name'] ?? ''));
         $modelName = trim((string) ($model['name'] ?? ''));
         $name = self::productName($modelName, $variantName, count($variants));
-        $url = self::absolute(self::productUrl((string) ($variant['slug'] ?? $model['slug'] ?? '')));
+        $url = self::absolute(ProductUrl::make($modelSlug, ProductUrl::variantSlugFor($variant, $visible)));
         $offers = [];
         $stockManaged = self::stockManaged();
         $optionGroups = self::optionGroups($model, $products);
@@ -134,7 +168,7 @@ final class ProductCatalog
             $variantImage = $variantImages[0] ?? [];
             $variantCards[] = [
                 'name' => trim((string) ($row['name'] ?? '')),
-                'url' => self::productUrl((string) ($row['slug'] ?? '')),
+                'url' => ProductUrl::make($modelSlug, ProductUrl::variantSlugFor($row, $visible)),
                 'image' => is_array($variantImage) ? self::absolute(ProductImages::url($variantImage)) : '',
                 'active' => (int) ($row['id'] ?? 0) === $variantId,
             ];
@@ -162,7 +196,7 @@ final class ProductCatalog
         return ProductDetail::make([
             'id' => $modelId,
             'name' => $name,
-            'slug' => (string) ($variant['slug'] ?? $model['slug'] ?? ''),
+            'slug' => ProductUrl::variantSlugFor($variant, $visible) ?: $modelSlug,
             'url' => $url,
             'short_description' => (string) ($model['short_description'] ?? ''),
             'description_html' => (string) ($model['description'] ?? ''),
@@ -177,6 +211,7 @@ final class ProductCatalog
             'images' => $images,
             'offers' => $offers,
             'option_groups' => $optionGroups,
+            'preferred_product_id' => OptionQuery::match($optionGroups, $offers, $query) ?? 0,
             'stock_managed' => $stockManaged,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
             'details' => self::details($model),
@@ -207,7 +242,7 @@ final class ProductCatalog
                 $visual = is_array($value)
                     ? Attributes::valueVisual((string) ($attribute['type'] ?? ''), $value, AttributeValue::imageUrl($value))
                     : [];
-                $values[$key] = ['id' => $key, 'label' => $label] + $visual;
+                $values[$key] = ['id' => $key, 'label' => $label, 'slug' => OptionQuery::slug($label)] + $visual;
             }
 
             if ($values === []) continue;
@@ -341,12 +376,6 @@ final class ProductCatalog
         $option = trim($option, " \t\n\r\0\x0B-–—|/");
 
         return $option !== '' ? $option : trim($name);
-    }
-
-    private static function productUrl(string $slug): string
-    {
-        return __r('ecommerce.catalog.product', ['slug' => $slug])
-            ?: '/prodotto/'.rawurlencode($slug).'/';
     }
 
     /** @param string|list<string> $slug */

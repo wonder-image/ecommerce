@@ -223,12 +223,33 @@ Ecommerce::layout('shop');
 <?php if ($suggested_products !== []): ?><section class="mt-10"><?=ProductList::make($suggested_products)->title(__t('ecommerce.catalog.sliders.suggested'))->renderSwiper()?></section><?php endif; ?>
 
 <?php if (count($data['offers']) > 1 && $data['option_groups'] !== []): ?>
+<?php
+$optionSlugs = [];
+foreach ($data['option_groups'] as $group) {
+    $optionSlugs[(string) ($group['id'] ?? '')] = [
+        'slug' => (string) ($group['slug'] ?? ''),
+        'values' => array_column((array) ($group['values'] ?? []), 'slug', 'id'),
+    ];
+}
+?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('add_to_cart_product');
     if (!form) return;
     const offers = <?=json_encode($data['offers'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>;
     const selected = {};
+    const slugs = <?=json_encode($optionSlugs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
+    // Solo dopo una scelta del cliente: all'apertura la barra resta com'è.
+    const remember = function () {
+        const url = new URL(window.location.href);
+        Object.entries(slugs).forEach(([id, group]) => {
+            if (!group.slug) return;
+            const value = selected[id] ? (group.values[selected[id]] || selected[id]) : '';
+            if (value) url.searchParams.set(group.slug, value);
+            else url.searchParams.delete(group.slug);
+        });
+        history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    };
     const initial = offers.find(offer => Number(offer.product_id) === <?=json_encode((int) $data['selected_product_id'], JSON_HEX_TAG)?>) || offers[0];
     Object.assign(selected, initial.attributes || {});
     form.querySelectorAll('[data-option-group]').forEach(group => {
@@ -261,10 +282,14 @@ document.addEventListener('DOMContentLoaded', function () {
             ? '<i class="bi bi-circle-fill tx-success"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.in_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>
             : '<i class="bi bi-circle-fill tx-danger"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.out_of_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>;
     };
-    form.querySelectorAll('select').forEach(select => select.addEventListener('change', sync));
+    form.querySelectorAll('select').forEach(select => select.addEventListener('change', function () {
+        sync();
+        remember();
+    }));
     form.querySelectorAll('[data-option-value]').forEach(button => button.addEventListener('click', function () {
         selected[button.closest('[data-option-group]').dataset.optionGroup] = button.dataset.optionValue;
         sync();
+        remember();
     }));
     sync();
 });

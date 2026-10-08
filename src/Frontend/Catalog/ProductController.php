@@ -7,9 +7,16 @@ use Wonder\View\View;
 
 final class ProductController
 {
-    public static function show(string $slug): void
+    public static function show(string $slug, string $variante = ''): void
     {
-        $product = ProductCatalog::find($slug);
+        $resolved = ProductCatalog::resolve($slug, $variante, $_GET);
+
+        if ($resolved['redirect'] !== null) {
+            header('Location: '.$resolved['redirect'], true, 301);
+            exit;
+        }
+
+        $product = $resolved['detail'];
 
         if ($product === null) {
             http_response_code(404);
