@@ -150,7 +150,9 @@ check('la variante ha la sua route, il controller rimanda con un 301, gli indiri
         && str_contains($controller, ', 301)')
         && str_contains($handler, "\$ROUTE_PARAMETERS['variante']")
         && !str_contains($catalog, 'function productUrl')
-        && !str_contains($listing, 'function productUrl');
+        && !str_contains($listing, 'function productUrl')
+        && str_contains($catalog, 'OptionQuery::match(')
+        && str_contains($catalog, "'slug' => OptionQuery::slug(");
 });
 
 summary();

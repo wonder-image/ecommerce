@@ -79,7 +79,7 @@ final class ProductCatalog
             return $none;
         }
 
-        return ['detail' => self::build($model, $variant, $variants), 'redirect' => null];
+        return ['detail' => self::build($model, $variant, $variants, $query), 'redirect' => null];
     }
 
     /** Solo la scheda del modello, senza rimandi. */
@@ -88,8 +88,11 @@ final class ProductCatalog
         return self::resolve($slug)['detail'];
     }
 
-    /** @param list<array<string, mixed>> $variants le varianti visibili, per posizione */
-    private static function build(array $model, array $variant, array $variants): ?ProductDetail
+    /**
+     * @param list<array<string, mixed>> $variants le varianti visibili, per posizione
+     * @param array<mixed> $query sceglie l'opzione, se combacia
+     */
+    private static function build(array $model, array $variant, array $variants, array $query = []): ?ProductDetail
     {
         $modelId = (int) $model['id'];
         $variantId = (int) $variant['id'];
@@ -208,6 +211,7 @@ final class ProductCatalog
             'images' => $images,
             'offers' => $offers,
             'option_groups' => $optionGroups,
+            'preferred_product_id' => OptionQuery::match($optionGroups, $offers, $query) ?? 0,
             'stock_managed' => $stockManaged,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
             'details' => self::details($model),
@@ -238,7 +242,7 @@ final class ProductCatalog
                 $visual = is_array($value)
                     ? Attributes::valueVisual((string) ($attribute['type'] ?? ''), $value, AttributeValue::imageUrl($value))
                     : [];
-                $values[$key] = ['id' => $key, 'label' => $label] + $visual;
+                $values[$key] = ['id' => $key, 'label' => $label, 'slug' => OptionQuery::slug($label)] + $visual;
             }
 
             if ($values === []) continue;
