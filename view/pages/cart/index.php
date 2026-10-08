@@ -45,6 +45,17 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 <?php
                 $id = (int) ($item['id'] ?? 0);
                 $quantity = (float) ($item['quantity'] ?? 1);
+                $remove = (string) __r('ecommerce.cart.remove', ['id' => $id]);
+                $confirm = [
+                    (string) __t('ecommerce.cart.remove_confirm_text', ['name' => (string) ($item['name'] ?? '')]),
+                    (string) __t('ecommerce.cart.remove_confirm_title'),
+                    (string) __t('ecommerce.cart.remove_confirm_ok'),
+                ];
+                $minus = Button::make('−')->type('submit')->size('sm')->variant('black')->outline()->attr('aria-label', (string) __t('ecommerce.cart.decrease'));
+                // A 1 il − toglie il prodotto: stessa conferma di «Rimuovi», il csrf del form basta alla rimozione.
+                $minus = $quantity <= 1
+                    ? $minus->attr('formaction', $remove)->confirm(...$confirm)
+                    : $minus->attr('name', 'quantity')->attr('value', $step($quantity - 1));
                 ?>
                 <?php if ($index > 0): ?><hr class="wi-cart__line"><?php endif; ?>
                 <article class="d-flex gap-4">
@@ -54,17 +65,17 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                     <div class="w-100 d-flex d-column j-content-between gap-3">
                         <div class="w-100 d-grid col-2 col-p-1 gap-3">
                             <h2 class="text fw-600"><?=e($item['name'] ?? '')?></h2>
-                            <form id="cart_quantity_<?=e((string) $id)?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => $id]))?>" class="wi-cart__stepper">
+                            <form id="cart_quantity_<?=e((string) $id)?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => $id]))?>" class="wi-cart__stepper" data-cart-action>
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
-                                <?=Button::make('−')->type('submit')->size('sm')->variant('black')->outline()->attr('name', 'quantity')->attr('value', $step($quantity - 1))->attr('aria-label', (string) __t('ecommerce.cart.decrease'))->disabled($quantity <= 1)?>
+                                <?=$minus?>
                                 <span class="wi-cart__quantity" aria-label="<?=e(__t('ecommerce.cart.quantity'))?>"><?=e(CartPresenter::quantity($quantity))?></span>
                                 <?=Button::make('+')->type('submit')->size('sm')->variant('black')->outline()->attr('name', 'quantity')->attr('value', $step($quantity + 1))->attr('aria-label', (string) __t('ecommerce.cart.increase'))?>
                             </form>
                         </div>
                         <div class="w-100 d-grid col-2 gap-3">
-                            <form id="cart_remove_<?=e((string) $id)?>" method="post" action="<?=e(__r('ecommerce.cart.remove', ['id' => $id]))?>">
+                            <form id="cart_remove_<?=e((string) $id)?>" method="post" action="<?=e($remove)?>" data-cart-action>
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
-                                <button class="wi-cart__remove text-small" type="submit"><i class="bi bi-trash3"></i> <?=e(__t('ecommerce.cart.remove'))?></button>
+                                <button class="wi-cart__remove text-small" type="submit" data-wi-confirm="<?=e($confirm[0])?>" data-wi-confirm-title="<?=e($confirm[1])?>" data-wi-confirm-ok="<?=e($confirm[2])?>"><i class="bi bi-trash3"></i> <?=e(__t('ecommerce.cart.remove'))?></button>
                             </form>
                             <p class="text fw-700 a-r"><?=e(CartPresenter::money($item['line_total'] ?? 0, $currency))?></p>
                         </div>

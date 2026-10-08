@@ -613,4 +613,33 @@ check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto a 88px 
         && str_contains($v, 'components/checkout/coupon.php');
 });
 
+check('«Rimuovi» e il − a quantità 1 chiedono conferma; il − a 1 manda alla rimozione', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $keys = ['remove_confirm_title', 'remove_confirm_text', 'remove_confirm_ok'];
+    $lang = array_reduce($keys, fn ($ok, $k) => $ok && trim((string) ($it['cart'][$k] ?? '')) !== '' && trim((string) ($en['cart'][$k] ?? '')) !== '', true);
+
+    return $lang
+        && str_contains($it['cart']['remove_confirm_text'] ?? '', '{{name}}')
+        && str_contains($v, 'data-wi-confirm=')
+        && str_contains($v, "->attr('formaction', \$remove)")
+        && str_contains($v, '->confirm(...$confirm)')
+        // Il − a 1 non è più spento: apre la conferma.
+        && !str_contains($v, '->disabled($quantity <= 1)')
+        && str_contains($v, 'data-cart-action');
+});
+
+check('le operazioni del carrello mostrano lo spinner per un tempo minimo e lo tolgono tornando indietro', function () use ($root): bool {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+
+    return str_contains($js, "form[data-cart-action]")
+        && str_contains($js, 'loadingSpinner(on)')
+        && str_contains($js, 'cartSpinner(true)') && str_contains($js, 'cartSpinner(false)')
+        && (bool) preg_match('/CART_SPINNER_MIN\s*=\s*\d{3,4}/', $js)
+        // Il bottone premuto porta quantità e formaction: form.submit() li perderebbe.
+        && str_contains($js, 'form.requestSubmit(submitter)')
+        && str_contains($js, "'pageshow'");
+});
+
 summary();

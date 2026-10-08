@@ -593,5 +593,52 @@ class Checkout {
     }
 }
 
+// −, + e «Rimuovi» del carrello possono durare qualche secondo: lo spinner resta almeno
+// CART_SPINNER_MIN ms, per non sembrare un lampo. La conferma della lib ferma il clic prima.
+const CART_SPINNER_MIN = 800;
+
+function cartSpinner(on) {
+    if (typeof loadingSpinner === 'function' && document.getElementById('loading-spinner')) {
+        loadingSpinner(on);
+    }
+}
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+
+    if (!(form instanceof HTMLFormElement) || !form.matches('form[data-cart-action]') || event.defaultPrevented) {
+        return;
+    }
+    if (form.dataset.cartSending === 'go') {
+        // Il secondo giro, dopo l'attesa: parte davvero.
+        delete form.dataset.cartSending;
+        return;
+    }
+
+    event.preventDefault();
+    if (form.dataset.cartSending || typeof form.requestSubmit !== 'function') {
+        return;
+    }
+
+    // Il bottone premuto porta quantità e formaction: requestSubmit(submitter) li tiene, form.submit() no.
+    const submitter = event.submitter && event.submitter.form === form ? event.submitter : null;
+    form.dataset.cartSending = 'wait';
+    cartSpinner(true);
+    setTimeout(() => {
+        form.dataset.cartSending = 'go';
+        submitter ? form.requestSubmit(submitter) : form.requestSubmit();
+    }, CART_SPINNER_MIN);
+});
+
+// Tornando indietro il browser può rimettere la pagina dalla cache con lo spinner acceso.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) {
+        return;
+    }
+
+    document.querySelectorAll('form[data-cart-action]').forEach((form) => { delete form.dataset.cartSending; });
+    cartSpinner(false);
+});
+
 window.Checkout = Checkout;
 window.ecommerceCheckout = new Checkout();
