@@ -4,15 +4,18 @@ namespace Wonder\Plugin\Ecommerce;
 
 use Wonder\App\Module\ConfigRepository;
 use Wonder\App\Module\Contracts\ModuleInterface;
+use Wonder\Plugin\Ecommerce\Settings\OnlineShopSettings;
+use Wonder\Plugin\Gestionale\Extensions\ProvidesSettings;
 use Wonder\View\View;
 
 /**
- * Entrypoint del modulo: percorsi, configurazione e layout del negozio.
+ * Entrypoint del modulo: percorsi, configurazione e layout del negozio; nelle
+ * Impostazioni di Set Up porta il riquadro «Negozio online».
  *
  * Il modulo non porta header e footer: le sue pagine passano dai layout
  * sottili in `view/layout/frontend/`, che chainano su quelli del sito.
  */
-final class Ecommerce implements ModuleInterface
+final class Ecommerce implements ModuleInterface, ProvidesSettings
 {
     public const SLUG = 'ecommerce';
 
@@ -58,6 +61,11 @@ final class Ecommerce implements ModuleInterface
     public static function langPath(): string
     {
         return self::root().'/lang';
+    }
+
+    public static function settingsSections(): iterable
+    {
+        yield new OnlineShopSettings();
     }
 
     public static function assetPath(string $path = ''): string

@@ -57,8 +57,12 @@ stanno in `resources/assets/payment-icons` (licenza MIT, file `LICENSE`).
 pagina al primo. Nome, cognome e telefono della fatturazione partono da quelli
 della consegna finché il cliente non li cambia.
 
-`StoreFont::style($area)` stampa il font scelto dal commerciante per una delle
-quattro aree: `auth`, `account`, `checkout` e `cart`.
+`StoreFont::style($area)` stampa il font scelto per una delle quattro aree
+(`auth`, `account`, `checkout` e `cart`) nel riquadro «Negozio online» delle
+Impostazioni di Set Up (`OnlineShopSettings`, colonne `font_*` del gestionale).
+Si sceglie fra le righe visibili di `css_font`, salvate per `name`; vuoto vuol
+dire «come il sito». Cambia solo le variabili del sito, perché la testa carica
+già ogni font di `css_font`.
 
 ## Consegna e coupon
 
@@ -88,8 +92,9 @@ Il checkout richiede un account per default. Login, registrazione locale e
 Google conservano il parametro interno `continue` e riportano al checkout; il
 carrello ospite viene unito dopo l'autenticazione.
 
-`checkout.guest_enabled` è `false`; un sito lo accende con
-`custom/config/modules/ecommerce.php`. L'ospite vede «Accedi» nei Contatti e
+Gli ordini senza account si accendono nel riquadro «Negozio online» delle
+Impostazioni di Set Up (`checkout_guest`, spento per default); come il resto di
+quella pagina, in produzione si leggono soltanto. L'ospite vede «Accedi» nei Contatti e
 scrive la sua email; l'invio è protetto da reCAPTCHA (action
 `ecommerce_checkout`). Al «Ordina» `GuestCheckout` trova l'account con quella
 email o lo crea senza password, collega il contatto e salva i consensi

@@ -19,7 +19,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
-use Wonder\Plugin\Gestionale\Models\System\MerchantSetting;
+use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Catalog\Code;
 use Wonder\Plugin\Gestionale\Support\Codes;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
@@ -229,16 +229,17 @@ try {
                 && ($contatto['phone'] ?? '') === '0200000000';
         });
 
-        $impostazioni = MerchantSetting::current();
+        $impostazioni = Setting::current();
         $accendi = static function (string $valore) use ($impostazioni): bool {
             return $impostazioni === []
-                ? (bool) (MerchantSetting::create(['id' => 1, 'checkout_guest' => $valore])->success ?? false)
-                : (bool) (MerchantSetting::update(['checkout_guest' => $valore], 1)->success ?? false);
+                ? (bool) (Setting::create(['id' => 1, 'checkout_guest' => $valore])->success ?? false)
+                : (bool) (Setting::update(['checkout_guest' => $valore], 1)->success ?? false);
         };
         $acceso = $accendi('true') && GuestCheckout::enabled();
         $spento = $accendi('false') && !GuestCheckout::enabled();
+        $accendi((string) ($impostazioni['checkout_guest'] ?? 'false'));
 
-        check('il checkout dell\'ospite si accende e si spegne dalle impostazioni del negozio', fn () => $acceso && $spento);
+        check('il checkout dell\'ospite si accende e si spegne dalle Impostazioni di Set Up', fn () => $acceso && $spento);
 
         $registrato = 'ecommerce-registrato-'.bin2hex(random_bytes(6)).'@example.com';
         $vecchio = (int) (Order::create([

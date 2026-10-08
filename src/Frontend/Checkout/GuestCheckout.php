@@ -9,7 +9,7 @@ use Wonder\Auth\PasswordReset;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
-use Wonder\Plugin\Gestionale\Models\System\MerchantSetting;
+use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
 /**
@@ -22,10 +22,10 @@ final class GuestCheckout
     /** Il link per scegliere la password vale una settimana. */
     private const LINK_TTL = 7 * 86400;
 
-    /** Il commerciante lo accende nelle impostazioni del negozio; spento per default. */
+    /** Si accende nelle Impostazioni di Set Up, riquadro «Negozio online»; spento per default. */
     public static function enabled(): bool
     {
-        return (string) (MerchantSetting::current()['checkout_guest'] ?? 'false') === 'true';
+        return (string) (Setting::current()['checkout_guest'] ?? 'false') === 'true';
     }
 
     /**
