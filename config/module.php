@@ -25,11 +25,6 @@ return [
             'apple' => false,
         ],
     ],
-    'checkout' => [
-        // Predisposto per la fase checkout: nessun acquisto ospite finche il
-        // commerciante non lo abilita esplicitamente dal backend.
-        'guest_enabled' => false,
-    ],
     'account' => [
         'panel' => \Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel::class,
         'navigation' => [],

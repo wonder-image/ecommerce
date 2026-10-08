@@ -57,8 +57,13 @@ stanno in `resources/assets/payment-icons` (licenza MIT, file `LICENSE`).
 pagina al primo. Nome, cognome e telefono della fatturazione partono da quelli
 della consegna finché il cliente non li cambia.
 
-`StoreFont::style($area)` stampa il font scelto dal commerciante per una delle
-quattro aree: `auth`, `account`, `checkout` e `cart`.
+`StoreFont::style($area)` stampa il font scelto per una delle quattro aree
+(`auth`, `account`, `checkout` e `cart`) nel riquadro «Negozio online» delle
+Impostazioni di Set Up (`OnlineShopSettings`, colonne `font_<area>_id` del
+gestionale, chiavi esterne verso `css_font`). Si sceglie fra le righe visibili
+e non cancellate di `css_font`, salvate per `id`; NULL vuol dire «come il
+sito», anche quando la riga sparisce. Cambia solo le variabili del sito, perché
+la testa carica già ogni font di `css_font`.
 
 ## Consegna e coupon
 
@@ -88,10 +93,21 @@ Il checkout richiede un account per default. Login, registrazione locale e
 Google conservano il parametro interno `continue` e riportano al checkout; il
 carrello ospite viene unito dopo l'autenticazione.
 
-`checkout.guest_enabled` è `false`. Il percorso ospite è predisposto e, quando
-abilitato, verifica reCAPTCHA con action `ecommerce_checkout`. Prima di
-attivarlo in produzione restano da aggiungere l'impostazione backend e la
-decisione su collegamento/conversione dell'ordine a un account successivo.
+Gli ordini senza account si accendono nel riquadro «Negozio online» delle
+Impostazioni di Set Up (`checkout_guest`, spento per default); come il resto di
+quella pagina, in produzione si leggono soltanto. L'ospite vede «Accedi» nei Contatti e
+scrive la sua email; l'invio è protetto da reCAPTCHA (action
+`ecommerce_checkout`). Al «Ordina» `GuestCheckout` trova l'account con quella
+email o lo crea senza password, collega il contatto e salva i consensi
+(`registerLeadConsents` per un account che c'era già, i cui dati non cambiano).
+Una scheda del commerciante con quella email e senza account si collega senza
+cambiarne nome e telefono. Se l'account è un cliente del negozio attivo, senza
+password e senza accesso con Google, l'email dell'ordine porta il link «Scegli
+la password» (7 giorni, i link già mandati restano validi); scegliendola l'email
+risulta verificata. Se l'account non si può creare (per esempio l'email di un
+utente cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account.
+La sessione resta da ospite. La conferma dice all'ospite che l'email è partita,
+con lo stesso testo per tutti: non rivela se l'account ha già una password.
 
 ## Limiti intenzionali della prima fase
 

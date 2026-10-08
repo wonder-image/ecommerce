@@ -82,13 +82,14 @@ check('tutte le mutazioni del carrello e del checkout verificano il CSRF', funct
         && !str_contains($add, "render('wonder')");
 });
 
-check('il checkout ospite resta disattivato per default e usa reCAPTCHA se abilitato', function () use ($root) {
+check('il checkout ospite si sceglie dal backend, non dalla configurazione, e usa reCAPTCHA se abilitato', function () use ($root) {
     $config = require $root.'/config/module.php';
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
     $view = checkoutViews($root);
 
-    return $config['checkout']['guest_enabled'] === false
-        && str_contains($controller, "Ecommerce::config('checkout.guest_enabled', false)")
+    return !isset($config['checkout']['guest_enabled'])
+        && str_contains($controller, 'GuestCheckout::enabled()')
+        && !str_contains($controller, "Ecommerce::config('checkout.guest_enabled'")
         && str_contains($controller, "RecaptchaGuard::for('ecommerce_checkout')")
         && str_contains($view, "->recaptcha('ecommerce_checkout')");
 });
@@ -558,6 +559,98 @@ check('il codice fiscale è obbligatorio solo per il privato, e il JS lo cambia 
         && str_contains($v, '$field->required(!$business)')
         && str_contains($js, "querySelectorAll('[data-checkout-required]')")
         && str_contains($js, 'label[for="${CSS.escape(field.id)}-control"]');
+});
+
+check('l\'ospite ottiene account e link prima dell\'ordine, e la conferma non mostra l\'account', function () use ($root) {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $completed = (string) file_get_contents($root.'/view/pages/checkout/completed.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $account = strpos($controller, 'GuestCheckout::account(');
+    $place = strpos($controller, 'Checkout::place(');
+
+    return $account !== false && $place !== false && $account < $place
+        && str_contains($controller, 'GuestCheckout::passwordLink(')
+        && str_contains($controller, "'customer_email'")
+        // Il testo non dice se l'account ha una password; si mostra se l'email è partita.
+        && str_contains($controller, "'email_sent' => \$guest && (\$result['customer_email_sent'] ?? false)")
+        && !str_contains($controller, "'password_link'")
+        && str_contains($completed, "ecommerce.checkout.completed.email_sent")
+        && str_contains($completed, "empty(\$result['guest'])")
+        && is_string($it['checkout']['completed']['email_sent'] ?? null)
+        && is_string($en['checkout']['completed']['email_sent'] ?? null)
+        && !isset($it['checkout']['completed']['password_sent'])
+        && is_string($it['checkout']['completed']['shop'] ?? null)
+        && is_string($en['checkout']['completed']['shop'] ?? null);
+});
+
+check('il totale non ha la valuta davanti: il simbolo lo mette già money()', function () use ($root): bool {
+    $totali = (string) file_get_contents($root.'/view/components/checkout/totals.php');
+
+    return !str_contains($totali, 'wi-checkout__currency')
+        && !str_contains((string) file_get_contents($root.'/resources/assets/css/checkout.css'), 'wi-checkout__currency');
+});
+
+check('aprendo «Mi serve fattura» è già scelta «Azienda»; una scelta fatta con la fattura resta', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+
+    // Senza fattura il dato salvato è sempre «privato»: non deve decidere la scelta.
+    return str_contains($v, "\$business = !\$invoice || (\$values['billing_type'] ?? 'business') === 'business';");
+});
+
+check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto a 88px e il codice sconto in un riquadro a parte', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+
+    // −/+ mandano la quantità nuova col bottone stesso: niente JS e niente «Aggiorna».
+    return substr_count($v, "->attr('name', 'quantity')") === 2
+        && str_contains($v, "__t('ecommerce.cart.decrease')") && str_contains($v, "__t('ecommerce.cart.increase')")
+        && !str_contains($v, "__t('ecommerce.cart.update')")
+        && str_contains($v, 'bi-trash3')
+        && str_contains($v, '--wi-thumb-size: 88px')
+        && str_contains($v, "'coupons' => false")
+        && str_contains($v, "Accordion::make((string) __t('ecommerce.checkout.coupon_title'))")
+        // Il tema Wonder non rende `Text`/`RichText`: il form entra nell'accordion come HTML già pronto.
+        && !str_contains($v, 'RichText')
+        && str_contains($v, 'components/checkout/coupon.php');
+});
+
+check('«Rimuovi» e il − a quantità 1 chiedono conferma; il − a 1 manda alla rimozione', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $keys = ['remove_confirm_title', 'remove_confirm_text', 'remove_confirm_ok'];
+    $lang = array_reduce($keys, fn ($ok, $k) => $ok && trim((string) ($it['cart'][$k] ?? '')) !== '' && trim((string) ($en['cart'][$k] ?? '')) !== '', true);
+
+    return $lang
+        && str_contains($it['cart']['remove_confirm_text'] ?? '', '{{name}}')
+        && str_contains($v, 'data-wi-confirm=')
+        && str_contains($v, "->attr('formaction', \$remove)")
+        && str_contains($v, '->confirm(...$confirm)')
+        // Il − a 1 non è più spento: apre la conferma.
+        && !str_contains($v, '->disabled($quantity <= 1)')
+        && str_contains($v, 'data-cart-action');
+});
+
+check('le operazioni del carrello mostrano lo spinner per un tempo minimo e lo tolgono tornando indietro', function () use ($root): bool {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+
+    return str_contains($js, "form[data-cart-action]")
+        && str_contains($js, 'loadingSpinner(on)')
+        && str_contains($js, 'cartSpinner(true)') && str_contains($js, 'cartSpinner(false)')
+        && (bool) preg_match('/CART_SPINNER_MIN\s*=\s*\d{3,4}/', $js)
+        // Il bottone premuto porta quantità e formaction: form.submit() li perderebbe.
+        && str_contains($js, 'form.requestSubmit(submitter)')
+        && str_contains($js, "'pageshow'");
+});
+
+check('con un solo articolo il titolo del carrello dice «1 articolo»', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return ($it['cart']['count_one'] ?? '') === '1 articolo'
+        && ($en['cart']['count_one'] ?? '') === '1 item'
+        && str_contains($v, "'ecommerce.cart.count_one'");
 });
 
 summary();

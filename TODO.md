@@ -143,9 +143,9 @@ strutture definitive del gestionale.
   dipendenze da contenuti o configurazioni di `elenajossifov-com`.
 - [x] D3 Identificazione cliente con login, registrazione e ritorno al checkout;
   anche il completamento federato conserva la destinazione.
-- [~] D4 Il percorso ospite è subordinato a `checkout.guest_enabled` e protetto
-  da reCAPTCHA; restano l'impostazione nel backend e la decisione sulla
-  conversione/collegamento successivo a un account.
+- [x] D4 Il percorso ospite è subordinato a `checkout.guest_enabled`, protetto da
+  reCAPTCHA; l'ordine si collega a un account creato o riusato dall'email, con il
+  link per scegliere la password.
 - [x] D5 Raccolta fatturazione e consegna, metodi di spedizione, sedi di ritiro,
   coupon, riepilogo che si ricalcola (`checkout.js`) e creazione ordine con i
   metodi manuali. Checkout in una pagina sola (spec del gestionale

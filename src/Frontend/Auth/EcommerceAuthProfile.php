@@ -5,6 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Auth;
 use Wonder\Auth\Frontend\AuthProfile;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
+use Wonder\Plugin\Gestionale\Support\Orders\OrderOwner;
 
 class EcommerceAuthProfile extends AuthProfile
 {
@@ -28,5 +29,7 @@ class EcommerceAuthProfile extends AuthProfile
         if (!($result->success ?? false)) {
             throw new \RuntimeException('contact_write_failed');
         }
+        // L'email ora è provata: gli ordini fatti con lei prima dell'account sono suoi.
+        OrderOwner::claim($userId, (int) ($result->contact_id ?? 0), (string) (infoUser($userId, 'id')->email ?? ''));
     }
 }

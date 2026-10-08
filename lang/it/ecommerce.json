@@ -57,12 +57,18 @@
         "title": "Carrello",
         "seo": "Controlla i prodotti nel carrello prima di procedere al checkout.",
         "count": "{{count}} articoli",
+        "count_one": "1 articolo",
         "empty_title": "Il carrello è vuoto",
         "empty_text": "Aggiungi un prodotto per iniziare il tuo acquisto.",
         "sku": "Codice: {{sku}}",
+        "decrease": "Diminuisci la quantità",
+        "increase": "Aumenta la quantità",
         "quantity": "Quantità",
         "update": "Aggiorna",
         "remove": "Rimuovi",
+        "remove_confirm_title": "Rimuovere il prodotto?",
+        "remove_confirm_text": "«{{name}}» uscirà dal carrello.",
+        "remove_confirm_ok": "Rimuovi",
         "summary": "Riepilogo",
         "products_total": "Subtotale",
         "discount": "Sconto",
@@ -108,6 +114,7 @@
         "free": "Gratis",
         "shipping_total": "Spedizione",
         "fees_total": "Commissione di pagamento",
+        "coupon_title": "Codice sconto",
         "coupon_label": "Hai un codice sconto?",
         "coupon_apply": "Applica",
         "coupon_remove": "Togli",
@@ -151,7 +158,9 @@
         "completed": {
             "title": "Ordine ricevuto",
             "text": "Il tuo ordine {{number}} è stato registrato.",
-            "account": "Vai al tuo account"
+            "account": "Vai al tuo account",
+            "email_sent": "Ti abbiamo mandato il riepilogo dell'ordine via email. Se non hai ancora una password, nell'email trovi il link per sceglierla e seguire i tuoi ordini.",
+            "shop": "Torna al negozio"
         }
     },
     "auth": {

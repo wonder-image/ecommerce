@@ -46,12 +46,18 @@
         "title": "Cart",
         "seo": "Review the products in your cart before checkout.",
         "count": "{{count}} items",
+        "count_one": "1 item",
         "empty_title": "Your cart is empty",
         "empty_text": "Add a product to start your purchase.",
         "sku": "SKU: {{sku}}",
+        "decrease": "Decrease quantity",
+        "increase": "Increase quantity",
         "quantity": "Quantity",
         "update": "Update",
         "remove": "Remove",
+        "remove_confirm_title": "Remove this product?",
+        "remove_confirm_text": "“{{name}}” will be removed from your cart.",
+        "remove_confirm_ok": "Remove",
         "summary": "Summary",
         "products_total": "Subtotal",
         "discount": "Discount",
@@ -97,6 +103,7 @@
         "free": "Free",
         "shipping_total": "Shipping",
         "fees_total": "Payment fee",
+        "coupon_title": "Discount code",
         "coupon_label": "Have a discount code?",
         "coupon_apply": "Apply",
         "coupon_remove": "Remove",
@@ -140,7 +147,9 @@
         "completed": {
             "title": "Order received",
             "text": "Your order {{number}} has been recorded.",
-            "account": "Go to your account"
+            "account": "Go to your account",
+            "email_sent": "We have emailed you the order summary. If you don't have a password yet, the email contains a link to choose one and follow your orders.",
+            "shop": "Back to the shop"
         }
     },
     "auth": {
