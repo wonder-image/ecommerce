@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-const SITE = '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+define('SITE', getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site');
 chdir(SITE);
 $GLOBALS['ROOT'] = SITE;
 $_SERVER['DOCUMENT_ROOT'] = SITE;
@@ -15,7 +15,6 @@ use Wonder\Auth\Frontend\AccountAddressForm;
 use Wonder\App\Models\Contacts\ContactAddress;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
-use Wonder\Plugin\Ecommerce\Frontend\Account\AccountController;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Sql\Transaction;
 
@@ -86,36 +85,8 @@ try {
                 && checkPassword($input['password'], (string) infoUser($userId, 'id')->password)
             );
         }
-        $_SESSION['user_id'] = $userId;
         $_GET = [];
-        ob_start();
-        AccountController::handle('index');
-        $accountHtml = (string) ob_get_clean();
-        check('il pannello account usa nav condiviso e righe compatte senza box duplicati', fn () =>
-            str_contains($accountHtml, 'id="account-page"') && str_contains($accountHtml, 'aria-current="page"')
-            && str_contains($accountHtml, 'd-p-row') && str_contains($accountHtml, 'border-bottom:1px solid')
-        );
-        check('account rimane privato con id interno nel dataLayer e nessun JSON-LD', fn () =>
-            str_contains($accountHtml, 'NOINDEX,NOFOLLOW') && str_contains($accountHtml, '"user":{"id":'.$userId.'}')
-            && !str_contains($accountHtml, 'application/ld+json')
-        );
         check('CSRF account e auth condividono la stessa verifica', fn () => AuthSession::verify(AuthSession::csrfToken()));
-        foreach (['billing', 'shipping.create'] as $action) {
-            ob_start();
-            AccountController::handle($action);
-            $addressHtml = (string) ob_get_clean();
-            check('label tradotte e griglia del framework: '.$action, fn () =>
-                str_contains($addressHtml, '>Nome*</label>') && str_contains($addressHtml, '>Cognome*</label>')
-                && !str_contains($addressHtml, '>Phone Prefix</label>') && !str_contains($addressHtml, '>Business Name</label>')
-                && str_contains($addressHtml, 'd-grid col-12 col-p-4 gap-4')
-                && str_contains($addressHtml, 'col-3 col-p-1') && str_contains($addressHtml, 'col-9 col-p-3')
-            );
-            check('prefisso selezionato e SEO privata: '.$action, fn () =>
-                str_contains($addressHtml, 'value="+39"') && str_contains($addressHtml, 'NOINDEX,NOFOLLOW')
-                && substr_count($addressHtml, '<h1') === 1 && !str_contains($addressHtml, 'application/ld+json')
-                && !str_contains($addressHtml, 'Warning:')
-            );
-        }
         $defaults = AccountAddressForm::fields(ContactAddress::address());
         check('una provincia vuota non seleziona automaticamente la prima della lista', fn () =>
             str_contains($defaults['province']->render(), '<option value="" selected>')
@@ -127,26 +98,6 @@ try {
             && !str_contains($billingLayout, '<div class="col-')
         );
         $validAddress = ['name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT', 'province' => 'BG', 'city' => 'Bergamo', 'cap' => '24100', 'street' => 'Via Test', 'number' => '1', 'label' => 'Casa'];
-        $beforeBilling = Contact::findById((int) $contact['id']);
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST = ['csrf_token' => AuthSession::csrfToken(), 'type' => 'private', 'country' => 'IT'];
-        ob_start(); AccountController::handle('billing'); $invalidBilling = (string) ob_get_clean();
-        check('fatturazione incompleta non salva e nomina i campi mancanti nell’alert di pagina', fn () =>
-            Contact::findById((int) $contact['id']) === $beforeBilling
-            && str_contains($invalidBilling, 'Provincia: campo obbligatorio.')
-            && str_contains($invalidBilling, 'Via: campo obbligatorio.')
-            && strpos($invalidBilling, 'Provincia: campo obbligatorio.') < strpos($invalidBilling, '<form id="update_billing_address"')
-        );
-        $beforeAddresses = ContactAddress::find(['contact_id' => (int) $contact['id']]);
-        $_POST = ['csrf_token' => AuthSession::csrfToken()] + array_diff_key($validAddress, ['label' => true, 'province' => true]);
-        ob_start(); AccountController::handle('shipping.create'); $invalidShipping = (string) ob_get_clean();
-        check('senza provincia la spedizione non salva; etichetta opzionale e valori conservati nel modal di pagina', fn () =>
-            ContactAddress::find(['contact_id' => (int) $contact['id']]) === $beforeAddresses
-            && str_contains($invalidShipping, 'Provincia: campo obbligatorio.')
-            && !str_contains($invalidShipping, 'Etichetta dell’indirizzo: campo obbligatorio.')
-            && str_contains($invalidShipping, 'id="shipping-new"') && str_contains($invalidShipping, 'value="Via Test"')
-            && strpos($invalidShipping, '</main>') < strpos($invalidShipping, 'id="shipping-new"')
-        );
         $validation = \Wonder\Auth\Frontend\AccountAddressValidation::class;
         check('un indirizzo completo senza etichetta supera la validazione e si salva', function () use ($validation, $validAddress, $contact): bool {
             $values = array_diff_key($validAddress, ['label' => true]);
@@ -163,16 +114,6 @@ try {
         );
         check('i dati fiscali opzionali vuoti restano validi e possono essere cancellati', fn () =>
             Contact::validate($validAddress + ['type' => 'private', 'cf' => '', 'pi' => '', 'pec' => ''])->valid
-        );
-        $savedAddress = ContactAddress::create($validAddress + ['contact_id' => (int) $contact['id']]);
-        $addressId = (int) ($savedAddress->insert_id ?? 0);
-        $beforeEdit = ContactAddress::findById($addressId);
-        $_POST = ['csrf_token' => AuthSession::csrfToken()] + array_diff_key($validAddress, ['label' => true, 'province' => true]);
-        ob_start(); AccountController::handle('shipping.edit', ['id' => $addressId]); $invalidEdit = (string) ob_get_clean();
-        check('la modifica incompleta non sovrascrive il record e resta nel modal corretto', fn () =>
-            $addressId > 0 && ContactAddress::findById($addressId) === $beforeEdit
-            && str_contains($invalidEdit, 'id="shipping-'.$addressId.'"')
-            && str_contains($invalidEdit, 'Provincia: campo obbligatorio.')
         );
         check('i vincoli aggiuntivi del progetto non vengono rimossi', fn () =>
             $validation::validate(Contact::billing()->requiredFields(['cf']), $validAddress + ['type' => 'private']) !== []

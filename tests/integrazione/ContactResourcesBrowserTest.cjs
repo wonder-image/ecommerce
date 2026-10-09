@@ -5,6 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/Users/andreamarinoni/.cache/wonder-tooling/playwright/node_modules/playwright-core');
 const site = process.env.WI_TEST_SITE || '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+const siteUrl = process.env.WI_TEST_URL || 'https://ecommerce.test';
 const lib = path.resolve(__dirname, '../../../lib');
 (async () => {
     const browser = await chromium.launch({ channel: 'chrome', headless: true });
@@ -18,9 +19,9 @@ const lib = path.resolve(__dirname, '../../../lib');
             await page.addStyleTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist', file), 'utf8') });
         }
         await page.addScriptTag({ content: fs.readFileSync(path.join(site, 'assets/lib/wonder-image/dist/lib/jquery/jquery.js'), 'utf8') });
-        await page.addScriptTag({ content: 'const pathApi = "https://ecommerce.test/api"; function ajaxRequestError() { window.stateError = true; }' });
-        await page.route('https://ecommerce.test/api/states/', async route => {
-            const response = await context.request.post('https://ecommerce.test/api/states/', { form: Object.fromEntries(new URLSearchParams(route.request().postData())) });
+        await page.addScriptTag({ content: 'const pathApi = "' + siteUrl + '/api"; function ajaxRequestError() { window.stateError = true; }' });
+        await page.route(`${siteUrl}/api/states/`, async route => {
+            const response = await context.request.post(`${siteUrl}/api/states/`, { form: Object.fromEntries(new URLSearchParams(route.request().postData())) });
             await route.fulfill({ status: response.status(), contentType: 'application/json', body: await response.body() });
         });
         await page.addScriptTag({ content: fs.readFileSync(path.join(lib, 'src/build/backend/js/form/place.js'), 'utf8') });

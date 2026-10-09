@@ -251,64 +251,59 @@
         "back_login": "Torna all’accesso"
     },
     "account": {
-        "title": "Il mio account",
-        "seo": { "description": "Gestisci dati personali, indirizzi e metodi di pagamento del tuo account." },
-        "overview_title": "Riepilogo account",
-        "breadcrumb_home": "Home",
-        "saved": "Le modifiche sono state salvate.",
-        "notice_title": "Operazione completata",
-        "error_title": "Controlla i dati",
-        "not_configured": "Non ancora configurato",
-        "errors": {
-            "save": "Non è stato possibile salvare le modifiche. Controlla i dati e riprova.",
-            "contact": "Non è stato possibile collegare l’account alla scheda cliente. Controlla l’email del profilo o contatta l’assistenza."
-        },
-        "actions": {
-            "edit": "Modifica",
-            "manage": "Gestisci",
-            "save": "Salva modifiche",
-            "cancel": "Annulla",
-            "back": "Torna all’account"
-        },
-        "personal": {
-            "label": "Dati personali",
-            "title": "Modifica i dati personali",
-            "section": "Informazioni personali"
-        },
-        "navigation": {
-            "label": "Navigazione account",
-            "welcome": "Bentornato",
-            "overview": "Riepilogo",
-            "profile": "Dati personali",
-            "billing": "Fatturazione",
-            "shipping": "Indirizzi",
-            "payment_methods": "Metodi di pagamento",
-            "logout": "Esci"
-        },
         "payment_methods": {
             "label": "Metodi di pagamento",
             "title": "Metodi di pagamento",
             "summary": "Gestiti in sicurezza tramite Stripe",
             "pending": "Il collegamento al portale Stripe è predisposto, ma resterà disattivato finché il gestionale non esporrà l’identificativo cliente Stripe.",
-            "ready": "Verrai reindirizzato al portale sicuro di Stripe per gestire i metodi di pagamento."
+            "ready": "Verrai reindirizzato al portale sicuro di Stripe per gestire i metodi di pagamento.",
+            "soon": "Presto disponibile"
         },
-        "billing": {
-            "label": "Indirizzo di fatturazione",
-            "title": "Modifica l’indirizzo di fatturazione",
-            "intro": "Questi dati saranno utilizzati quando un acquisto richiede fatturazione."
+        "orders": {
+            "title": "Ordini",
+            "empty": "Non hai ancora effettuato ordini",
+            "order": "Ordine",
+            "number": "N° {{number}}",
+            "view": "Visualizza",
+            "order_title": "Ordine N° {{number}}",
+            "of_date": "del {{date}}",
+            "info": "Informazioni",
+            "status_label": "Stato",
+            "payment": "Pagamento",
+            "payment_status_label": "Stato pagamento",
+            "tracking": "N° spedizione",
+            "carrier": "Corriere",
+            "products": "Prodotti",
+            "summary": "Riepilogo",
+            "choice": "Scelta",
+            "delivery_address": "Indirizzo di consegna",
+            "pickup_address": "Indirizzo di ritiro",
+            "back": "Torna agli ordini",
+            "status": {
+                "pending": "In attesa",
+                "confirmed": "Confermato",
+                "processing": "In preparazione",
+                "completed": "Completato",
+                "cancelled": "Annullato"
+            },
+            "payment_status": {
+                "unpaid": "Da pagare",
+                "pending": "In attesa di pagamento",
+                "partially_paid": "Pagato in parte",
+                "paid": "Pagato",
+                "partially_refunded": "Rimborsato in parte",
+                "refunded": "Rimborsato"
+            }
         },
-        "shipping": {
-            "label": "Indirizzi di spedizione",
-            "title": "Indirizzi di spedizione",
-            "intro": "Indica il destinatario e l’indirizzo da usare per le consegne.",
-            "one": "1 indirizzo salvato",
-            "many": "{{count}} indirizzi salvati",
-            "empty": "Non hai ancora salvato indirizzi di spedizione.",
-            "add": "Aggiungi indirizzo",
-            "address": "Indirizzo",
-            "address_label": "Etichetta dell’indirizzo",
-            "create_title": "Aggiungi un indirizzo di spedizione",
-            "edit_title": "Modifica l’indirizzo di spedizione"
+        "coupons": {
+            "title": "Coupon",
+            "empty": "Non hai coupon attivi",
+            "code": "Codice",
+            "value": "Valore",
+            "uses": "Usi",
+            "unlimited": "illimitato",
+            "free_shipping": "Spedizione gratuita",
+            "store_credit": "Credito"
         }
     },
     "impersonation": {

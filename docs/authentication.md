@@ -7,7 +7,9 @@
   layout account e token colore generici (`Wonder\Auth\Frontend`).
 - `wonder-image/ecommerce` definisce `EcommerceAuthProfile`, il cliente, i
   consensi ecommerce, il cellulare obbligatorio e il collegamento a
-  `contacts`; `EcommerceAccountPanel` personalizza la navigazione del core.
+  `contacts`; `EcommerceAccountExtension` aggiunge al pannello del core la
+  riga e la pagina dei metodi di pagamento e le sezioni Ordini (elenco e
+  dettaglio) e Coupon.
 - Il sito configura credenziali, colori, testi consentiti dagli slot e flag del
   modulo. Non duplica controller o logica account.
 
@@ -49,10 +51,8 @@ sono mostrati nell'alert di pagina.
   `fields()`, `validate()`, `validationMessages()`, `userValues()` e
   `afterUserSaved()` insieme, non solo il campo visibile. La policy Google è
   separata (`validateFederated()` / `requiresCompletion()`).
-- `account.panel`: classe che estende `EcommerceAccountPanel` per navigazione,
-  riepilogo e dati personali (campi, validazione e whitelist backend);
-- `account.navigation`: override per chiave (`label`, `icon`, `route`, `href`)
-  o `false` per nascondere una voce; nascondere non cambia le autorizzazioni;
+- `account.panel`, `account.navigation` e `account.payment_methods`: il pannello
+  account, vedi «Pannello account»;
 - `auth.federated.google` e `auth.federated.apple`;
 - `impersonation.enabled`, `actor_authorities` e `token_ttl`;
 - `checkout.guest_enabled`, disabilitato per default: accende il checkout
@@ -67,10 +67,79 @@ popup Google Identity Services non usa Client Secret o redirect URI; vedere
 
 reCAPTCHA Enterprise usa le credenziali Google Cloud già gestite dal core:
 site key, project ID e API key server. I metadati SEO di auth e account vengono
-impostati dal controller del core per auth e dal modulo per account (titolo,
+impostati dal core, sia per auth sia per il pannello account (titolo,
 descrizione, canonical e breadcrumb vuoto). Il
 core accetta inoltre `$SEO->robots`: auth usa `NOINDEX,FOLLOW`, mentre l'area
 privata usa `NOINDEX,NOFOLLOW`; le altre pagine mantengono `INDEX,FOLLOW`.
+
+## Pannello account
+
+Il pannello del cliente (`/account/`) è del core: l'ecommerce lo registra con
+`AccountRoutes::register()` e lo estende con `EcommerceAccountExtension`; non ha
+controller, viste o presentazione propri per le sezioni del core. Panoramica,
+Dati personali (nome, data di nascita, cellulare, email con link di conferma,
+password in un modal), Indirizzi e Fatturazione sono del core: vedi
+`docs/app/concetti/utenti/auth-frontend.md`, «Pannello account».
+
+| Route | URL | Di chi |
+|---|---|---|
+| `account.index` | `/account/` | core |
+| `account.personal` | `/account/dati-personali/` | core |
+| `account.addresses`, `.create`, `.edit`, `.delete` | `/account/indirizzi/…` | core |
+| `account.billing` | `/account/fatturazione/` | core |
+| `account.email.confirm` | `/account/email/conferma/` | core |
+| `account.payment-methods` | `/account/metodi-di-pagamento/` | ecommerce |
+| `account.orders` | `/account/ordini/` (`?pagina=N`) | ecommerce |
+| `account.orders.show` | `/account/ordini/{code}/` | ecommerce |
+| `account.coupons` | `/account/coupon/` (`?pagina=N`) | ecommerce, solo con la funzionalità `coupons` accesa (404 se spenta) |
+
+Gli ordini sono quelli della scheda del cliente (`stage = order`, in qualsiasi stato; i
+carrelli no), dal più recente, a dieci per pagina. Il dettaglio si cerca per `code`:
+ordini di altri clienti, carrelli, ordini degli ospiti e codici che non esistono danno
+tutti 404, e senza la scheda del cliente non si cerca nulla. I coupon sono quelli
+riservati al cliente e in corso (`AccountCoupons::forCustomer()`, sopra
+`Coupons::reserved()` del gestionale), anche con tutti gli usi già spesi e quelli
+validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazione è del core
+(`AccountPagination` e il componente `frontend.account.pagination`).
+
+`EcommerceAccountExtension` usa quattro ganci di `BaseAccountExtension`:
+
+- `routes()`: `account.payment-methods`, `account.orders`, `account.orders.show` e
+  `account.coupons`, nel gruppo privato del pannello (la route dei coupon c'è sempre:
+  con la funzionalità spenta risponde 404 il controller);
+- `navigation()`: aggiunge `orders` e, con la funzionalità Coupon accesa, `coupons`
+  subito dopo Panoramica, poi applica `account.navigation` al menu;
+- `personalRows()`: la riga «Metodi di pagamento» in «Dati personali»;
+- `head()`: font e stile del negozio nell'head delle pagine del pannello.
+
+`EcommerceAccountController` estende `AccountController`: risponde a `payment-methods`,
+`orders`, `orders.show` e `coupons` e passa le altre azioni al core. «Metodi di
+pagamento» sta dentro «Dati personali», che resta la voce di menu attiva; il dettaglio
+dell'ordine tiene attiva «Ordini». Una nuova sezione segue lo stesso schema: route in
+`routes()`, azione nel controller, voce in `navigation()`.
+
+Il sito configura il pannello da `config/module.php`:
+
+- `account.panel`: sottoclasse di `Wonder\Auth\Frontend\AccountPanel` per titolo,
+  sezioni, authority e layout; l'hook che sovrascrive chiama `parent::`, altrimenti
+  si perdono le estensioni. `route.frontend.php` controlla la classe con `is_a`:
+  una classe che non è un `AccountPanel` fa lanciare `LogicException` e non registra
+  nessuna route del frontend, non solo quelle dell'account;
+- `account.navigation`: ritocchi al menu per chiave. Le chiavi sono quelle del core,
+  `overview`, `personal`, `addresses` e `billing`, più `orders` e `coupons` (`coupons`
+  solo con la funzionalità Coupon accesa), che stanno subito dopo `overview`. `false`
+  nasconde la voce (non cambia le autorizzazioni); un array ne ritocca `label`, `icon`,
+  `href` (o `route`, risolta in `href`) o aggiunge una voce nuova. Una voce senza `href` o etichetta
+  non esce. Le chiavi del vecchio pannello (`profile`, `shipping`, `payment-methods`,
+  `password`) sono ignorate;
+- `account.payment_methods.enabled`: `false` per default. Spento, la riga «Metodi di
+  pagamento» ha il bottone disabilitato con la nota «Presto disponibile»; acceso,
+  il bottone porta a `account.payment-methods`. Il flag va acceso solo quando il
+  gestionale espone il customer Stripe: la sessione del Billing Portal non parte
+  ancora (vedi `TODO.md`, C5).
+
+Non ci sono alias dei vecchi nomi `ecommerce.account.*`: la tabella dei rinomini e
+la migrazione dei siti sono nel `CHANGELOG.md`.
 
 ## Tema
 
@@ -86,17 +155,19 @@ chiamano `render()` senza specificare un tema: il renderer segue la pagina.
 Il riferimento visivo è `elenajossifov-com/account`: nav laterale senza box
 annidati, menu orizzontale su telefono, righe compatte con separatore, dati a
 sinistra e azioni a destra. Non ne vengono copiati helper, query o CSS float.
-I componenti sono `frontend.account.navigation` / `frontend.account.row`;
-ordini e coupon li potranno riutilizzare quando saranno disponibili i flussi.
+I componenti sono `frontend.account.navigation`, `frontend.account.row` e
+`frontend.account.pagination`, del core. Ordini e Coupon non usano `frontend.account.row`:
+sono una tabella a righe (`.wi-row-table`) della lib con `frontend.account.pagination`, e il
+dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
 
 La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
 modelli del core `Wonder\App\Models\Contacts` / `Models\System`.
 I nomi SQL sono `contacts`, `contact_addresses`, `external_references`, con
 migrazione conservativa dei vecchi nomi `gst_*`; i namespace del gestionale sono
 subclass compatibili e conservano le sole estensioni commerciali.
-Gli indirizzi usano `AccountAddressForm` per label tradotte, default paese e
+Gli indirizzi usano `AccountAddressForm` del core per label tradotte, default paese e
 prefisso, e griglia responsive con i Container del framework. I POST falliti
-mantengono anche i campi svuotati e gli errori restano nell'alert di pagina.
+mantengono anche i campi svuotati.
 Stripe rimane un'integrazione server-side da completare, non un link pubblico
 costruito con un customer id. La guida del core è
 `docs/app/concetti/utenti/auth-frontend.md`.
@@ -105,17 +176,17 @@ Gli indirizzi completi sono validati da `AccountAddressValidation` prima dei
 write: campi omessi, vuoti e provincia incompatibile con il paese non vengono
 salvati. Il destinatario è richiesto per la spedizione; l'etichetta è opzionale. I dati
 fiscali non diventano obbligatori nella registrazione. I campi required usano
-l'asterisco del renderer. Il submit resta disponibile per mostrare tutti gli
-errori nell'alert di pagina, senza blocchi silenziosi o messaggi inline.
+l'asterisco del renderer. Il «Salva» di ogni modal del pannello (classe
+`wi-input-submit`) resta spento finché mancano i campi obbligatori; gli errori del
+server tornano dentro lo stesso modal, riaperto con i valori inseriti.
 
-La lista spedizioni apre aggiunta/modifica in `AccountAddressModal`, basato su
-`Modal::frontend()` e su `Button::opensModal()` secondo il tema della pagina.
+La lista indirizzi del core apre aggiunta e modifica in un modal (`AccountModal`,
+basato su `Modal::frontend()` e `Button::opensModal()` secondo il tema della pagina).
 La lib mantiene `modal()` per compatibilità e gestisce Esc, focus, Tab e campi
-inert quando il dialogo è chiuso. I POST rimangono
-protetti da CSRF e ownership; un errore torna alla lista con alert e conserva
-i valori nel modal corrispondente. Le route editor rimangono come fallback
-senza JavaScript. I modal sono passati a `page_modals` e resi dopo il `main`
-dal layout del core, non dentro la colonna dei contenuti o un altro form.
+inert quando il dialogo è chiuso. I POST sono protetti da CSRF e ownership. Le
+route editor (`account.addresses.create` e `.edit`) rimangono come fallback senza
+JavaScript. I modal sono passati alla pagina in `modals` e resi dopo il `main` dal
+layout del core, non dentro la colonna dei contenuti o un altro form.
 Il core offre Resource generiche `ContactResource` / `ContactAddressResource`
 su `/backend/contacts/` e `/backend/contact-addresses/`, riservate agli
 amministratori. Il gestionale conserva il suo pannello più completo e la

@@ -2,10 +2,12 @@
 
 use Wonder\Elements\Components\Alert;
 use Wonder\Elements\Components\Button;
-use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Http\Route;
 use Wonder\View\View;
 
-Ecommerce::layout('account', compact('title') + ['active' => 'payment-methods']);
+$title ??= '';
+$active ??= 'personal';
+$account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notice', 'modals', 'logout_url', 'logout_token', 'head', 'user'));
 ?>
 <div>
     <?=Alert::make(
@@ -13,7 +15,7 @@ Ecommerce::layout('account', compact('title') + ['active' => 'payment-methods'])
         $enabled ? 'info' : 'warning'
     )->title('Stripe')->dismissible(false)->render()?>
     <div class="mt-5">
-        <?=Button::to(__r('ecommerce.account.index'), (string) __t('ecommerce.account.actions.back'))->outline()->render()?>
+        <?=Button::to(Route::url('account.personal'), (string) __t('account.actions.back'))->outline()->variant('black')->render()?>
     </div>
 </div>
 <?php View::end(); ?>

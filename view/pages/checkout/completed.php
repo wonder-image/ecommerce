@@ -15,7 +15,7 @@ Ecommerce::layout('checkout');
         <p class="text mt-4"><?=e(__t('ecommerce.checkout.completed.email_sent'))?></p>
     <?php endif; ?>
     <?php if (empty($result['guest'])): ?>
-        <a class="btn btn-primary mt-6 c-w" href="<?=e(__r('ecommerce.account.index'))?>"><?=e(__t('ecommerce.checkout.completed.account'))?></a>
+        <a class="btn btn-primary mt-6 c-w" href="<?=e(__r('account.index'))?>"><?=e(__t('ecommerce.checkout.completed.account'))?></a>
     <?php else: ?>
         <a class="btn btn-primary mt-6 c-w" href="<?=e(__r('ecommerce.catalog.index'))?>"><?=e(__t('ecommerce.checkout.completed.shop'))?></a>
     <?php endif; ?>

@@ -117,22 +117,36 @@ solo quando ha una prova automatica o una verifica descritta.
   i Button usano `opensModal()` secondo il tema, senza onclick nelle viste.
 - [ ] C0d Verificare visualmente account autenticato desktop/mobile e varianti
   colore su altri siti; completare E2E Google/email con credenziali di test.
+  Fatta (2026-10-09) la prova nel browser del pannello del core su
+  `ecommerce-account.test` a 1280, 768 e 386 px: Panoramica, Ordini (lista,
+  paginazione, dettaglio), Coupon, Dati personali con i tre modal, Indirizzi,
+  Fatturazione. Restano le varianti colore su altri siti e l'E2E Google/email.
 - [x] C0e Verificare seed/import ed eseguire `forge update --local` nel sito
   demo autorizzato: completato (94 tabelle, nessun reset dei contatti), poi
   `forge start --driver=herd`. Sync API esterna non disponibile.
 
 - [x] C0 Layout account responsive con riepilogo, navigazione laterale, stato
-  attivo e logout; ordini e coupon restano fuori dal menu fino alla loro fase.
+  attivo e logout. Dal 2026-10-08 è il pannello del core (`AccountRoutes`; spec del
+  gestionale `2026-10-08-pannello-account-design.md`): l'ecommerce lo estende con
+  `EcommerceAccountExtension` (metodi di pagamento, ordini, coupon, menu, font e stile).
 - [x] C1 Profilo cliente e aggiornamento del cellulare.
 - [x] C2 Indirizzi di spedizione e fatturazione separati dalla registrazione.
-- [ ] C3 Consultazione consensi e cambio password.
-- [ ] C4 Integrazione della navigazione già predisposta con ordini, resi e coupon.
+- [ ] C3 Consultazione consensi e cambio password. Il cambio password è fatto
+  (modal in «Dati personali», piano 1 del pannello account); restano i consensi.
+- [x] C4 Integrazione della navigazione con ordini e coupon, senza i resi
+  (2026-10-08, spec del gestionale `2026-10-08-pannello-account-design.md`, piano 2):
+  Ordini (`/account/ordini/`, con paginazione), dettaglio dell'ordine
+  (`/account/ordini/{code}/`) e Coupon (`/account/coupon/`, solo con la funzionalità
+  accesa) sono sezioni di `EcommerceAccountExtension`, nel menu del core.
+- [ ] C4b Resi nel pannello del cliente: fuori ambito della spec del pannello account
+  (§10), da rifare quando ci sarà il progetto dei resi.
 - [ ] C5 Collegare “Metodi di pagamento” al Billing Portal Stripe quando il
   gestionale esporrà in modo verificato il customer id; fino ad allora il
   percorso resta visibile ma non apre sessioni Stripe.
 
-Ordini e coupon della fase C restano sospesi in attesa delle rispettive
-strutture definitive del gestionale.
+Della fase C restano aperti i resi (C4b), i consensi (C3) e il collegamento a Stripe
+dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambito
+(§10, `2026-10-08-pannello-account-design.md`) e vanno ripresi con un progetto a parte.
 
 ## Fase D — Carrello e checkout
 

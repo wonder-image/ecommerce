@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../harness.php';
 $cookie = '';
 $request = static function (string $path, ?array $post = null) use (&$cookie): array {
-    $curl = curl_init('https://ecommerce.test'.$path);
+    $curl = curl_init((getenv('WI_TEST_URL') ?: 'https://ecommerce.test').$path);
     curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
     if ($cookie !== '') { curl_setopt($curl, CURLOPT_COOKIE, $cookie); }

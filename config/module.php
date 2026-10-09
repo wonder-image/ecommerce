@@ -37,7 +37,7 @@ return [
         ],
     ],
     'account' => [
-        'panel' => \Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel::class,
+        'panel' => \Wonder\Auth\Frontend\AccountPanel::class,
         'navigation' => [],
         'payment_methods' => [
             'provider' => 'stripe',
