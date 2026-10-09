@@ -264,6 +264,26 @@ check('chi li ha già accettati non li rivede', fn () => prova(static function (
     return CheckoutRules::askedConsents($userId) === [];
 }));
 
+check('i consensi registrati dentro una transazione non la confermano in anticipo', function (): bool {
+    $metodo = prova(static function (): int {
+        $metodo = metodo('Segnaposto '.uniqid());
+        $pid = 'tst-'.uniqid();
+        $service = new FederatedLoginService(new EcommerceUserAccountGateway(), new FederatedIdentityRepository());
+        $userId = (int) $service->authenticate(new FederatedIdentityPayload('google', $pid, $pid.'@example.com', true, 'Ada', 'Lovelace', ['sub' => $pid, 'email_verified' => true]), 'frontend', ['client'])->userId;
+        $input = [];
+        foreach (CheckoutRules::CONSENTS as $tipo) {
+            $input['accept_'.$tipo] = '1';
+            $input[$tipo.'_id'] = (string) sqlSelect('legal_documents', ['doc_type' => $tipo, 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC')->id;
+        }
+        consentService()->registerBaseConsents($userId, $input, ['required_document_types' => CheckoutRules::CONSENTS, 'ip_address' => '127.0.0.1', 'user_agent' => 'prova', 'ui_surface' => 'checkout']);
+
+        return $metodo;
+    });
+    $rimasti = $GLOBALS['MYSQLI_CONNECTION']['main']->query('SELECT COUNT(*) FROM '.ShippingMethod::$table.' WHERE id = '.(int) $metodo)->fetch_row()[0];
+
+    return $metodo > 0 && (int) $rimasti === 0;
+});
+
 check('un documento spento non si chiede', fn () => prova(static function (): bool {
     sqlModify('legal_documents', ['active' => 'false'], 'doc_type', 'privacy_policy');
 
