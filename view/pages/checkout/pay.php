@@ -35,9 +35,9 @@ $labels = [
             <button type="button" class="btn btn-primary w-100 mt-4" data-checkout-pay-submit disabled><?=e(__t('ecommerce.checkout.pay.submit'))?></button>
         </div>
     <?php endif; ?>
-    <form class="mt-4 a-c" method="post" action="<?=e(__r('ecommerce.checkout.abandon'))?>">
+    <form class="mt-4 a-c" method="post" action="<?=e(__r('ecommerce.checkout.reopen'))?>">
         <input type="hidden" name="csrf_token" value="<?=e($csrf_token)?>">
-        <button type="submit" class="btn btn-link"><?=e(__t('ecommerce.checkout.pay.abandon'))?></button>
+        <button type="submit" class="btn btn-link"><?=e(__t('ecommerce.checkout.pay.change_method'))?></button>
     </form>
 </div>
 <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {

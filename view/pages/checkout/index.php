@@ -92,6 +92,7 @@ View::head(DataLayer::script([
         data-coupons="<?=$coupons ? 'on' : 'off'?>"
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
+        data-reopen-url="<?=e(__r('ecommerce.checkout.reopen'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
@@ -179,7 +180,6 @@ View::head(DataLayer::script([
                 <div class="w-100" data-checkout-stripe-element></div>
                 <p class="text-small mt-3" data-checkout-stripe-notice role="status"></p>
                 <template data-checkout-pay-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.pay.alert_title'), '')?></template>
-                <button type="submit" form="checkout-abandon" class="btn btn-link mt-2" data-checkout-stripe-abandon hidden><?=e(__t('ecommerce.checkout.pay.abandon'))?></button>
             </div>
         </div>
 
@@ -234,10 +234,6 @@ View::head(DataLayer::script([
     </form>
     <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), $aside + ['button' => ''])?>
 </div>
-<?php /* Fuori dal modulo del checkout: un form dentro un form non vale. Lo usa il bottone «Annulla l'ordine» dopo una carta rifiutata. */ ?>
-<form id="checkout-abandon" method="post" action="<?=e(__r('ecommerce.checkout.abandon'))?>" hidden>
-    <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
-</form>
 <?php if (!$guest && $user_email !== ''): ?>
     <form id="checkout-logout" method="post" action="<?=e(__r('ecommerce.auth.logout'))?>" hidden>
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>

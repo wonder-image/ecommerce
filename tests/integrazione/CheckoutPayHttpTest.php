@@ -30,10 +30,18 @@ check('il ritorno senza un pagamento in sessione è un 404', fn () => $status ==
 check('la pagina di pagamento senza ordine in sessione rimanda al carrello', fn () =>
     $status === 302 && preg_match('#^Location:\s*\S*/cart/\s*$#mi', $head) === 1);
 
-[$status] = $request('/checkout/abandon/', ['csrf_token' => 'invalid']);
-check('l\'abbandono con CSRF invalido viene rifiutato', fn () => $status === 419);
+[$status] = $request('/checkout/reopen/', ['csrf_token' => 'invalid']);
+check('la riapertura con CSRF invalido viene rifiutata', fn () => $status === 419);
 
 $xhr = ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'];
+
+[$status, , $body] = $request('/checkout/reopen/', ['csrf_token' => 'invalid'], $xhr);
+$risposta = json_decode($body, true);
+check('la riapertura in JSON con CSRF invalido risponde 419 in JSON', fn () =>
+    $status === 419 && is_array($risposta) && ($risposta['success'] ?? null) === false);
+
+[$status] = $request('/checkout/abandon/', ['csrf_token' => 'invalid']);
+check('l\'abbandono non c\'è più', fn () => $status === 404);
 
 [$status, , $body] = $request('/checkout/', ['csrf_token' => 'invalid'], $xhr);
 $risposta = json_decode($body, true);

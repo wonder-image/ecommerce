@@ -35,7 +35,7 @@ final class CheckoutController
             'completed' => self::completed(),
             'return' => self::returned(),
             'pay' => self::pay(),
-            'abandon' => self::abandon(),
+            'reopen' => self::reopen(),
             default => self::notFound(),
         };
     }
@@ -422,8 +422,11 @@ final class CheckoutController
         }
 
         if ($outcome === 'retry' || $outcome === 'canceled') {
+            // Il modulo si riapre: l'ordine si annulla e le righe tornano nel carrello.
+            $reopened = self::reopenPending();
             FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
-            self::redirect(self::route('ecommerce.checkout.pay'));
+            self::flashRemoved($reopened['removed']);
+            self::redirect(self::route('ecommerce.checkout.index'));
         }
 
         OnlinePayment::forget();
@@ -474,21 +477,82 @@ final class CheckoutController
         ])->render();
     }
 
-    /** «Annulla l'ordine» dalla pagina di pagamento. */
-    private static function abandon(): never
+    /**
+     * Dopo un rifiuto il cliente torna al modulo: l'ordine in sospeso si
+     * annulla, righe e scelte tornano nel carrello e il prossimo «Ordina»
+     * ne crea uno nuovo. Se intanto il denaro è arrivato si va al ritorno.
+     */
+    private static function reopen(): never
     {
         self::requirePost();
+        $json = self::wantsJson();
+        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
+        }
         self::requireCsrf();
 
-        try {
-            OnlinePayment::dropPending();
-        } catch (Throwable $error) {
-            // Senza annullo l'ordine scade da solo con le prenotazioni.
-            Errors::internal($error, 'ecommerce.checkout.abandon');
+        $reopened = self::reopenPending();
+        if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
+            self::leave(self::returnUrl($reopened['reference']), $json);
         }
 
-        FlashMessage::info((string) __t('ecommerce.checkout.pay.abandoned'), (string) __t('ecommerce.checkout.notice_title'));
-        self::redirect(self::route('ecommerce.cart.index'));
+        if (!$json) {
+            self::flashRemoved($reopened['removed']);
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
+        $cartId = self::cartId();
+        if ($cartId === 0) {
+            self::leave(self::route('ecommerce.cart.index'), true, 409);
+        }
+
+        try {
+            $payload = CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user());
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.reopen');
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
+        }
+        if ($reopened['removed'] !== []) {
+            $payload['notices'] = array_merge((array) ($payload['notices'] ?? []), [self::removedNotice($reopened['removed'])]);
+        }
+
+        self::json(['success' => true] + $payload);
+    }
+
+    /**
+     * Riapre l'ordine in sospeso senza lasciar uscire un errore.
+     *
+     * @return array{outcome: string, reference: string, removed: list<string>}
+     */
+    private static function reopenPending(): array
+    {
+        try {
+            return OnlinePayment::reopen();
+        } catch (Throwable $error) {
+            // Senza annullo l'ordine scade da solo con le prenotazioni.
+            Errors::internal($error, 'ecommerce.checkout.reopen');
+
+            return ['outcome' => 'none', 'reference' => '', 'removed' => []];
+        }
+    }
+
+    private static function returnUrl(string $reference): string
+    {
+        return self::route('ecommerce.checkout.return').'?payment_intent='.rawurlencode($reference);
+    }
+
+    /** @param list<string> $names */
+    private static function removedNotice(array $names): string
+    {
+        return (string) __t('ecommerce.checkout.pay.removed', ['names' => implode(', ', $names)]);
+    }
+
+    /** @param list<string> $names */
+    private static function flashRemoved(array $names): void
+    {
+        if ($names !== []) {
+            FlashMessage::info(self::removedNotice($names), (string) __t('ecommerce.checkout.notice_title'));
+        }
     }
 
     /** @return array<string, string> */

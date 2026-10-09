@@ -5,9 +5,11 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use OutOfBoundsException;
 use Throwable;
 use Wonder\App\Credentials;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Providers\Payments\PaymentState;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Orders\Lifecycle;
 use Wonder\Plugin\Gestionale\Support\Payments\OnlinePayments;
 use Wonder\Plugin\Gestionale\Support\Payments\PaymentProviders;
@@ -174,22 +176,57 @@ final class OnlinePayment
 
     /**
      * Lascia cadere l'ordine in sospeso della sessione: si annulla, intento
-     * compreso, salvo che il denaro sia già arrivato o in arrivo.
+     * compreso, salvo che il denaro sia già arrivato o in arrivo. In quel caso
+     * l'ordine resta in sessione, così il ritorno dal gateway lo trova.
+     *
+     * @return 'none'|'cancelled'|'succeeded'|'processing'
      */
-    public static function dropPending(): void
+    public static function dropPending(): string
     {
         $id = self::pending();
         self::forget();
         if ($id <= 0) {
-            return;
+            return 'none';
         }
 
         $reference = (string) (OnlinePayments::payment($id)['provider_reference'] ?? '');
-        if ($reference !== '' && in_array(self::settle($id, $reference), ['succeeded', 'processing'], true)) {
-            return;
+        $outcome = $reference !== '' ? self::settle($id, $reference) : '';
+        if (in_array($outcome, ['succeeded', 'processing'], true)) {
+            self::remember($id);
+
+            return $outcome;
         }
 
         Lifecycle::cancel($id, ['reason' => 'Abbandonato dal cliente nel checkout', 'source' => 'ecommerce', 'notify' => false]);
+
+        return 'cancelled';
+    }
+
+    /**
+     * Dopo un pagamento non riuscito il checkout si riapre: l'ordine si annulla
+     * e righe, scelte, indirizzi e coupon tornano nel carrello della sessione.
+     * Se il denaro è arrivato non si riapre niente: `reference` porta al ritorno.
+     *
+     * @return array{outcome: string, reference: string, removed: list<string>}
+     */
+    public static function reopen(): array
+    {
+        $id = self::sessionOrder();
+        $reference = $id > 0 ? (string) (OnlinePayments::payment($id)['provider_reference'] ?? '') : '';
+        $outcome = self::dropPending();
+        if ($outcome === 'none' && $id > 0 && (Order::findById($id)['status'] ?? '') === 'cancelled') {
+            // Annullato da altri (scadenza, webhook): le righe tornano lo stesso.
+            $outcome = 'cancelled';
+        }
+        if ($outcome !== 'cancelled') {
+            return ['outcome' => $outcome, 'reference' => $reference, 'removed' => []];
+        }
+
+        unset($_SESSION[self::RECEIPT]);
+        $cart = CartSession::current(true);
+        $restored = Cart::restore($id, (int) ($cart['order']['id'] ?? 0));
+
+        return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => array_values((array) ($restored['removed'] ?? []))];
     }
 
     private static function confirm(string $provider, string $reference, PaymentState $state): string

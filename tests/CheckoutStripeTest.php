@@ -53,13 +53,45 @@ check('la pagina «Paga ora» monta il Payment Element dal client_secret', fn ()
     && str_contains($js, "document.querySelectorAll('[data-checkout-pay]')")
     && !str_contains($js, 'innerHTML'));
 
-check('la vista ha il posto per la carta e l\'annullamento dell\'ordine già nato', fn () => str_contains($view, 'data-checkout-stripe hidden')
+check('la vista ha il posto per la carta e l\'indirizzo per riaprire il modulo, senza «Annulla l\'ordine»', fn () => str_contains($view, 'data-checkout-stripe hidden')
     && str_contains($view, 'data-checkout-stripe-element')
     && str_contains($view, 'data-checkout-stripe-notice')
-    && str_contains($view, 'form="checkout-abandon"')
-    && str_contains($view, 'id="checkout-abandon"')
+    && str_contains($view, "data-reopen-url=\"<?=e(__r('ecommerce.checkout.reopen'))?>\"")
+    && !str_contains($view, 'abandon')
     && str_contains($view, "\$labels['stripe_error']")
     && str_contains($view, "\$labels['pay_failed']"));
+
+check('dopo un rifiuto il modulo si riapre: l\'ordine si annulla e si può cambiare metodo', function () use ($js): bool {
+    $reopen = substr($js, (int) strpos($js, '    async reopen(keep = []) {'), 1200);
+
+    return !str_contains($js, 'abandon')
+        && substr_count($js, 'await this.reopen([') === 2
+        && str_contains($reopen, 'if (!this.placed)')
+        && str_contains($reopen, 'this.placed = null;')
+        && str_contains($reopen, 'this.frozen = false;')
+        && str_contains($reopen, '(this.frozenFields || []).forEach((field) => { field.disabled = false; });')
+        && str_contains($reopen, 'this.resetRecaptcha();')
+        && str_contains($reopen, 'this.request(this.root.dataset.reopenUrl, this.body())')
+        && str_contains($reopen, 'this.render(payload)')
+        && str_contains($js, '.filter((field) => !field.disabled)');
+});
+
+check('la pagina «Paga ora» offre «Cambia metodo di pagamento», che riapre il checkout', function () use ($pay, $root): bool {
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+
+    return str_contains($pay, "action=\"<?=e(__r('ecommerce.checkout.reopen'))?>\"")
+        && str_contains($pay, "__t('ecommerce.checkout.pay.change_method')")
+        && !str_contains($pay, 'abandon')
+        && str_contains($routes, "Route::post('/reopen/', \$handler, ['checkout_action' => 'reopen'])->name('reopen')")
+        && !str_contains($routes, 'abandon')
+        && ($it['checkout']['pay']['change_method'] ?? '') === 'Cambia metodo di pagamento'
+        && ($en['checkout']['pay']['change_method'] ?? '') === 'Change payment method'
+        && str_contains((string) ($it['checkout']['pay']['removed'] ?? ''), '{{names}}')
+        && str_contains((string) ($en['checkout']['pay']['removed'] ?? ''), '{{names}}')
+        && !isset($it['checkout']['pay']['abandon'], $it['checkout']['pay']['abandoned'], $en['checkout']['pay']['abandon'], $en['checkout']['pay']['abandoned']);
+});
 
 check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e metodi della carta', fn () => str_contains($summary, 'OnlinePayment::browserKeys()')
     && str_contains($summary, "'amount' => (int) round((float) \$preview['order']['total'] * 100)")

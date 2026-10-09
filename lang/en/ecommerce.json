@@ -166,8 +166,8 @@
             "submit": "Pay now",
             "processing": "Processing payment",
             "alert_title": "Payment failed",
-            "abandon": "Cancel the order",
-            "abandoned": "The order has been cancelled.",
+            "change_method": "Change payment method",
+            "removed": "No longer available, removed from the cart: {{names}}.",
             "failed": "The payment did not go through. Try again or use a different method.",
             "canceled": "The payment was cancelled. You can try again.",
             "error": "Online payment is not available right now. Please try again shortly."

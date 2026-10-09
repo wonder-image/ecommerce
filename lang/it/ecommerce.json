@@ -181,8 +181,8 @@
             "submit": "Paga ora",
             "processing": "Elaborazione pagamento",
             "alert_title": "Pagamento non riuscito",
-            "abandon": "Annulla l'ordine",
-            "abandoned": "L'ordine è stato annullato.",
+            "change_method": "Cambia metodo di pagamento",
+            "removed": "Non più disponibili, tolti dal carrello: {{names}}.",
             "failed": "Il pagamento non è andato a buon fine. Riprova o usa un altro metodo.",
             "canceled": "Il pagamento è stato annullato. Puoi riprovare.",
             "error": "Il pagamento online non è disponibile in questo momento. Riprova tra poco."

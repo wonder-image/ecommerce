@@ -69,7 +69,7 @@ Route::area('frontend')
                 Route::get('/completed/', $handler, ['checkout_action' => 'completed'])->name('completed');
                 Route::get('/return/', $handler, ['checkout_action' => 'return'])->name('return');
                 Route::get('/pay/', $handler, ['checkout_action' => 'pay'])->name('pay');
-                Route::post('/abandon/', $handler, ['checkout_action' => 'abandon'])->name('abandon');
+                Route::post('/reopen/', $handler, ['checkout_action' => 'reopen'])->name('reopen');
             });
 
         $authProfileClass = Ecommerce::config('auth.profile', \Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile::class);

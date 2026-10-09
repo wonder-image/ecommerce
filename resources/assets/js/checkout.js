@@ -656,10 +656,14 @@ class Checkout {
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
-                this.say([payAlert(error.message || this.labels.pay_failed)]);
+                const message = payAlert(error.message || this.labels.pay_failed);
+
+                this.say([message]);
+                await this.reopen([message]);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
+            await this.reopen([this.labels.stripe_error]);
         } finally {
             this.paying = false;
             this.lock(false);
@@ -694,9 +698,15 @@ class Checkout {
             this.say(payload.errors || [payload.message || payload.error || this.labels.summary_error]);
         }
 
-        // Il token del reCAPTCHA vale una volta sola: il widget è Enterprise (lo monta la lib) e scrive il
-        // token in due campi nascosti. Si rinnova il widget e si svuotano i campi, così l'ospite lo rifà
-        // prima del prossimo «Paga» invece di rimandare un token già usato.
+        this.resetRecaptcha();
+
+        return null;
+    }
+
+    // Il token del reCAPTCHA vale una volta sola: il widget è Enterprise (lo monta la lib) e scrive il
+    // token in due campi nascosti. Si rinnova il widget e si svuotano i campi, così l'ospite lo rifà
+    // prima del prossimo «Paga» invece di rimandare un token già usato.
+    resetRecaptcha() {
         try {
             if (typeof window.grecaptcha?.enterprise?.reset === 'function') {
                 window.grecaptcha.enterprise.reset();
@@ -706,17 +716,39 @@ class Checkout {
         }
 
         this.form.querySelectorAll('input[name="g-recaptcha-token"], input[name="g-recaptcha-action"]').forEach((field) => { field.value = ''; });
-
-        return null;
     }
 
     // L'ordine è nato: il modulo non cambia più, altrimenti si pagherebbe un ordine diverso da quello che si vede.
+    // Si spengono solo i campi accesi, così la riapertura non accende quelli che il modulo tiene spenti.
     freeze() {
         this.frozen = true;
         clearTimeout(this.timer);
-        this.form.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = true; });
-        document.querySelectorAll('[data-checkout-coupon] input, [data-checkout-coupon] button').forEach((field) => { field.disabled = true; });
-        document.querySelector('[data-checkout-stripe-abandon]')?.removeAttribute('hidden');
+        this.frozenFields = [
+            ...this.form.querySelectorAll('input, select, textarea'),
+            ...document.querySelectorAll('[data-checkout-coupon] input, [data-checkout-coupon] button'),
+        ].filter((field) => !field.disabled);
+        this.frozenFields.forEach((field) => { field.disabled = true; });
+    }
+
+    // Pagamento rifiutato: il server annulla l'ordine e rimette righe e scelte nel carrello, il modulo
+    // torna modificabile e il prossimo «Paga» fa nascere un ordine nuovo. I messaggi dati restano a vista.
+    async reopen(keep = []) {
+        if (!this.placed) {
+            return;
+        }
+
+        this.placed = null;
+        this.frozen = false;
+        (this.frozenFields || []).forEach((field) => { field.disabled = false; });
+        this.frozenFields = [];
+        this.resetRecaptcha();
+
+        const payload = await this.request(this.root.dataset.reopenUrl, this.body());
+
+        if (payload && payload.success !== false) {
+            this.render(payload);
+            this.notices([...keep, ...(payload.notices || [])]);
+        }
     }
 
     lock(on) {
