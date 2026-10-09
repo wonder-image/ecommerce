@@ -8,10 +8,10 @@ $title ??= '';
 $active ??= 'orders';
 $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notice', 'modals', 'logout_url', 'logout_token', 'head', 'user'));
 ?>
-<div class="d-grid col-1 gap-8">
+<div class="d-grid col-1 gap-8 w-100">
     <p class="wi-row-table__subtitle"><?=e((string) __t('ecommerce.account.orders.of_date', ['date' => $order['date']]))?></p>
 
-    <section class="d-grid col-1 gap-2">
+    <div class="w-100 d-grid col-1 gap-2">
         <h3 class="subtitle"><?=e((string) __t('ecommerce.account.orders.info'))?></h3>
         <div>
             <?php foreach ($order['info'] as $row): ?>
@@ -34,9 +34,9 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                 </div>
             <?php endforeach; ?>
         </div>
-    </section>
+    </div>
 
-    <section class="d-grid col-1 gap-2">
+    <div class="w-100 d-grid col-1 gap-2">
         <h3 class="subtitle"><?=e((string) __t('ecommerce.account.orders.products'))?></h3>
         <div class="wi-row-table" style="--wi-row-table-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr)">
             <?php foreach ($order['items'] as $item): ?>
@@ -60,26 +60,26 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                             <?php endforeach; ?>
                         </span>
                     </div>
-                    <div class="wi-row-table__cell"><?=e($item['quantity'])?></div>
+                    <div class="wi-row-table__cell">× <?=e($item['quantity'])?></div>
                     <div class="wi-row-table__cell"><?=e($item['total'])?></div>
                 </div>
             <?php endforeach; ?>
         </div>
-    </section>
+    </div>
 
-    <section class="d-grid col-1 gap-2">
+    <div class="w-100 d-grid col-1 gap-2">
         <h3 class="subtitle"><?=e((string) __t('ecommerce.account.orders.summary'))?></h3>
         <?php foreach ($order['summary'] as $row): ?>
-            <div class="d-flex justify-content-between">
+            <div class="w-100 d-grid col-2 gap-3">
                 <span><?=e($row['label'])?></span>
-                <span><?=e($row['value'])?></span>
+                <span class="a-r"><?=e($row['value'])?></span>
             </div>
         <?php endforeach; ?>
-        <div class="d-flex justify-content-between">
+        <div class="w-100 d-grid col-2 gap-3">
             <span><?=e((string) __t('ecommerce.cart.total'))?></span>
-            <strong class="subtitle"><?=e($order['total'])?></strong>
+            <strong class="subtitle a-r"><?=e($order['total'])?></strong>
         </div>
-    </section>
+    </div>
 
     <div class="wi-address-grid">
         <?php if ($order['delivery'] !== null): ?>
