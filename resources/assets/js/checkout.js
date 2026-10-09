@@ -654,12 +654,12 @@ class Checkout {
                 },
             });
 
-            // Senza errore Stripe ha già portato il cliente al ritorno.
+            // Senza errore Stripe ha già portato il cliente al ritorno. Il rifiuto si legge
+            // nell'alert e dentro il Payment Element: sotto il box non si ripete.
             if (error) {
-                const message = payAlert(error.message || this.labels.pay_failed);
-
-                this.say([message]);
-                await this.reopen([message]);
+                payAlert(error.message || this.labels.pay_failed);
+                this.say([]);
+                await this.reopen();
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
@@ -1031,7 +1031,7 @@ class CheckoutPay {
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
-                this.say(payAlert(error.message || this.labels.failed));
+                payAlert(error.message || this.labels.failed);
             }
         } catch (error) {
             this.say(this.labels.error);

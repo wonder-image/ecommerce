@@ -65,7 +65,7 @@ check('dopo un rifiuto il modulo si riapre: l\'ordine si annulla e si può cambi
     $reopen = substr($js, (int) strpos($js, '    async reopen(keep = []) {'), 1200);
 
     return !str_contains($js, 'abandon')
-        && substr_count($js, 'await this.reopen([') === 2
+        && substr_count($js, 'await this.reopen(') === 2
         && str_contains($reopen, 'if (!this.placed)')
         && str_contains($reopen, 'this.placed = null;')
         && str_contains($reopen, 'this.frozen = false;')
@@ -219,6 +219,14 @@ check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che res
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed)')
         && str_contains($js, 'payAlert(error.message || this.labels.failed)')
         && substr_count($js, "payAlert('')") === 2;
+});
+
+check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box del pagamento', function () use ($js): bool {
+    return !str_contains($js, 'this.say(payAlert(')
+        && !str_contains($js, 'this.say([message])')
+        && !str_contains($js, 'this.reopen([message])')
+        && str_contains($js, 'payAlert(error.message || this.labels.pay_failed);')
+        && str_contains($js, 'payAlert(error.message || this.labels.failed);');
 });
 
 summary();
