@@ -4,7 +4,9 @@ namespace Wonder\Plugin\Ecommerce;
 
 use Wonder\App\Module\ConfigRepository;
 use Wonder\App\Module\Contracts\ModuleInterface;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Settings\OnlineShopSettings;
+use Wonder\Plugin\Gestionale\Extensions\ProvidesOrderEmailExtras;
 use Wonder\Plugin\Gestionale\Extensions\ProvidesSettings;
 use Wonder\View\View;
 
@@ -15,7 +17,7 @@ use Wonder\View\View;
  * Il modulo non porta header e footer: le sue pagine passano dai layout
  * sottili in `view/layout/frontend/`, che chainano su quelli del sito.
  */
-final class Ecommerce implements ModuleInterface, ProvidesSettings
+final class Ecommerce implements ModuleInterface, ProvidesSettings, ProvidesOrderEmailExtras
 {
     public const SLUG = 'ecommerce';
 
@@ -132,5 +134,22 @@ final class Ecommerce implements ModuleInterface, ProvidesSettings
             (array) ($manifest['views']['sealed'] ?? []),
             static fn (mixed $path): bool => is_string($path) && trim($path) !== ''
         ));
+    }
+
+    /**
+     * Il link per scegliere la password, nella conferma di un ordine fatto
+     * da ospite: online la conferma arriva col pagamento, senza la sessione
+     * del checkout.
+     */
+    public static function orderEmailExtras(string $key, array $order): array
+    {
+        $userId = (int) ($order['user_id'] ?? 0);
+        if ($key !== 'confirmed' || $userId <= 0) {
+            return [];
+        }
+
+        $link = GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore'));
+
+        return $link === '' ? [] : ['account_url' => $link];
     }
 }
