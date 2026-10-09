@@ -35,7 +35,7 @@ class EcommerceAccountController extends AccountController
         ]);
     }
 
-    /** Gli ordini confermati della scheda del cliente, dal più recente, a dieci per pagina. */
+    /** Gli ordini (stage order, in qualsiasi stato) della scheda del cliente, dal più recente, a dieci per pagina. */
     protected function orders(): void
     {
         $contact = $this->contact((int) $this->user()->id);
