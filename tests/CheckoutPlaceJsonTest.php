@@ -79,4 +79,9 @@ check('reopenPending non lascia uscire un errore: l\'ordine scade da solo con le
     str_contains(corpo($controller, 'reopenPending'), 'OnlinePayment::reopen()')
     && str_contains(corpo($controller, 'reopenPending'), "Errors::internal(\$error, 'ecommerce.checkout.reopen')"));
 
+check('il ritorno con un payment_intent non stringa è un 404 senza avvisi', fn () =>
+    str_contains($returned, "\$reference = \$_GET['payment_intent'] ?? '';")
+    && str_contains($returned, 'if (!is_string($reference)) {')
+    && str_contains($returned, 'OnlinePayment::settle($orderId, $reference)'));
+
 summary();

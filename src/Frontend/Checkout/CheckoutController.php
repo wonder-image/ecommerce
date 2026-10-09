@@ -425,8 +425,13 @@ final class CheckoutController
             self::notFound();
         }
 
+        $reference = $_GET['payment_intent'] ?? '';
+        if (!is_string($reference)) {
+            self::notFound();
+        }
+
         try {
-            $outcome = OnlinePayment::settle($orderId, (string) ($_GET['payment_intent'] ?? ''));
+            $outcome = OnlinePayment::settle($orderId, $reference);
         } catch (OutOfBoundsException) {
             self::notFound();
         }

@@ -3,10 +3,22 @@
 declare(strict_types=1);
 require __DIR__.'/../harness.php';
 
+$base = getenv('WI_TEST_URL') ?: 'https://ecommerce.test';
+
+// Senza il sito di prova acceso il test si salta, come gli altri HTTP.
+$probe = curl_init($base.'/');
+curl_setopt_array($probe, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_TIMEOUT => 5,
+    CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
+if (curl_exec($probe) === false) {
+    echo "Saltato: {$base} non risponde.\n";
+    exit(0);
+}
+unset($probe);
+
 $cookie = '';
 /** @return array{0: int, 1: string, 2: string} stato, intestazioni, corpo */
-$request = static function (string $path, ?array $post = null, array $headers = []) use (&$cookie): array {
-    $curl = curl_init('https://ecommerce.test'.$path);
+$request = static function (string $path, ?array $post = null, array $headers = []) use (&$cookie, $base): array {
+    $curl = curl_init($base.$path);
     curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0, CURLOPT_HTTPHEADER => $headers]);
     if ($cookie !== '') { curl_setopt($curl, CURLOPT_COOKIE, $cookie); }
