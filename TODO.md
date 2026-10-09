@@ -117,8 +117,10 @@ solo quando ha una prova automatica o una verifica descritta.
   i Button usano `opensModal()` secondo il tema, senza onclick nelle viste.
 - [ ] C0d Verificare visualmente account autenticato desktop/mobile e varianti
   colore su altri siti; completare E2E Google/email con credenziali di test.
-  Resta aperta: il pannello è ora quello del core (piano 1 del pannello account)
-  e la prova nel browser si chiude con quella finale del piano 2.
+  Fatta (2026-10-09) la prova nel browser del pannello del core su
+  `ecommerce-account.test` a 1280, 768 e 386 px: Panoramica, Ordini (lista,
+  paginazione, dettaglio), Coupon, Dati personali con i tre modal, Indirizzi,
+  Fatturazione. Restano le varianti colore su altri siti e l'E2E Google/email.
 - [x] C0e Verificare seed/import ed eseguire `forge update --local` nel sito
   demo autorizzato: completato (94 tabelle, nessun reset dei contatti), poi
   `forge start --driver=herd`. Sync API esterna non disponibile.
