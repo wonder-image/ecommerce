@@ -74,6 +74,44 @@ final class OnlinePayment
         ];
     }
 
+    /**
+     * I dati del cliente per Stripe, presi dall'ordine: il Payment Element non
+     * li chiede e Stripe li vuole tutti alla conferma. Senza fatturazione valgono
+     * destinatario e indirizzo della consegna.
+     *
+     * @return array{name: string, email: string, phone: string, address: array<string, string>}
+     */
+    public static function billingDetails(array $order): array
+    {
+        $value = static fn (string $key): string => trim((string) ($order[$key] ?? ''));
+        $prefix = $value('billing_street') === '' && $value('shipping_street') !== '' ? 'shipping_' : 'billing_';
+
+        $name = $value('billing_type') === 'business' ? $value('billing_business_name') : '';
+        $name = $name !== '' ? $name : trim($value('billing_name').' '.$value('billing_surname'));
+        $name = $name !== '' ? $name : trim($value('shipping_name').' '.$value('shipping_surname'));
+
+        $phone = $value('phone');
+        foreach (['billing_', 'shipping_'] as $side) {
+            if ($phone === '' && $value($side.'phone') !== '') {
+                $phone = trim($value($side.'phone_prefix').' '.$value($side.'phone'));
+            }
+        }
+
+        return [
+            'name' => $name,
+            'email' => $value('email'),
+            'phone' => $phone,
+            'address' => [
+                'line1' => trim($value($prefix.'street').' '.$value($prefix.'number')),
+                'line2' => $value($prefix.'more'),
+                'city' => $value($prefix.'city'),
+                'state' => $value($prefix.'province'),
+                'postal_code' => $value($prefix.'cap'),
+                'country' => strtoupper($value($prefix.'country')) ?: 'IT',
+            ],
+        ];
+    }
+
     /** Il totale visto dal cliente è quello dell'ordine, al centesimo. */
     public static function sameTotal(mixed $seen, mixed $actual): bool
     {

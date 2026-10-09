@@ -252,6 +252,7 @@ final class CheckoutController
                 'success' => true,
                 'client_secret' => $clientSecret,
                 'return_url' => self::route('ecommerce.checkout.return'),
+                'billing_details' => OnlinePayment::billingDetails((array) Order::findById($receipt['order_id'])),
             ]);
         } catch (UserError $error) {
             self::reject([$error->getMessage()], $post, $json);
@@ -462,8 +463,10 @@ final class CheckoutController
         }
 
         self::seo((string) __t('ecommerce.checkout.pay.title'), self::route('ecommerce.checkout.pay'));
+        $order = (array) Order::findById($orderId);
         View::make(Ecommerce::viewPath('pages/checkout/pay.php'), [
-            'order' => (array) Order::findById($orderId),
+            'order' => $order,
+            'billing_details' => OnlinePayment::billingDetails($order),
             'client_secret' => $clientSecret,
             'stripe' => OnlinePayment::browserKeys(),
             'return_url' => self::route('ecommerce.checkout.return'),

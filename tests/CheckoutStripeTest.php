@@ -5,10 +5,14 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
+
 $root = dirname(__DIR__);
 $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
 $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
 $summary = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutSummary.php');
+$pay = (string) file_get_contents($root.'/view/pages/checkout/pay.php');
+$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
 
 check('Stripe.js arriva da Stripe, una volta sola e solo quando serve', fn () => str_contains($js, "'https://js.stripe.com/v3/'")
     && str_contains($js, 'function loadStripe()')
@@ -64,5 +68,95 @@ check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e metodi del
     && str_contains($summary, "(\$option['provider'] ?? '') === 'stripe'")
     && !str_contains($summary, 'stripe_private_key')
     && !str_contains($summary, 'stripe_test_key'));
+
+check('nel Payment Element niente Link né wallet, e niente dati del cliente: solo i campi della carta', fn () => str_contains($js, "wallets: { applePay: 'never', googlePay: 'never', link: 'never' }")
+    && str_contains($js, "fields: { billingDetails: 'never' }")
+    && substr_count($js, "create('payment', STRIPE_PAYMENT_ELEMENT)") === 2
+    && !str_contains($js, "create('payment')"));
+
+check('i dati del cliente arrivano a Stripe dall\'ordine, al checkout e su «Paga ora»', fn () => str_contains($js, 'payment_method_data: { billing_details: this.placed.billing_details')
+    && str_contains($js, 'payment_method_data: { billing_details: this.billing')
+    && str_contains($js, 'this.root.dataset.billingDetails')
+    && str_contains($pay, 'data-billing-details=')
+    && str_contains($controller, "'billing_details' => OnlinePayment::billingDetails(")
+    && str_contains($controller, "'billing_details' => OnlinePayment::billingDetails(\$order)"));
+
+check('i campi della carta stanno nel pannello della scelta e sopravvivono al riepilogo', function () use ($js): bool {
+    $choices = substr($js, (int) strpos($js, '    choices(container'), 2400);
+
+    return str_contains($choices, 'same')
+        && str_contains($choices, 'group.replaceChildren(')
+        && str_contains($js, "closest('label')?.querySelector('[data-choice-panel]')")
+        && str_contains($js, 'this.paymentElement.unmount()')
+        && str_contains($js, 'this.paymentElement.mount(')
+        && str_contains($js, '[data-checkout-stripe-element]');
+});
+
+$dati = OnlinePayment::billingDetails([
+    'email' => 'mario@example.com',
+    'phone' => '',
+    'billing_type' => 'private',
+    'billing_name' => 'Mario',
+    'billing_surname' => 'Rossi',
+    'billing_business_name' => '',
+    'billing_country' => 'it',
+    'billing_province' => 'MI',
+    'billing_city' => 'Milano',
+    'billing_cap' => '20100',
+    'billing_street' => 'Via Roma',
+    'billing_number' => '1',
+    'billing_more' => 'Scala B',
+    'billing_phone_prefix' => '+39',
+    'billing_phone' => '333 1234567',
+]);
+
+check('billingDetails prende nome, email, telefono e indirizzo della fatturazione', fn () => $dati === [
+    'name' => 'Mario Rossi',
+    'email' => 'mario@example.com',
+    'phone' => '+39 333 1234567',
+    'address' => [
+        'line1' => 'Via Roma 1',
+        'line2' => 'Scala B',
+        'city' => 'Milano',
+        'state' => 'MI',
+        'postal_code' => '20100',
+        'country' => 'IT',
+    ],
+]);
+
+check('senza fatturazione billingDetails usa destinatario e indirizzo della consegna, con tutti i campi', fn () => OnlinePayment::billingDetails([
+    'email' => 'anna@example.com',
+    'phone' => '3330000000',
+    'billing_country' => 'IT',
+    'billing_name' => '',
+    'shipping_name' => 'Anna',
+    'shipping_surname' => 'Bianchi',
+    'shipping_country' => 'FR',
+    'shipping_city' => 'Paris',
+    'shipping_cap' => '75001',
+    'shipping_street' => 'Rue de Rivoli',
+    'shipping_number' => '10',
+]) === [
+    'name' => 'Anna Bianchi',
+    'email' => 'anna@example.com',
+    'phone' => '3330000000',
+    'address' => [
+        'line1' => 'Rue de Rivoli 10',
+        'line2' => '',
+        'city' => 'Paris',
+        'state' => '',
+        'postal_code' => '75001',
+        'country' => 'FR',
+    ],
+]);
+
+check('per un\'azienda il nome è la ragione sociale; senza indirizzi resta il paese', fn () => OnlinePayment::billingDetails([
+    'email' => 'info@example.com',
+    'billing_type' => 'business',
+    'billing_business_name' => 'Rossi Srl',
+    'billing_name' => 'Mario',
+    'billing_country' => '',
+])['name'] === 'Rossi Srl'
+    && OnlinePayment::billingDetails(['billing_country' => ''])['address']['country'] === 'IT');
 
 summary();

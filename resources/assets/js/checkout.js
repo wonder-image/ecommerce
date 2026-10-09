@@ -278,9 +278,10 @@ class Checkout {
         }
 
         const group = container.querySelector('[data-choice-list]') || container;
-
-        group.replaceChildren(...options.map((option) => {
-            const node = template.content.cloneNode(true).firstElementChild;
+        const inputs = [...group.querySelectorAll('[data-choice-input]')];
+        // Con le stesse scelte si aggiorna sul posto: i campi della carta nel pannello non si ricaricano.
+        const same = inputs.length === options.length && inputs.every((input, i) => input.value === String(options[i].value));
+        const fill = (node, option) => {
             const input = node.querySelector('[data-choice-input]');
             const [title, text, aside, icons = [], panel = ''] = parts(option);
 
@@ -299,12 +300,30 @@ class Checkout {
             const pane = node.querySelector('[data-choice-panel]');
 
             if (pane) {
-                pane.textContent = panel;
-                pane.hidden = panel === '';
+                const card = pane.querySelector('[data-checkout-stripe-element]');
+
+                [...pane.childNodes].filter((child) => child !== card).forEach((child) => child.remove());
+                pane.prepend(panel);
+                this.pane(pane);
             }
 
             return node;
-        }));
+        };
+
+        if (same) {
+            inputs.forEach((input, i) => fill(input.closest('label') || input.parentElement, options[i]));
+
+            return;
+        }
+
+        group.replaceChildren(...options.map((option) => fill(template.content.cloneNode(true).firstElementChild, option)));
+    }
+
+    // Il pannello si vede se ha un testo o i campi della carta.
+    pane(pane) {
+        const card = pane.querySelector('[data-checkout-stripe-element]');
+
+        pane.hidden = pane.textContent.trim() === '' && (!card || card.hidden);
     }
 
     // Al massimo tre loghi, poi «+N».
@@ -511,6 +530,7 @@ class Checkout {
         const on = Boolean(box && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
 
         box?.toggleAttribute('hidden', !on);
+        this.stripeSlot(on);
 
         if (!on) {
             return;
@@ -526,7 +546,8 @@ class Checkout {
             this.stripeReady = loadStripe().then(() => {
                 this.stripe = window.Stripe(keys.publishable_key, keys.account ? { stripeAccount: keys.account } : {});
                 this.elements = this.stripe.elements(this.stripeOptions);
-                this.elements.create('payment').mount(box.querySelector('[data-checkout-stripe-element]'));
+                this.paymentElement = this.elements.create('payment', STRIPE_PAYMENT_ELEMENT);
+                this.stripeSlot(!box.hidden);
             }).catch(() => {
                 this.stripeReady = null;
                 this.say([this.labels.stripe_error]);
@@ -541,6 +562,47 @@ class Checkout {
                 this.elements.update(this.stripeOptions);
             }
         });
+    }
+
+    // I campi della carta vanno nel pannello della scelta Stripe. Spostare l'iframe lo ricarica:
+    // si smonta e si rimonta solo se il pannello è cambiato, e scegliendo altro si nasconde e basta.
+    stripeSlot(on) {
+        this.stripeCard = this.stripeCard || document.querySelector('[data-checkout-stripe-element]');
+
+        const card = this.stripeCard;
+        const radio = this.form?.querySelector('[name="payment_method_id"]:checked');
+        const target = on ? radio?.closest('label')?.querySelector('[data-choice-panel]') : null;
+        const holder = card?.closest('[data-choice-panel]');
+
+        if (!card) {
+            return;
+        }
+
+        card.hidden = !target;
+
+        if (holder && holder !== target) {
+            this.pane(holder);
+        }
+
+        if (!target) {
+            return;
+        }
+
+        if (holder !== target || !card.isConnected) {
+            if (this.stripeMounted) {
+                this.paymentElement.unmount();
+                this.stripeMounted = false;
+            }
+
+            target.append(card);
+        }
+
+        if (this.paymentElement && !this.stripeMounted) {
+            this.paymentElement.mount(card);
+            this.stripeMounted = true;
+        }
+
+        this.pane(target);
     }
 
     // «Paga»: Stripe controlla la carta, il server fa nascere l'ordine e l'intento, poi Stripe incassa.
@@ -584,7 +646,10 @@ class Checkout {
             const { error } = await this.stripe.confirmPayment({
                 elements: this.elements,
                 clientSecret: this.placed.client_secret,
-                confirmParams: { return_url: new URL(this.placed.return_url, window.location.href).href },
+                confirmParams: {
+                    return_url: new URL(this.placed.return_url, window.location.href).href,
+                    payment_method_data: { billing_details: this.placed.billing_details },
+                },
             });
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
@@ -830,6 +895,9 @@ window.addEventListener('pageshow', (event) => {
 
 let stripeScript = null;
 
+// Solo numero, scadenza e CVC: Link e i wallet vanno nei bottoni rapidi, i dati del cliente li dà l'ordine alla conferma.
+const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, fields: { billingDetails: 'never' } };
+
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {
     if (window.Stripe) {
@@ -861,6 +929,7 @@ class CheckoutPay {
         this.labels = JSON.parse(root.dataset.labels || '{}');
         this.button = root.querySelector('[data-checkout-pay-submit]');
         this.notice = root.querySelector('[data-checkout-pay-notice]');
+        this.billing = JSON.parse(this.root.dataset.billingDetails || '{}');
 
         loadStripe().then(() => this.mount()).catch(() => this.say(this.labels.error));
     }
@@ -870,7 +939,7 @@ class CheckoutPay {
 
         this.stripe = window.Stripe(this.root.dataset.publishableKey, account ? { stripeAccount: account } : {});
         this.elements = this.stripe.elements({ clientSecret: this.root.dataset.clientSecret });
-        this.elements.create('payment').mount(this.root.querySelector('[data-checkout-pay-element]'));
+        this.elements.create('payment', STRIPE_PAYMENT_ELEMENT).mount(this.root.querySelector('[data-checkout-pay-element]'));
         this.button.addEventListener('click', () => this.pay());
         this.button.disabled = false;
     }
@@ -882,7 +951,10 @@ class CheckoutPay {
         try {
             const { error } = await this.stripe.confirmPayment({
                 elements: this.elements,
-                confirmParams: { return_url: new URL(this.root.dataset.returnUrl, window.location.href).href },
+                confirmParams: {
+                    return_url: new URL(this.root.dataset.returnUrl, window.location.href).href,
+                    payment_method_data: { billing_details: this.billing },
+                },
             });
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
