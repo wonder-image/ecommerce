@@ -626,10 +626,18 @@ class Checkout {
             this.say(payload.errors || [payload.message || payload.error || this.labels.summary_error]);
         }
 
-        // Il reCAPTCHA vale una volta sola: l'ospite lo rifà prima del prossimo «Paga».
-        if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
-            window.grecaptcha.reset();
+        // Il token del reCAPTCHA vale una volta sola: il widget è Enterprise (lo monta la lib) e scrive il
+        // token in due campi nascosti. Si rinnova il widget e si svuotano i campi, così l'ospite lo rifà
+        // prima del prossimo «Paga» invece di rimandare un token già usato.
+        try {
+            if (typeof window.grecaptcha?.enterprise?.reset === 'function') {
+                window.grecaptcha.enterprise.reset();
+            }
+        } catch (error) {
+            // Il widget non è ancora montato: non c'è niente da rinnovare.
         }
+
+        this.form.querySelectorAll('input[name="g-recaptcha-token"], input[name="g-recaptcha-action"]').forEach((field) => { field.value = ''; });
 
         return null;
     }

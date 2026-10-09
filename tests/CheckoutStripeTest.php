@@ -38,6 +38,12 @@ check('un secondo «Paga» riusa l\'ordine già nato e il modulo non cambia più
     && (bool) preg_match('/this\.sequence\+\+;\s*clearTimeout\(this\.timer\);\s*if \(this\.frozen\)/', $js)
     && str_contains($js, 'grecaptcha'));
 
+check('dopo un errore di place il reCAPTCHA Enterprise si rinnova e il token usato si svuota', fn () => str_contains($js, 'window.grecaptcha?.enterprise?.reset')
+    && str_contains($js, 'grecaptcha.enterprise.reset()')
+    && str_contains($js, 'input[name="g-recaptcha-token"]')
+    && str_contains($js, 'input[name="g-recaptcha-action"]')
+    && !str_contains($js, 'window.grecaptcha.reset'));
+
 check('la pagina «Paga ora» monta il Payment Element dal client_secret', fn () => str_contains($js, 'class CheckoutPay')
     && str_contains($js, 'clientSecret: this.root.dataset.clientSecret')
     && str_contains($js, "document.querySelectorAll('[data-checkout-pay]')")
