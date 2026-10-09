@@ -399,7 +399,7 @@ final class CheckoutController
             self::json(['success' => false, 'errors' => array_values($errors)], 422);
         }
 
-        self::rememberErrors($errors, $post);
+        self::rememberErrors($errors, CheckoutRules::rememberedPost($post, $_POST));
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 

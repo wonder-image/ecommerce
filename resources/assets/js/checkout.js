@@ -4,7 +4,7 @@ class Checkout {
         this.sequence = 0;
         this.timer = null;
         this.latest = null;
-        // Un gruppo elements per ogni scelta Stripe (chiave → { elements, element, container }); le scelte
+        // Un gruppo elements per ogni scelta Stripe (chiave → { elements, element, container, mounted }); le scelte
         // il cui Payment Element non si carica (loaderror) si tolgono per sempre dal modulo.
         this.groups = {};
         this.dropped = new Set();
@@ -76,6 +76,11 @@ class Checkout {
             return;
         }
 
+        // Mentre si paga il modulo non si ridisegna.
+        if (this.paying) {
+            return;
+        }
+
         this.timer = setTimeout(() => this.refresh(), 300);
     }
 
@@ -84,6 +89,11 @@ class Checkout {
 
         if (!this.form) {
             data.set('csrf_token', document.querySelector('[name="csrf_token"]')?.value || '');
+        }
+
+        // Mentre si paga i radio del pagamento sono spenti e il modulo non li manda: vale la scelta fissata all'inizio.
+        if (this.payKey) {
+            data.set('payment_method_id', this.payKey);
         }
 
         Object.entries(extra).forEach(([key, value]) => data.set(key, value));
@@ -411,6 +421,7 @@ class Checkout {
 
         this.choices(box, 'payment_method_id', options, selected,
             (o) => [o.name, '', o.fee_display || '', o.icon_urls || [], o.panel || '']);
+        this.syncPaymentRadios();
     }
 
     couponBox(payload) {
@@ -584,7 +595,7 @@ class Checkout {
                     const options = { ...this.stripeOptions, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
                     const elements = this.stripe.elements(options);
 
-                    group = { elements, element: elements.create('payment', STRIPE_PAYMENT_ELEMENT), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
+                    group = { elements, element: elements.create('payment', stripeElementOptions(chosen.stripe_method_type)), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
                     this.groups[chosen.key] = group;
 
                     // Klarna, Link… fuori dai loro limiti (importo, paese) non si caricano: la scelta sparisce e torna la carta.
@@ -598,7 +609,7 @@ class Checkout {
                 this.elements = group.elements;
                 this.paymentElement = group.element;
 
-                Object.entries(this.groups).forEach(([key, other]) => {
+                Object.entries(this.groups).forEach(([, other]) => {
                     if (other !== group) {
                         other.elements.update({ amount: this.stripeOptions.amount, currency: this.stripeOptions.currency });
                     }
@@ -689,13 +700,18 @@ class Checkout {
 
     // Il Payment Element di una scelta non si carica: la voce sparisce, torna spuntata la carta Stripe. Niente messaggi.
     dropChoice(key) {
+        // Mentre si paga la scelta non cambia.
+        if (this.paying) {
+            return;
+        }
+
         const radios = [...(this.form?.querySelectorAll('[name="payment_method_id"]') || [])];
         const radio = radios.find((r) => r.value === key);
         const group = this.groups[key];
         const wasChecked = Boolean(radio?.checked);
 
         this.dropped.add(key);
-        radio?.closest('label')?.toggleAttribute('hidden', true);
+        radio?.closest('label')?.remove();
 
         if (group) {
             try { group.element.destroy(); } catch (error) { /* già smontato */ }
@@ -707,7 +723,7 @@ class Checkout {
             return;
         }
 
-        const card = (this.latest?.payment_methods?.options || []).find((o) => o.provider === 'stripe' && o.stripe_method_type === 'card');
+        const card = (this.latest?.payment_methods?.options || []).find((o) => o.provider === 'stripe' && ['', 'card'].includes(o.stripe_method_type ?? ''));
         const cardRadio = card ? radios.find((r) => r.value === card.key) : null;
 
         if (cardRadio) {
@@ -734,12 +750,14 @@ class Checkout {
             return;
         }
 
-        this.elements = group.elements;
-        this.paymentElement = group.element;
+        // Da qui al pagamento si usa questo elements, non quello che cambia con la scelta: Stripe riceve sempre
+        // quello della scelta con cui è nato l'ordine.
+        const { elements } = group;
 
         // Una risposta del riepilogo ancora in viaggio non deve ridisegnare il modulo mentre si paga.
         this.sequence++;
         clearTimeout(this.timer);
+        this.payKey = this.chosenPayment().key;
         this.paying = true;
         this.lock(true);
         this.say([]);
@@ -747,7 +765,7 @@ class Checkout {
         paySpinner(true, this.labels.processing);
 
         try {
-            const checked = await this.elements.submit();
+            const checked = await elements.submit();
 
             if (checked.error) {
                 this.say([checked.error.message || this.labels.pay_failed]);
@@ -766,7 +784,7 @@ class Checkout {
             }
 
             const { error } = await this.stripe.confirmPayment({
-                elements: this.elements,
+                elements,
                 clientSecret: this.placed.client_secret,
                 confirmParams: {
                     return_url: new URL(this.placed.return_url, window.location.href).href,
@@ -786,6 +804,7 @@ class Checkout {
             await this.reopen([this.labels.stripe_error]);
         } finally {
             this.paying = false;
+            this.payKey = null;
             this.lock(false);
             paySpinner(false);
         }
@@ -873,7 +892,15 @@ class Checkout {
 
     lock(on) {
         document.querySelectorAll('[data-checkout-submit]').forEach((button) => { button.disabled = on; });
+        this.syncPaymentRadios();
         this.busy(on);
+    }
+
+    // Mentre si paga (e dopo la nascita dell'ordine) la scelta del pagamento non cambia.
+    syncPaymentRadios() {
+        this.form?.querySelectorAll('[name="payment_method_id"]').forEach((radio) => {
+            radio.disabled = Boolean(this.paying) || Boolean(this.frozen);
+        });
     }
 
     // Gli errori del pagamento si leggono vicino alla carta e nel riepilogo.
@@ -1087,6 +1114,13 @@ let stripeScript = null;
 
 // Solo numero, scadenza e CVC: Link e i wallet vanno nei bottoni rapidi, i dati del cliente li dà l'ordine alla conferma.
 const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, fields: { billingDetails: 'never' } };
+
+// Link da solo ha bisogno del suo wallet; la carta e gli altri metodi no.
+const STRIPE_PAYMENT_ELEMENT_LINK = { ...STRIPE_PAYMENT_ELEMENT, wallets: { ...STRIPE_PAYMENT_ELEMENT.wallets, link: 'auto' } };
+
+function stripeElementOptions(type) {
+    return type === 'link' ? STRIPE_PAYMENT_ELEMENT_LINK : STRIPE_PAYMENT_ELEMENT;
+}
 
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {

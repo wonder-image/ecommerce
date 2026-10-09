@@ -26,7 +26,7 @@ check('il Payment Element del checkout parte senza intento, con importo e valuta
     && str_contains($js, "chosen?.provider === 'stripe'"));
 
 check('«Paga»: prima Stripe controlla la carta, poi nasce l\'ordine col totale visto, poi Stripe incassa', function () use ($js): bool {
-    $submit = strpos($js, 'await this.elements.submit()');
+    $submit = strpos($js, 'await elements.submit()');
     $place = strpos($js, 'await this.place()');
     $confirm = strpos($js, 'await this.stripe.confirmPayment(');
 
@@ -104,7 +104,8 @@ check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e i tipi che
 
 check('nel Payment Element niente Link né wallet, e niente dati del cliente: solo i campi della carta', fn () => str_contains($js, "wallets: { applePay: 'never', googlePay: 'never', link: 'never' }")
     && str_contains($js, "fields: { billingDetails: 'never' }")
-    && substr_count($js, "create('payment', STRIPE_PAYMENT_ELEMENT)") === 2
+    && substr_count($js, "create('payment', STRIPE_PAYMENT_ELEMENT)") === 1
+    && substr_count($js, "create('payment', stripeElementOptions(chosen.stripe_method_type))") === 1
     && !str_contains($js, "create('payment')"));
 
 check('i dati del cliente arrivano a Stripe dall\'ordine, al checkout e su «Paga ora»', fn () => str_contains($js, 'payment_method_data: { billing_details: this.placed.billing_details')
@@ -244,6 +245,64 @@ check('il radio del pagamento vale la chiave della scelta; post la spezza in id 
     && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891:klarna') === [891, 'klarna']
     && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891') === [891, '']
     && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('x:y') === [0, '']);
+
+check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirmPayment; durante il pagamento la scelta non cambia', function () use ($js): bool {
+    $from = (int) strpos($js, '    async payOnline() {');
+    $pay = substr($js, $from, (int) strpos($js, '    async place() {') - $from);
+    $drop = substr($js, (int) strpos($js, '    dropChoice(key) {'), 160);
+    $schedule = substr($js, (int) strpos($js, '    schedule() {'), 600);
+
+    return str_contains($pay, 'const { elements } = group;')
+        && str_contains($pay, 'await elements.submit()')
+        && (bool) preg_match('/confirmPayment\(\{\s*elements,/', $pay)
+        && !str_contains($pay, 'this.elements')
+        && !str_contains($pay, 'this.paymentElement')
+        && str_contains($pay, 'this.payKey = ')
+        && str_contains($js, 'syncPaymentRadios()')
+        && str_contains($js, 'radio.disabled = Boolean(this.paying) || Boolean(this.frozen)')
+        && str_contains($js, "if (this.payKey) {\n            data.set('payment_method_id', this.payKey);")
+        && (bool) preg_match('/^\s*dropChoice\(key\) \{\s*(\/\/[^\n]*\s*)?if \(this\.paying\)/', $drop)
+        && (bool) preg_match('/if \(this\.frozen\) \{\s*return;\s*\}\s*(\/\/[^\n]*\s*)?if \(this\.paying\) \{\s*return;/', $schedule);
+});
+
+check('Link da solo ha il wallet Link acceso, la carta e gli altri metodi restano senza', fn () =>
+    str_contains($js, "link: 'auto'")
+    && str_contains($js, "type === 'link' ? STRIPE_PAYMENT_ELEMENT_LINK : STRIPE_PAYMENT_ELEMENT")
+    && str_contains($js, "const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }")
+    && str_contains($js, 'wallets: { ...STRIPE_PAYMENT_ELEMENT.wallets, link: \'auto\' }'));
+
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
+
+check('dopo un rifiuto con redirect lo stato del modulo ricorda il valore grezzo del radio', function (): bool {
+    $post = CheckoutRules::post(['payment_method_id' => '891:klarna', 'email' => 'a@example.com']);
+    $kept = CheckoutRules::rememberedPost($post, ['payment_method_id' => '891:klarna']);
+    $card = CheckoutRules::rememberedPost(CheckoutRules::post(['payment_method_id' => '891']), ['payment_method_id' => '891']);
+
+    return $post['payment_method_id'] === 891 && $post['stripe_method_type'] === 'klarna'
+        && $kept['payment_method_id'] === '891:klarna' && !array_key_exists('stripe_method_type', $kept)
+        && $kept['email'] === 'a@example.com'
+        && $card['payment_method_id'] === '891'
+        && CheckoutRules::rememberedPost(['payment_method_id' => 7], [])['payment_method_id'] === 7
+        && CheckoutRules::rememberedPost(['payment_method_id' => 7], ['payment_method_id' => ['x']])['payment_method_id'] === 7
+        // Al riepilogo e al carrello torna l'id nudo.
+        && CheckoutRules::post(['payment_method_id' => $kept['payment_method_id']])['payment_method_id'] === 891;
+});
+
+check('nella vista è spuntata la scelta con la chiave salvata; senza corrispondenza vale l\'id più la carta', function () use ($view, $controller): bool {
+    $options = [
+        ['id' => 891, 'key' => '891', 'stripe_method_type' => 'card'],
+        ['id' => 891, 'key' => '891:klarna', 'stripe_method_type' => 'klarna'],
+        ['id' => 7, 'key' => '7', 'stripe_method_type' => ''],
+    ];
+
+    return CheckoutRules::checkedPayment($options, '891:klarna', 891) === '891:klarna'
+        && CheckoutRules::checkedPayment($options, '891:link', 891) === '891'
+        && CheckoutRules::checkedPayment($options, '891', 891) === '891'
+        && CheckoutRules::checkedPayment($options, '', 7) === '7'
+        && CheckoutRules::checkedPayment($options, '', 0) === ''
+        && str_contains($view, 'CheckoutRules::checkedPayment(')
+        && str_contains($controller, 'CheckoutRules::rememberedPost(');
+});
 
 check('i tipi della scelta arrivano dal gestionale, non dal CSV', fn () =>
     str_contains($summary, "'payment_method_types' =>")

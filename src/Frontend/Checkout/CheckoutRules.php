@@ -131,6 +131,52 @@ final class CheckoutRules
     }
 
     /**
+     * Il POST come va nello stato del modulo in sessione: del radio del
+     * pagamento resta il valore grezzo che il browser ha mandato («891:klarna»),
+     * non l'id nudo, così dopo un redirect con errori torna spuntata la stessa
+     * scelta. `post()` lo spezza di nuovo per riepilogo e carrello.
+     *
+     * @param array<string, mixed> $post il POST già passato da `post()`
+     * @param array<string, mixed> $raw il POST come è arrivato
+     * @return array<string, mixed>
+     */
+    public static function rememberedPost(array $post, array $raw): array
+    {
+        $value = $raw['payment_method_id'] ?? null;
+
+        if (is_string($value) && $value !== '') {
+            $post['payment_method_id'] = $value;
+            unset($post['stripe_method_type']);
+        }
+
+        return $post;
+    }
+
+    /**
+     * La chiave della scelta di pagamento da spuntare: quella salvata, se la
+     * pagina la offre; altrimenti la voce con l'id scelto e, per Stripe, la
+     * carta. Vuota se nessuna.
+     *
+     * @param list<array<string, mixed>> $options
+     */
+    public static function checkedPayment(array $options, string $saved, int $selected): string
+    {
+        foreach ($options as $option) {
+            if ($saved !== '' && (string) ($option['key'] ?? '') === $saved) {
+                return $saved;
+            }
+        }
+
+        foreach ($options as $option) {
+            if ((int) ($option['id'] ?? 0) === $selected && in_array((string) ($option['stripe_method_type'] ?? ''), ['', 'card'], true)) {
+                return (string) ($option['key'] ?? $option['id'] ?? '');
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * L'opzione di pagamento dell'anteprima con quell'id: un id che la pagina
      * non ha offerto (manipolato o di un provider non collegato) non vale.
      *
