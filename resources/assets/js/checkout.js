@@ -595,10 +595,10 @@ class Checkout {
                     const options = { ...this.stripeOptions, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
                     const elements = this.stripe.elements(options);
 
-                    group = { elements, element: elements.create('payment', stripeElementOptions(chosen.stripe_method_type)), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
+                    group = { elements, element: elements.create('payment', STRIPE_PAYMENT_ELEMENT), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
                     this.groups[chosen.key] = group;
 
-                    // Klarna, Link… fuori dai loro limiti (importo, paese) non si caricano: la scelta sparisce e torna la carta.
+                    // Klarna, BLIK… fuori dai loro limiti (importo, paese) non si caricano: la scelta sparisce e torna la carta.
                     if (!['', 'card'].includes(chosen.stripe_method_type ?? '')) {
                         const key = chosen.key;
 
@@ -1114,13 +1114,6 @@ let stripeScript = null;
 
 // Solo numero, scadenza e CVC: Link e i wallet vanno nei bottoni rapidi, i dati del cliente li dà l'ordine alla conferma.
 const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, fields: { billingDetails: 'never' } };
-
-// Link da solo ha bisogno del suo wallet; la carta e gli altri metodi no.
-const STRIPE_PAYMENT_ELEMENT_LINK = { ...STRIPE_PAYMENT_ELEMENT, wallets: { ...STRIPE_PAYMENT_ELEMENT.wallets, link: 'auto' } };
-
-function stripeElementOptions(type) {
-    return type === 'link' ? STRIPE_PAYMENT_ELEMENT_LINK : STRIPE_PAYMENT_ELEMENT;
-}
 
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {

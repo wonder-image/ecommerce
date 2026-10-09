@@ -99,12 +99,11 @@ check('le scelte Stripe del gestionale arrivano alla pagina con chiave, tipo e t
     $per = static fn (string $key): ?array => current(array_filter($voci, static fn (array $v): bool => $v['key'] === $key)) ?: null;
 
     return $http->requests === []
-        && array_column($voci, 'key') === [(string) $id, $id.':klarna', $id.':link']
+        && array_column($voci, 'key') === [(string) $id, $id.':klarna']
         && $per((string) $id)['stripe_method_type'] === 'card'
         && $per((string) $id)['payment_method_types'] === ['card']
         && $per($id.':klarna')['stripe_method_type'] === 'klarna'
         && $per($id.':klarna')['payment_method_types'] === ['klarna']
-        && $per($id.':link')['payment_method_types'] === ['link']
         && $per($id.':klarna')['panel'] === ''
         && (int) $payload['payment_methods']['selected'] === $id;
 }));

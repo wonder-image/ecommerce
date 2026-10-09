@@ -104,8 +104,7 @@ check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e i tipi che
 
 check('nel Payment Element niente Link né wallet, e niente dati del cliente: solo i campi della carta', fn () => str_contains($js, "wallets: { applePay: 'never', googlePay: 'never', link: 'never' }")
     && str_contains($js, "fields: { billingDetails: 'never' }")
-    && substr_count($js, "create('payment', STRIPE_PAYMENT_ELEMENT)") === 1
-    && substr_count($js, "create('payment', stripeElementOptions(chosen.stripe_method_type))") === 1
+    && substr_count($js, "create('payment', STRIPE_PAYMENT_ELEMENT)") === 2
     && !str_contains($js, "create('payment')"));
 
 check('i dati del cliente arrivano a Stripe dall\'ordine, al checkout e su «Paga ora»', fn () => str_contains($js, 'payment_method_data: { billing_details: this.placed.billing_details')
@@ -265,11 +264,10 @@ check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirm
         && (bool) preg_match('/if \(this\.frozen\) \{\s*return;\s*\}\s*(\/\/[^\n]*\s*)?if \(this\.paying\) \{\s*return;/', $schedule);
 });
 
-check('Link da solo ha il wallet Link acceso, la carta e gli altri metodi restano senza', fn () =>
-    str_contains($js, "link: 'auto'")
-    && str_contains($js, "type === 'link' ? STRIPE_PAYMENT_ELEMENT_LINK : STRIPE_PAYMENT_ELEMENT")
-    && str_contains($js, "const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }")
-    && str_contains($js, 'wallets: { ...STRIPE_PAYMENT_ELEMENT.wallets, link: \'auto\' }'));
+check('nessuna scelta mostra i wallet: Link, Apple Pay e Google Pay stanno nella barra rapida', fn () =>
+    !str_contains($js, "link: 'auto'")
+    && str_contains($js, "elements.create('payment', STRIPE_PAYMENT_ELEMENT)")
+    && str_contains($js, "const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }"));
 
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 
