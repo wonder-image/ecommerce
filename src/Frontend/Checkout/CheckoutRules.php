@@ -97,7 +97,37 @@ final class CheckoutRules
             $post['email'] = $email;
         }
 
+        // Il radio vale «id» oppure «id:tipo»: da qui in poi l'id è nudo e il tipo sta a parte.
+        if (array_key_exists('payment_method_id', $post)) {
+            [$post['payment_method_id'], $post['stripe_method_type']] = self::splitPayment($post['payment_method_id']);
+        }
+
         return array_merge($post, self::billing($post, $post));
+    }
+
+    /**
+     * Il valore del radio del pagamento: «891» è il metodo, «891:klarna» è la
+     * scelta Stripe «klarna» di quel metodo. Un id che non è un intero
+     * positivo vale 0 (nessun metodo); un tipo che non è `[a-z0-9_]{1,40}`
+     * vale `''`.
+     *
+     * @return array{0: int, 1: string} id e tipo Stripe
+     */
+    public static function splitPayment(mixed $value): array
+    {
+        if (is_int($value)) {
+            return [$value > 0 ? $value : 0, ''];
+        }
+
+        if (!is_string($value)) {
+            return [0, ''];
+        }
+
+        [$id, $type] = array_pad(explode(':', trim($value), 2), 2, '');
+
+        $id = ctype_digit($id) && (int) $id > 0 ? (int) $id : 0;
+
+        return $id > 0 && preg_match('/^[a-z0-9_]{1,40}$/', $type) === 1 ? [$id, $type] : [$id, ''];
     }
 
     /**

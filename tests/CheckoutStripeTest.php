@@ -93,9 +93,10 @@ check('la pagina «Paga ora» offre «Cambia metodo di pagamento», che riapre i
         && !isset($it['checkout']['pay']['abandon'], $it['checkout']['pay']['abandoned'], $en['checkout']['pay']['abandon'], $en['checkout']['pay']['abandoned']);
 });
 
-check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e metodi della carta', fn () => str_contains($summary, 'OnlinePayment::browserKeys()')
+check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e i tipi che il gestionale dà alla scelta', fn () => str_contains($summary, 'OnlinePayment::browserKeys()')
     && str_contains($summary, "'amount' => (int) round((float) \$preview['order']['total'] * 100)")
-    && str_contains($summary, 'StripeProvider::methodTypes(')
+    && !str_contains($summary, 'StripeProvider')
+    && str_contains($summary, "\$option['payment_method_types']")
     && str_contains($summary, "'payment_method_types' =>")
     && str_contains($summary, "(\$option['provider'] ?? '') === 'stripe'")
     && !str_contains($summary, 'stripe_private_key')
@@ -227,6 +228,35 @@ check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box de
         && !str_contains($js, 'this.reopen([message])')
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed);')
         && str_contains($js, 'payAlert(error.message || this.labels.failed);');
+});
+
+check('il radio del pagamento vale la chiave della scelta; post la spezza in id e tipo', fn () =>
+    str_contains($view, "Choice::make('payment_method_id', (string) \$p['key'])")
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891:klarna') === [891, 'klarna']
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891') === [891, '']
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('x:y') === [0, '']);
+
+check('i tipi della scelta arrivano dal gestionale, non dal CSV', fn () =>
+    str_contains($summary, "'payment_method_types' =>")
+    && !str_contains($summary, 'stripe_payment_method_types')
+    && str_contains($controller, "'stripe_method_type' =>"));
+
+check('splitPayment: tipo valido solo [a-z0-9_]{1,40}, id solo positivo, valori non scalari scartati', function (): bool {
+    $split = fn (mixed $v): array => \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment($v);
+
+    return $split(891) === [891, '']
+        && $split('891:Klarna') === [891, '']
+        && $split('891:bad-type') === [891, '']
+        && $split('891:') === [891, '']
+        && $split('891:'.str_repeat('a', 41)) === [891, '']
+        && $split('891:'.str_repeat('a', 40)) === [891, str_repeat('a', 40)]
+        && $split('891:us_bank_account') === [891, 'us_bank_account']
+        && $split('891:klarna:x') === [891, '']
+        && $split('0:klarna') === [0, '']
+        && $split('-3') === [0, '']
+        && $split('') === [0, '']
+        && $split(['891']) === [0, '']
+        && $split(null) === [0, ''];
 });
 
 summary();

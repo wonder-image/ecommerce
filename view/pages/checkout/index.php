@@ -66,10 +66,10 @@ $gaItems = array_map(static fn (array $item): array => [
     'quantity' => (float) ($item['quantity'] ?? 1),
 ], array_values(array_filter($items, static fn (array $item): bool => (string) ($item['type'] ?? 'product') === 'product')));
 
-$payment = static fn (array $p): Choice => Choice::make('payment_method_id', (int) $p['id'])
+$payment = static fn (array $p): Choice => Choice::make('payment_method_id', (string) $p['key'])
     ->type('radio')->title((string) $p['name'])->aside((string) ($p['fee_display'] ?? ''))
     ->icons((array) ($p['icon_urls'] ?? []))->panel((string) ($p['panel'] ?? ''))
-    ->checked((int) $p['id'] === $paymentSelected);
+    ->checked((int) $p['id'] === $paymentSelected && in_array((string) ($p['stripe_method_type'] ?? ''), ['', 'card'], true));
 
 Ecommerce::layout('checkout');
 View::head(DataLayer::script([

@@ -209,6 +209,8 @@ final class CheckoutController
             }
 
             $result = Checkout::place($cartId, $data + [
+                // Su una riga Stripe vuoto vale «card»: lo decide il gestionale.
+                'stripe_method_type' => (string) ($post['stripe_method_type'] ?? ''),
                 'customer_id' => $customerId,
                 'source' => 'ecommerce',
                 'user_id' => $userId,
