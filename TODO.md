@@ -165,8 +165,21 @@ dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambit
   metodi manuali. Checkout in una pagina sola (spec del gestionale
   `2026-10-07-checkout-pagina-unica-design.md`, piano 2).
   **Resta la prova nel browser su `ecommerce.test`.**
-- [ ] D6 Adapter dei provider pagamento, idempotenza callback e gestione esiti in
-  ambiente test senza addebiti reali.
+- [~] D6 Pagamento con Stripe (spec del gestionale
+  `2026-10-09-pagamento-stripe-design.md`). **Piano 1 fatto** (2026-10-09): Payment
+  Element nel pannello della scelta «Carta», solo numero/scadenza/CVC; spinner
+  «Elaborazione pagamento»; 3DS nella finestra di Stripe; ritorno e webhook
+  idempotenti; dopo un rifiuto il modulo si riapre (ordine annullato, righe e
+  coupon tornano nel carrello con `Cart::restore`, rotta `/checkout/reopen/`);
+  link all'ordine nelle email (cliente → account, commerciante → backend);
+  l'indirizzo di consegna resta nell'account del cliente autenticato. Provato su
+  `ecommerce.test` con 4242, 0002 e la 3DS 4000 0027 6000 3184.
+  - [ ] Piano 2: checkout rapidi in alto (Express Checkout Element con Link,
+    Apple Pay, Google Pay) e i metodi Stripe separati sotto la carta, uno per
+    metodo acceso nel conto (PaymentMethodConfiguration).
+  - Prove in locale: `stripe listen --forward-to https://ecommerce.test/api/gestionale/stripe/webhook/`
+    (eventi diretti, non Connect). `forge update --local` rimette `active` dei
+    metodi di pagamento come nella sincronizzazione: dopo, riaccendere «Carta».
 - [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di
   attribuire cause alla lentezza percepita del riferimento legacy.
 - [ ] D8 E2E su `ecommerce.test`: carrello conservato attraverso auth, account e

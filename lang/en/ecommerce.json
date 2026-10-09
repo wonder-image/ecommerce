@@ -141,7 +141,8 @@
         "errors": {
             "empty": "Your cart is empty.",
             "payment_method": "Choose an available payment method.",
-            "provider_pending": "Online payment is not available yet. Choose a different payment method.",
+            "online_javascript": "Online payment needs JavaScript enabled in your browser. Enable it or choose a different payment method.",
+            "total_changed": "The order total has changed. Please check it and press «Pay» again.",
             "generic": "The order could not be completed. Check the details and try again.",
             "contact": "Enter first name, last name, a valid email and a phone number.",
             "address": "Complete the shipping address.",
@@ -156,7 +157,20 @@
             "text": "Your order {{number}} has been recorded.",
             "account": "Go to your account",
             "email_sent": "We have emailed you the order summary. If you don't have a password yet, the email contains a link to choose one and follow your orders.",
-            "shop": "Back to the shop"
+            "shop": "Back to the shop",
+            "processing": "Your payment is processing: we will email you as soon as it is confirmed."
+        },
+        "pay": {
+            "title": "Order payment",
+            "text": "Order {{number}}, total {{total}}.",
+            "submit": "Pay now",
+            "processing": "Processing payment",
+            "alert_title": "Payment failed",
+            "change_method": "Change payment method",
+            "removed": "No longer available, removed from the cart: {{names}}.",
+            "failed": "The payment did not go through. Try again or use a different method.",
+            "canceled": "The payment was cancelled. You can try again.",
+            "error": "Online payment is not available right now. Please try again shortly."
         }
     },
     "auth": {

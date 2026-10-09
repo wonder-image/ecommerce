@@ -4,8 +4,12 @@ namespace Wonder\Plugin\Ecommerce;
 
 use Wonder\App\Module\ConfigRepository;
 use Wonder\App\Module\Contracts\ModuleInterface;
+use Wonder\Http\Route;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Settings\OnlineShopSettings;
+use Wonder\Plugin\Gestionale\Extensions\ProvidesOrderEmailExtras;
 use Wonder\Plugin\Gestionale\Extensions\ProvidesSettings;
+use Wonder\Plugin\Gestionale\Support\Orders\OrderEmail;
 use Wonder\View\View;
 
 /**
@@ -15,7 +19,7 @@ use Wonder\View\View;
  * Il modulo non porta header e footer: le sue pagine passano dai layout
  * sottili in `view/layout/frontend/`, che chainano su quelli del sito.
  */
-final class Ecommerce implements ModuleInterface, ProvidesSettings
+final class Ecommerce implements ModuleInterface, ProvidesSettings, ProvidesOrderEmailExtras
 {
     public const SLUG = 'ecommerce';
 
@@ -132,5 +136,33 @@ final class Ecommerce implements ModuleInterface, ProvidesSettings
             (array) ($manifest['views']['sealed'] ?? []),
             static fn (mixed $path): bool => is_string($path) && trim($path) !== ''
         ));
+    }
+
+    /**
+     * Nelle email al cliente con un account, il link all'ordine nella sua area
+     * riservata. Nella conferma di un ordine fatto da ospite anche il link per
+     * scegliere la password: online la conferma arriva col pagamento, senza la
+     * sessione del checkout.
+     */
+    public static function orderEmailExtras(string $key, array $order): array
+    {
+        $userId = (int) ($order['user_id'] ?? 0);
+        $code = trim((string) ($order['code'] ?? ''));
+        if ($userId <= 0 || in_array($key, OrderEmail::MERCHANT_KEYS, true)) {
+            return [];
+        }
+
+        $extras = [];
+        if ($code !== '') {
+            try {
+                $extras['order_url'] = Route::url('account.orders.show', ['code' => $code]);
+            } catch (\Throwable) {
+                // Senza la rotta dell'account l'email parte lo stesso, senza il bottone.
+            }
+        }
+
+        $link = $key === 'confirmed' ? GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore')) : '';
+
+        return $link === '' ? $extras : $extras + ['account_url' => $link];
     }
 }

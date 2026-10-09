@@ -8,7 +8,7 @@ $step = (string) ($step ?? 'checkout');
 $withLines = $step !== 'cart';
 
 ?>
-<aside class="<?=$withLines ? 'w-100 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
+<aside class="<?=$withLines ? 'w-100 col-2 col-t-1 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
 
     <h2 class="subtitle mb-4"><?=e(__t($withLines ? 'ecommerce.checkout.your_cart' : 'ecommerce.cart.summary'))?></h2>
     

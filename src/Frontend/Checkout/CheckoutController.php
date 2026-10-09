@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
+use OutOfBoundsException;
 use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
@@ -32,6 +33,9 @@ final class CheckoutController
             'summary' => self::summary(),
             'coupon' => self::coupon(),
             'completed' => self::completed(),
+            'return' => self::returned(),
+            'pay' => self::pay(),
+            'reopen' => self::reopen(),
             default => self::notFound(),
         };
     }
@@ -45,7 +49,8 @@ final class CheckoutController
 
         $cart = CartSession::current(false);
         if ((array) ($cart['items'] ?? []) === []) {
-            self::redirect(self::route('ecommerce.cart.index'));
+            // Il carrello è diventato l'ordine: si torna a pagarlo.
+            self::redirect(self::route(OnlinePayment::pending() > 0 ? 'ecommerce.checkout.pay' : 'ecommerce.cart.index'));
         }
 
         $formState = self::pullFormState();
@@ -101,13 +106,22 @@ final class CheckoutController
     }
 
 
+    /**
+     * L'ordine nasce qui. Un metodo manuale porta alla pagina «completato»;
+     * un metodo online risponde al JavaScript col segreto dell'intento, e
+     * l'ordine resta in sessione finché il denaro non arriva.
+     */
     private static function place(): void
     {
         self::requirePost();
+        $json = self::wantsJson();
+        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
+        }
         self::requireCsrf();
 
         if (!self::guestAllowed() && !CartSession::authenticated()) {
-            self::redirect(self::loginUrl());
+            self::leave(self::loginUrl(), $json, 401);
         }
 
         $post = CheckoutRules::post($_POST, CartSession::user());
@@ -123,6 +137,14 @@ final class CheckoutController
 
             $cartId = self::cartId();
             if ($cartId === 0) {
+                // Il carrello è già diventato l'ordine: si torna a pagarlo.
+                if (OnlinePayment::pending() > 0) {
+                    self::leave(self::route('ecommerce.checkout.pay'), $json);
+                }
+                if ($json) {
+                    self::leave(self::route('ecommerce.cart.index'), true, 409);
+                }
+
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
             }
 
@@ -137,8 +159,7 @@ final class CheckoutController
                 CheckoutRules::paymentErrors($post, $billing, $asked)
             )));
             if ($missing !== []) {
-                self::rememberErrors(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post);
-                self::redirect(self::route('ecommerce.checkout.index'));
+                self::reject(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post, $json);
             }
 
             // Vale solo un metodo che la pagina ha offerto.
@@ -146,8 +167,19 @@ final class CheckoutController
             if ($method === null) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
             }
-            if (!CheckoutForm::isManual($method)) {
-                throw new RuntimeException((string) __t('ecommerce.checkout.errors.provider_pending'));
+
+            $online = !CheckoutForm::isManual($method);
+            if ($online && !$json) {
+                throw new RuntimeException((string) __t('ecommerce.checkout.errors.online_javascript'));
+            }
+            // Il Payment Element mostra un importo: se nel frattempo è cambiato, il cliente lo rivede prima di pagare.
+            if ($online && !OnlinePayment::sameTotal($_POST['expected_total'] ?? null, $preview['order']['total'] ?? null)) {
+                self::json([
+                    'success' => false,
+                    'error' => 'total_changed',
+                    'message' => (string) __t('ecommerce.checkout.errors.total_changed'),
+                    'summary' => $preview,
+                ], 409);
             }
 
             $data = CheckoutForm::data([
@@ -163,7 +195,17 @@ final class CheckoutController
                 $account = GuestCheckout::account($order, $post, $asked);
                 $userId = $account['user_id'];
                 $customerId = $account['customer_id'];
-                $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'));
+                // Online il link parte con la conferma, dal modulo (Ecommerce::orderEmailExtras).
+                if (!$online) {
+                    $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'));
+                }
+            }
+
+            // Un ordine online lasciato a metà non resta a tenere la merce.
+            try {
+                OnlinePayment::dropPending();
+            } catch (Throwable $error) {
+                Errors::internal($error, 'ecommerce.checkout.drop');
             }
 
             $result = Checkout::place($cartId, $data + [
@@ -172,6 +214,16 @@ final class CheckoutController
                 'user_id' => $userId,
                 'customer_email' => $passwordLink === '' ? [] : ['account_url' => $passwordLink],
             ]);
+
+            // Solo chi è entrato: l'ospite non scrive nell'account che trova dalla sua email.
+            if (!$guest && $customerId > 0) {
+                try {
+                    AccountAddress::remember($customerId, (array) Order::findById((int) ($result['order_id'] ?? 0)));
+                } catch (Throwable $error) {
+                    // L'ordine è nato: un indirizzo non salvato non lo ferma.
+                    Errors::internal($error, 'ecommerce.checkout.address');
+                }
+            }
 
             if (!$guest && $userId > 0 && $asked !== []) {
                 try {
@@ -182,7 +234,7 @@ final class CheckoutController
                 }
             }
 
-            $_SESSION[self::COMPLETED] = [
+            $receipt = [
                 'order_id' => (int) ($result['order_id'] ?? 0),
                 'order_number' => (string) ($result['order_number'] ?? ''),
                 'total' => (string) ($result['total'] ?? ''),
@@ -191,17 +243,35 @@ final class CheckoutController
                 'guest' => $guest,
                 'email_sent' => $guest && ($result['customer_email_sent'] ?? false),
             ];
-            self::redirect(self::route('ecommerce.checkout.completed'));
+
+            if (!$online) {
+                $_SESSION[self::COMPLETED] = $receipt;
+                self::leave(self::route('ecommerce.checkout.completed'), $json);
+            }
+
+            $_SESSION[OnlinePayment::RECEIPT] = $receipt;
+            try {
+                $clientSecret = OnlinePayment::start($receipt['order_id'])['client_secret'];
+            } catch (Throwable $error) {
+                // L'ordine c'è: la pagina di pagamento riprova a creare l'intento.
+                Errors::internal($error, 'ecommerce.checkout.start', ['order_id' => $receipt['order_id']]);
+                self::json(['success' => false, 'redirect' => self::route('ecommerce.checkout.pay')], 502);
+            }
+
+            self::json([
+                'success' => true,
+                'client_secret' => $clientSecret,
+                'return_url' => self::route('ecommerce.checkout.return'),
+                'billing_details' => OnlinePayment::billingDetails((array) Order::findById($receipt['order_id'])),
+            ]);
         } catch (UserError $error) {
-            self::rememberErrors([$error->getMessage()], $post);
+            self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
-            self::rememberErrors([$error->getMessage()], $post);
+            self::reject([$error->getMessage()], $post, $json);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.place');
-            self::rememberErrors([(string) __t('ecommerce.checkout.errors.generic')], $post);
+            self::reject([(string) __t('ecommerce.checkout.errors.generic')], $post, $json);
         }
-
-        self::redirect(self::route('ecommerce.checkout.index'));
     }
 
     private static function summary(): never
@@ -310,6 +380,27 @@ final class CheckoutController
         exit;
     }
 
+    /** Fuori dal checkout: in JSON un indirizzo da seguire, altrimenti un redirect. */
+    private static function leave(string $url, bool $json, int $status = 200): never
+    {
+        if ($json) {
+            self::json(['success' => $status === 200, 'redirect' => $url], $status);
+        }
+
+        self::redirect($url);
+    }
+
+    /** Errori da mostrare sul modulo: in JSON tornano al JavaScript, altrimenti in sessione. */
+    private static function reject(array $errors, array $post, bool $json): never
+    {
+        if ($json) {
+            self::json(['success' => false, 'errors' => array_values($errors)], 422);
+        }
+
+        self::rememberErrors($errors, $post);
+        self::redirect(self::route('ecommerce.checkout.index'));
+    }
+
     private static function completed(): void
     {
         $result = (array) ($_SESSION[self::COMPLETED] ?? []);
@@ -321,6 +412,166 @@ final class CheckoutController
         View::make(Ecommerce::viewPath('pages/checkout/completed.php'), [
             'result' => $result,
         ])->render();
+    }
+
+    /**
+     * Il ritorno dal gateway. L'esito si chiede a Stripe e vale solo per
+     * l'ordine in sessione: un `payment_intent` estraneo è un 404.
+     */
+    private static function returned(): void
+    {
+        $orderId = OnlinePayment::sessionOrder();
+        if ($orderId <= 0) {
+            self::notFound();
+        }
+
+        $reference = $_GET['payment_intent'] ?? '';
+        if (!is_string($reference)) {
+            self::notFound();
+        }
+
+        try {
+            $outcome = OnlinePayment::settle($orderId, $reference);
+        } catch (OutOfBoundsException) {
+            self::notFound();
+        }
+
+        if ($outcome === 'retry' || $outcome === 'canceled') {
+            // Il modulo si riapre: l'ordine si annulla e le righe tornano nel carrello.
+            $reopened = self::reopenPending();
+            if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
+                // Il denaro è arrivato nel frattempo: vale il nuovo esito.
+                self::redirect(self::returnUrl($reopened['reference']));
+            }
+            FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
+            self::flashRemoved($reopened['removed']);
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
+        OnlinePayment::forget();
+        $receipt = (array) ($_SESSION[OnlinePayment::RECEIPT] ?? []);
+        unset($_SESSION[OnlinePayment::RECEIPT]);
+        if ((int) ($receipt['order_id'] ?? 0) !== $orderId) {
+            $order = (array) Order::findById($orderId);
+            $receipt = [
+                'order_id' => $orderId,
+                'order_number' => (string) ($order['order_number'] ?? $order['code'] ?? ''),
+                'total' => (string) ($order['total'] ?? ''),
+                'guest' => !CartSession::authenticated(),
+            ];
+        }
+
+        // L'email di conferma parte con l'incasso; in lavorazione arriverà più tardi.
+        $_SESSION[self::COMPLETED] = [
+            'processing' => $outcome === 'processing',
+            'email_sent' => !empty($receipt['guest']) && $outcome === 'succeeded',
+        ] + $receipt;
+        self::redirect(self::route('ecommerce.checkout.completed'));
+    }
+
+    /** La pagina per pagare l'ordine in sospeso della sessione, anche dopo un rifiuto. */
+    private static function pay(): void
+    {
+        $orderId = OnlinePayment::pending();
+        if ($orderId === 0) {
+            self::redirect(self::route('ecommerce.cart.index'));
+        }
+
+        try {
+            $clientSecret = OnlinePayment::start($orderId)['client_secret'];
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.pay', ['order_id' => $orderId]);
+            $clientSecret = '';
+        }
+
+        self::seo((string) __t('ecommerce.checkout.pay.title'), self::route('ecommerce.checkout.pay'));
+        $order = (array) Order::findById($orderId);
+        View::make(Ecommerce::viewPath('pages/checkout/pay.php'), [
+            'order' => $order,
+            'billing_details' => OnlinePayment::billingDetails($order),
+            'client_secret' => $clientSecret,
+            'stripe' => OnlinePayment::browserKeys(),
+            'return_url' => self::route('ecommerce.checkout.return'),
+            'csrf_token' => AuthSession::csrfToken(),
+        ])->render();
+    }
+
+    /**
+     * Dopo un rifiuto il cliente torna al modulo: l'ordine in sospeso si
+     * annulla, righe e scelte tornano nel carrello e il prossimo «Ordina»
+     * ne crea uno nuovo. Se intanto il denaro è arrivato si va al ritorno.
+     */
+    private static function reopen(): never
+    {
+        self::requirePost();
+        $json = self::wantsJson();
+        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
+        }
+        self::requireCsrf();
+
+        $reopened = self::reopenPending();
+        if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
+            self::leave(self::returnUrl($reopened['reference']), $json);
+        }
+
+        if (!$json) {
+            self::flashRemoved($reopened['removed']);
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
+        $cartId = self::cartId();
+        if ($cartId === 0) {
+            self::leave(self::route('ecommerce.cart.index'), true, 409);
+        }
+
+        try {
+            $payload = CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user());
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.reopen');
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
+        }
+        if ($reopened['removed'] !== []) {
+            $payload['notices'] = array_merge((array) ($payload['notices'] ?? []), [self::removedNotice($reopened['removed'])]);
+        }
+
+        self::json(['success' => true] + $payload);
+    }
+
+    /**
+     * Riapre l'ordine in sospeso senza lasciar uscire un errore.
+     *
+     * @return array{outcome: string, reference: string, removed: list<string>}
+     */
+    private static function reopenPending(): array
+    {
+        try {
+            return OnlinePayment::reopen();
+        } catch (Throwable $error) {
+            // Senza annullo l'ordine scade da solo con le prenotazioni.
+            Errors::internal($error, 'ecommerce.checkout.reopen');
+
+            return ['outcome' => 'none', 'reference' => '', 'removed' => []];
+        }
+    }
+
+    private static function returnUrl(string $reference): string
+    {
+        return self::route('ecommerce.checkout.return').'?payment_intent='.rawurlencode($reference);
+    }
+
+    /** @param list<string> $names */
+    private static function removedNotice(array $names): string
+    {
+        return (string) __t('ecommerce.checkout.pay.removed', ['names' => implode(', ', $names)]);
+    }
+
+    /** @param list<string> $names */
+    private static function flashRemoved(array $names): void
+    {
+        if ($names !== []) {
+            FlashMessage::info(self::removedNotice($names), (string) __t('ecommerce.checkout.notice_title'));
+        }
     }
 
     /** @return array<string, string> */

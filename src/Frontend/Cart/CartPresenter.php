@@ -25,10 +25,24 @@ final class CartPresenter
      */
     public static function lines(array $items): array
     {
-        return array_values(array_filter(
-            $items,
-            static fn (array $item): bool => !in_array((string) ($item['type'] ?? 'product'), ['shipping', 'fee'], true)
+        return array_values(array_map(
+            static fn (array $item): array => ['name' => self::name((string) ($item['name'] ?? ''))] + $item,
+            array_filter(
+                $items,
+                static fn (array $item): bool => !in_array((string) ($item['type'] ?? 'product'), ['shipping', 'fee'], true)
+            )
         ));
+    }
+
+    /**
+     * Il nome per il cliente, senza i separatori dell'ordine: "Maglia — Blu / M"
+     * diventa "Maglia Blu M". Una barra dentro una parola ("24/7") resta.
+     */
+    public static function name(string $name): string
+    {
+        $name = html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim((string) preg_replace('~\s+[—–/|]\s+~u', ' ', $name));
     }
 
     /** @param list<array<string, mixed>> $items */

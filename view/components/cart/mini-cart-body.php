@@ -4,7 +4,7 @@ use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 
 $order = (array) (($cart ?? [])['order'] ?? []);
-$items = array_values((array) (($cart ?? [])['items'] ?? []));
+$items = CartPresenter::lines(array_values((array) (($cart ?? [])['items'] ?? [])));
 $currency = (string) ($order['currency'] ?? 'EUR');
 ?>
 <div class="w-100 h-100">

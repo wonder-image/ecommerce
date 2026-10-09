@@ -55,6 +55,9 @@ foreach (['free', 'no_shipping', 'shipping_pending', 'shipping_methods_pending',
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
+$labels['stripe_error'] = (string) __t('ecommerce.checkout.pay.error');
+$labels['pay_failed'] = (string) __t('ecommerce.checkout.pay.failed');
+$labels['processing'] = (string) __t('ecommerce.checkout.pay.processing');
 
 $gaItems = array_map(static fn (array $item): array => [
     'item_id' => (string) ($item['sku'] ?? $item['product_id'] ?? ''),
@@ -82,13 +85,14 @@ View::head(DataLayer::script([
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
 <?php /* Senza JS niente si apre o si chiude: si vede tutto il modulo. */ ?>
 <noscript><style>[data-checkout-toggle][hidden],[data-checkout-shipping][hidden],[data-checkout-pickup][hidden]{display:block!important}.d-grid[data-checkout-toggle][hidden]{display:grid!important}</style></noscript>
-<div class="w-100 d-grid col-2 col-t-1 gap-6 wi-checkout">
-    <form id="checkout" class="w-100 d-flex d-column gap-6 wi-checkout__form" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
+<div class="w-100 d-grid col-5 col-t-1 gap-6 wi-checkout">
+    <form id="checkout" class="w-100 col-3 col-t-1 d-flex d-column gap-6 wi-checkout__form" method="post" action="<?=e(__r('ecommerce.checkout.place'))?>" novalidate
         data-checkout
         data-shipping="<?=$shipping ? 'on' : 'off'?>"
         data-coupons="<?=$coupons ? 'on' : 'off'?>"
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
+        data-reopen-url="<?=e(__r('ecommerce.checkout.reopen'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
@@ -170,6 +174,12 @@ View::head(DataLayer::script([
                 <?php else: ?>
                     <?=ChoiceGroup::make()->variant('list')->choices(...array_map($payment, $payments))?>
                 <?php endif; ?>
+            </div>
+            <?php /* Lo riempie checkout.js quando la scelta è Stripe; senza JavaScript resta nascosto e il server rifiuta il pagamento online. */ ?>
+            <div class="w-100 mt-3" data-checkout-stripe hidden>
+                <div class="w-100" data-checkout-stripe-element></div>
+                <p class="text-small mt-3" data-checkout-stripe-notice role="status"></p>
+                <template data-checkout-pay-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.pay.alert_title'), '')?></template>
             </div>
         </div>
 
