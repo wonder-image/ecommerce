@@ -13,6 +13,7 @@ require SITE.'/vendor/wonder-image/gestionale/tests/integrazione/supporto/compra
 require SITE.'/vendor/wonder-image/gestionale/tests/integrazione/supporto/FakePaymentProvider.php';
 
 use Wonder\Sql\Transaction;
+use Wonder\Http\Route;
 use Wonder\App\Models\User\User;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
@@ -92,5 +93,21 @@ check('l\'email «ricevuto» non crea un secondo link: quello del checkout c\'è
 check('senza account nell\'ordine non c\'è link', fn () =>
     Ecommerce::orderEmailExtras('confirmed', ['id' => 1, 'user_id' => 0]) === []
     && Ecommerce::orderEmailExtras('confirmed', ['id' => 1]) === []);
+
+check('le email al cliente con un account portano il link all\'ordine nell\'account', fn () => prova(static function (): bool {
+    $utente = ospite('ospite-link-'.bin2hex(random_bytes(4)).'@example.test');
+    $ordine = ['id' => 1, 'user_id' => $utente, 'code' => 'ord_prova'];
+    $link = Route::url('account.orders.show', ['code' => 'ord_prova']);
+    $spedito = Ecommerce::orderEmailExtras('shipped', $ordine);
+    $confermato = Ecommerce::orderEmailExtras('confirmed', $ordine);
+
+    return $utente > 0
+        && str_ends_with($link, '/account/ordini/ord_prova/')
+        && $spedito === ['order_url' => $link]
+        && ($confermato['order_url'] ?? '') === $link
+        && str_contains((string) ($confermato['account_url'] ?? ''), '?token=')
+        && Ecommerce::orderEmailExtras('merchant_new', $ordine) === []
+        && Ecommerce::orderEmailExtras('shipped', ['id' => 1, 'user_id' => 0, 'code' => 'ord_prova']) === [];
+}));
 
 summary();
