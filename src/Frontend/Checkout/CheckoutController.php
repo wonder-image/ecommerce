@@ -56,6 +56,11 @@ final class CheckoutController
         $formState = self::pullFormState();
         $fromCart = array_filter(self::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
         $values = $formState !== [] ? self::defaults($formState) : $fromCart + self::defaults([]);
+        // Riaperto dopo un pagamento rifiutato: torna spuntata la scelta Stripe di prima (Klarna…), non la carta.
+        $choice = OnlinePayment::pullChoice();
+        if ($formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0)) {
+            $values['payment_method_id'] = $choice;
+        }
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
         $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $formState === []);
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.

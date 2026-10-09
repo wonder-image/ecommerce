@@ -330,4 +330,7 @@ check('splitPayment: tipo valido solo [a-z0-9_]{1,40}, id solo positivo, valori 
         && $split(null) === [0, ''];
 });
 
+check('dopo un pagamento rifiutato il modulo rispunta la scelta Stripe ricordata', fn () =>
+    str_contains($controller, 'OnlinePayment::pullChoice()'));
+
 summary();

@@ -25,6 +25,7 @@ use Wonder\Plugin\Gestionale\Providers\Payments\PaymentState;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Orders\Lifecycle;
 use Wonder\Plugin\Gestionale\Support\Payments\Ledger;
+use Wonder\Plugin\Gestionale\Support\Payments\OnlinePayments;
 use Wonder\Plugin\Gestionale\Support\Payments\PaymentProviders;
 
 final class Annulla extends RuntimeException {}
@@ -244,6 +245,21 @@ check('reopen riapre anche un ordine già annullato da altri, ma non uno estrane
     $vuoto = OnlinePayment::reopen();
 
     return $esito['outcome'] === 'cancelled' && $riaperto && $vuoto['outcome'] === 'none';
+}));
+
+check('reopen ricorda la scelta Stripe diversa dalla carta: il modulo la rispunta una volta sola', fn () => prova(static function (): bool {
+    [$ordine] = avviatoConRighe();
+    $riga = OnlinePayments::payment($ordine);
+    Payment::update(['payment_method_id' => 891, 'provider_method' => 'klarna'], (int) $riga['id']);
+    OnlinePayment::reopen();
+    $prima = OnlinePayment::pullChoice();
+    $dopo = OnlinePayment::pullChoice();
+
+    [$carta] = avviatoConRighe();
+    Payment::update(['payment_method_id' => 891, 'provider_method' => 'card'], (int) OnlinePayments::payment($carta)['id']);
+    OnlinePayment::reopen();
+
+    return $prima === '891:klarna' && $dopo === '' && OnlinePayment::pullChoice() === '';
 }));
 
 PaymentProviders::reset();
