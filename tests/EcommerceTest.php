@@ -38,17 +38,32 @@ check('la configurazione non porta il checkout ospite: si accende dal backend', 
 
 check('le view auth sono sigillate', fn () => in_array('pages/auth', Ecommerce::sealedViews(), true));
 
-check('il pannello account e le sue azioni appartengono al modulo', function () use ($root, $core) {
+check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua estensione', function () use ($root, $core) {
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $extension = (string) file_get_contents($root.'/src/Frontend/Account/EcommerceAccountExtension.php');
+    $coreRoutes = (string) file_get_contents($core.'/class/Auth/Frontend/AccountRoutes.php');
 
     return in_array('pages/account', Ecommerce::sealedViews(), true)
-        && is_file($root.'/view/layout/frontend/ecommerce.account.php')
-        && is_file($root.'/view/components/account/row.php')
-        && str_contains($routes, "Route::name('ecommerce.account.')")
-        && str_contains($routes, "->guarded()")
-        && str_contains($routes, "->permit(['client'])")
-        && str_contains($routes, "'payment-methods' => '/payment-methods/'")
-        && str_contains($routes, "'shipping.edit'");
+        && is_file($root.'/view/pages/account/payment-methods.php')
+        && is_file($root.'/view/pages/account/orders.php')
+        && is_file($root.'/view/pages/account/coupons.php')
+        && !is_dir($root.'/view/components/account')
+        && !is_file($root.'/view/layout/frontend/ecommerce.account.php')
+        && !is_file($root.'/src/Frontend/Account/EcommerceAccountPanel.php')
+        && str_contains($routes, 'AccountRoutes::register(new $panelClass(), new $authProfileClass())')
+        && str_contains($routes, 'AccountRoutes::extend(new EcommerceAccountExtension())')
+        && !str_contains($routes, "Route::name('ecommerce.account.')")
+        // account.index, account.personal, account.payment-methods, account.orders, account.orders.show e account.coupons, con i percorsi italiani
+        && str_contains($coreRoutes, "Route::get('/', \$handler, ['account_action' => 'index'])->name('index')")
+        && str_contains($coreRoutes, "\$page('/dati-personali/', 'personal')")
+        && str_contains($coreRoutes, '->guarded()->permit(self::panel()->authorities())')
+        && str_contains($extension, "Route::get('/metodi-di-pagamento/'")
+        && str_contains($extension, "->name('payment-methods')")
+        && str_contains($extension, "Route::get('/ordini/', \$handler, ['account_action' => 'orders'])->name('orders')")
+        && str_contains($extension, "Route::get('/ordini/{code}/', \$handler, ['account_action' => 'orders.show'])->name('orders.show')")
+        && strpos($extension, "'/ordini/'") < strpos($extension, "'/ordini/{code}/'")
+        && str_contains($extension, "Route::get('/coupon/', \$handler, ['account_action' => 'coupons'])->name('coupons')")
+        && str_contains($extension, 'AccountRoutes::group(');
 });
 
 check('il portale Stripe resta disabilitato finche manca il customer id', function () use ($root, $core) {
@@ -141,19 +156,9 @@ check('il login manuale indirizza gli account senza password al provider federat
         && str_contains($translations, 'use_google');
 });
 
-check('il campo cellulare usa prefisso breve e numero esteso anche nel profilo', function () use ($root, $core) {
-    $profile = (string) file_get_contents($root.'/view/pages/account/profile.php');
-
-    return str_contains($profile, 'd-grid col-4 col-p-1 gap-4')
-        && str_contains($profile, "'phone_prefix' => 1")
-        && str_contains($profile, "'phone' => 3")
-        && str_contains($profile, "FormField::key('phone_prefix')->phonePrefix()")
-        && str_contains($profile, "FormField::key('phone')->phone()");
-});
-
 check('auth e account valorizzano i metadati SEO', function () use ($root, $core) {
     $auth = (string) file_get_contents($core.'/class/Auth/Frontend/AuthController.php');
-    $account = (string) file_get_contents($root.'/src/Frontend/Account/AccountController.php');
+    $account = (string) file_get_contents($core.'/class/Auth/Frontend/AccountPage.php');
 
     foreach (['title', 'description', 'url', 'breadcrumb', 'robots'] as $property) {
         if (!str_contains($auth, '$SEO->'.$property)
@@ -172,27 +177,23 @@ check('i form espongono id semantici per Google Tag Manager', function () use ($
         'view/pages/auth/signup-completion.php' => 'sign_up_completion',
         'view/pages/auth/password-recovery.php' => 'password_recovery',
         'view/pages/auth/password-restore.php' => 'password_restore',
-        'view/components/account/navigation.php' => 'logout',
-        'view/pages/account/profile.php' => 'update_profile',
+        'app/view/components/frontend/account/navigation.php' => 'logout', // il menu dell'account è del core
         'view/pages/backend/impersonation.php' => 'impersonate_user',
     ];
 
     foreach ($forms as $file => $id) {
         $authPage = str_starts_with($file, 'view/pages/auth/');
-        $navigation = $file === 'view/components/account/navigation.php';
-        $path = $authPage ? $core.'/app/view/pages/frontend/auth/'.basename($file) : ($navigation ? $core.'/app/view/components/frontend/account/navigation.php' : $root.'/'.$file);
+        $navigation = str_starts_with($file, 'app/');
+        $path = $authPage ? $core.'/app/view/pages/frontend/auth/'.basename($file) : ($navigation ? $core.'/'.$file : $root.'/'.$file);
         $source = (string) file_get_contents($path);
         if (!str_contains($source, $authPage ? "'form_id' => '".$id."'" : 'id="'.$id.'"')) {
             return false;
         }
     }
 
-    $address = (string) file_get_contents($root.'/view/pages/account/address-form.php');
     $federated = (string) file_get_contents($core.'/app/view/components/frontend/account/federated.php');
 
-    return str_contains($address, "'update_billing_address'")
-        && str_contains($address, "'save_shipping_address'")
-        && str_contains($federated, "'google_sign_up'")
+    return str_contains($federated, "'google_sign_up'")
         && str_contains($federated, "'google_login'");
 });
 

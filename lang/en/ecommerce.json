@@ -210,50 +210,59 @@
         "back_login": "Back to sign in"
     },
     "account": {
-        "title": "My account",
-        "seo": { "description": "Manage your personal details, addresses and payment methods." },
-        "overview_title": "Account overview",
-        "breadcrumb_home": "Home",
-        "saved": "Your changes have been saved.",
-        "notice_title": "Done",
-        "error_title": "Check your details",
-        "not_configured": "Not configured yet",
-        "errors": {
-            "save": "The changes could not be saved. Check the details and try again.",
-            "contact": "The account could not be linked to its customer record. Check the profile email or contact support."
-        },
-        "actions": { "edit": "Edit", "manage": "Manage", "save": "Save changes", "cancel": "Cancel", "back": "Back to account" },
-        "personal": { "label": "Personal details", "title": "Edit personal details", "section": "Personal information" },
-        "navigation": {
-            "label": "Account navigation",
-            "welcome": "Welcome back",
-            "overview": "Overview",
-            "profile": "Personal details",
-            "billing": "Billing",
-            "shipping": "Addresses",
-            "payment_methods": "Payment methods",
-            "logout": "Sign out"
-        },
         "payment_methods": {
             "label": "Payment methods",
             "title": "Payment methods",
             "summary": "Managed securely through Stripe",
             "pending": "The Stripe portal entry point is ready, but it remains disabled until the management module exposes the Stripe customer identifier.",
-            "ready": "You will be redirected to Stripe's secure portal to manage payment methods."
+            "ready": "You will be redirected to Stripe's secure portal to manage payment methods.",
+            "soon": "Coming soon"
         },
-        "billing": { "label": "Billing address", "title": "Edit billing address", "intro": "These details will be used when a purchase requires billing." },
-        "shipping": {
-            "label": "Shipping addresses",
-            "title": "Shipping addresses",
-            "intro": "Enter the recipient and address to use for deliveries.",
-            "one": "1 saved address",
-            "many": "{{count}} saved addresses",
-            "empty": "You have not saved any shipping addresses yet.",
-            "add": "Add address",
-            "address": "Address",
-            "address_label": "Address label",
-            "create_title": "Add a shipping address",
-            "edit_title": "Edit shipping address"
+        "orders": {
+            "title": "Orders",
+            "empty": "You haven't placed any orders yet",
+            "order": "Order",
+            "number": "No. {{number}}",
+            "view": "View",
+            "order_title": "Order No. {{number}}",
+            "of_date": "placed on {{date}}",
+            "info": "Details",
+            "status_label": "Status",
+            "payment": "Payment",
+            "payment_status_label": "Payment status",
+            "tracking": "Tracking number",
+            "carrier": "Carrier",
+            "products": "Products",
+            "summary": "Summary",
+            "choice": "Choice",
+            "delivery_address": "Delivery address",
+            "pickup_address": "Pickup address",
+            "back": "Back to orders",
+            "status": {
+                "pending": "Pending",
+                "confirmed": "Confirmed",
+                "processing": "Processing",
+                "completed": "Completed",
+                "cancelled": "Cancelled"
+            },
+            "payment_status": {
+                "unpaid": "Unpaid",
+                "pending": "Awaiting payment",
+                "partially_paid": "Partially paid",
+                "paid": "Paid",
+                "partially_refunded": "Partially refunded",
+                "refunded": "Refunded"
+            }
+        },
+        "coupons": {
+            "title": "Coupons",
+            "empty": "You have no active coupons",
+            "code": "Code",
+            "value": "Value",
+            "uses": "Uses",
+            "unlimited": "unlimited",
+            "free_shipping": "Free shipping",
+            "store_credit": "Credit"
         }
     },
     "impersonation": { "active": "Impersonation active", "operating_as": "You are acting as", "started_by": "started by", "stop": "Return to your account" }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 require __DIR__.'/../harness.php';
 
 $request = static function (string $path, ?array $post = null): array {
-    $curl = curl_init('https://ecommerce.test'.$path);
+    $curl = curl_init((getenv('WI_TEST_URL') ?: 'https://ecommerce.test').$path);
     curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
     if ($post !== null) curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($post));
@@ -22,7 +22,7 @@ foreach (['/prodotti/' => 'Tutti i prodotti', '/prodotti/?ordina=nome_asc' => 'T
         $schema = json_decode($json[1] ?? '', true, 512, JSON_THROW_ON_ERROR);
         $itemList = array_values(array_filter($schema['@graph'] ?? [], static fn ($entity) => ($entity['@type'] ?? '') === 'ItemList'))[0] ?? [];
         return $status === 200 && ($h1[1] ?? '') === $title && ($itemList['name'] ?? '') === $title
-            && str_contains($html, 'data-wi-search-url="https://ecommerce.test/api/ecommerce/catalog/products/search/"');
+            && str_contains($html, 'data-wi-search-url="'.(getenv('WI_TEST_URL') ?: 'https://ecommerce.test').'/api/ecommerce/catalog/products/search/"');
     });
 }
 
@@ -64,7 +64,7 @@ check('la scheda conserva SEO e tracking senza il titolo Varianti', function () 
         && str_contains($html, 'aria-current="page"')
         && str_contains($html, '"event":"view_product"')
         && str_contains($html, '"user":{"id":null}')
-        && str_contains($html, 'https://ecommerce.test/prodotto/maglietta-girocollo/rosso/');
+        && str_contains($html, (getenv('WI_TEST_URL') ?: 'https://ecommerce.test').'/prodotto/maglietta-girocollo/rosso/');
 });
 
 summary();

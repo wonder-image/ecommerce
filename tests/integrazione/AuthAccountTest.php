@@ -2,7 +2,7 @@
 /** php tests/integrazione/AuthAccountTest.php */
 declare(strict_types=1);
 
-const SITE = '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+define('SITE', getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site');
 
 chdir(SITE);
 $GLOBALS['ROOT'] = SITE;
@@ -150,7 +150,7 @@ try {
         $localUserId = (int) ($localCreated->insert_id ?? 0);
         markUserEmailVerified($localUserId, date('Y-m-d H:i:s'));
         $GLOBALS['ALERT'] = null;
-        $localCompleted = user([
+        $localInput = [
             'phone_prefix' => '+39',
             'phone' => '+393337654321',
             '_ecommerce_contact_phone' => '3337654321',
@@ -159,8 +159,10 @@ try {
             'area' => 'frontend',
             'authority' => 'client',
             '_ecommerce_signup_completion' => true,
-            '_ecommerce_link_contact' => true,
-        ], $localUserId);
+        ];
+        $localCompleted = user($localInput, $localUserId);
+        // Come fa EcommerceAuthProfile::afterUserSaved() dopo il salvataggio dell'utente.
+        CustomerAccount::linkContact($localUserId, $localInput);
         $localUser = infoUser($localUserId, 'id');
         $localContact = Contact::find(['user_id' => $localUserId], 1);
 
