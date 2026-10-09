@@ -592,7 +592,7 @@ class Checkout {
                 let group = this.groups[chosen.key];
 
                 if (!group) {
-                    const options = { ...this.stripeOptions, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
+                    const options = { ...this.stripeOptions, appearance: STRIPE_APPEARANCE, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
                     const elements = this.stripe.elements(options);
 
                     group = { elements, element: elements.create('payment', STRIPE_PAYMENT_ELEMENT), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
@@ -1114,6 +1114,9 @@ let stripeScript = null;
 
 // Solo numero, scadenza e CVC: Link e i wallet vanno nei bottoni rapidi, i dati del cliente li dà l'ordine alla conferma.
 const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, fields: { billingDetails: 'never' } };
+
+// Klarna, PayPal e gli altri a reindirizzamento: Stripe mostra il loro logo in un riquadro che non si può togliere, almeno senza bordo né sfondo.
+const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };
 
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {

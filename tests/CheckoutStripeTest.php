@@ -264,6 +264,11 @@ check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirm
         && (bool) preg_match('/if \(this\.frozen\) \{\s*return;\s*\}\s*(\/\/[^\n]*\s*)?if \(this\.paying\) \{\s*return;/', $schedule);
 });
 
+check('il riquadro dei metodi a reindirizzamento è senza bordo né sfondo', fn () =>
+    str_contains($js, "const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };")
+    && str_contains($js, 'appearance: STRIPE_APPEARANCE')
+    && !str_contains($js, '// PROVA'));
+
 check('nessuna scelta mostra i wallet: Link, Apple Pay e Google Pay stanno nella barra rapida', fn () =>
     !str_contains($js, "link: 'auto'")
     && str_contains($js, "elements.create('payment', STRIPE_PAYMENT_ELEMENT)")
