@@ -32,6 +32,15 @@ check('place confronta il totale visto e lascia cadere l\'ordine in sospeso prim
     && strpos($place, 'OnlinePayment::dropPending()') !== false
     && strpos($place, 'OnlinePayment::dropPending()') < strpos($place, 'Checkout::place('));
 
+check('place salva l\'indirizzo di consegna nell\'account del cliente autenticato, dopo l\'ordine e senza fermarlo', function () use ($place) {
+    $salva = strpos($place, 'AccountAddress::remember($customerId,');
+
+    return $salva !== false
+        && $salva > strpos($place, 'Checkout::place(')
+        && str_contains($place, 'if (!$guest && $customerId > 0)')
+        && str_contains($place, "Errors::internal(\$error, 'ecommerce.checkout.address')");
+});
+
 check('place avvia il pagamento online e risponde col segreto dell\'intento', fn () =>
     str_contains($place, 'OnlinePayment::start(')
     && str_contains($place, "'client_secret' =>")

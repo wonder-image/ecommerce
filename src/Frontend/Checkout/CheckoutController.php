@@ -215,6 +215,16 @@ final class CheckoutController
                 'customer_email' => $passwordLink === '' ? [] : ['account_url' => $passwordLink],
             ]);
 
+            // Solo chi è entrato: l'ospite non scrive nell'account che trova dalla sua email.
+            if (!$guest && $customerId > 0) {
+                try {
+                    AccountAddress::remember($customerId, (array) Order::findById((int) ($result['order_id'] ?? 0)));
+                } catch (Throwable $error) {
+                    // L'ordine è nato: un indirizzo non salvato non lo ferma.
+                    Errors::internal($error, 'ecommerce.checkout.address');
+                }
+            }
+
             if (!$guest && $userId > 0 && $asked !== []) {
                 try {
                     consentService()->registerBaseConsents($userId, $post, ['required_document_types' => $asked, 'ui_surface' => 'checkout']);
