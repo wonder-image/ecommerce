@@ -41,6 +41,11 @@ foreach ($files as $file) {
     }
 }
 
+// Alla fine si svuota di nuovo: i tipi finti dei test (la sola carta) non restano al checkout del sito di prova.
+if (isset($svuota)) {
+    passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg($svuota));
+}
+
 echo $failed === []
     ? "\nTutti i test dell'ecommerce passano.\n"
     : "\nFalliti: ".implode(', ', $failed)."\n";
