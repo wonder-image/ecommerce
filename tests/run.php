@@ -9,6 +9,25 @@ $files = glob(__DIR__.'/*Test.php') ?: [];
 // I test d'integrazione girano solo dove c'è il sito di prova con il suo database.
 if (is_dir(getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site')) {
     $files = array_merge($files, glob(__DIR__.'/integrazione/*Test.php') ?: []);
+
+    // La cache dei tipi Stripe del DB di prova può contenere quelli veri del
+    // conto: si parte da vuoto, e ogni test mette i suoi. Lo script sta nel
+    // gestionale installato nel sito di prova.
+    require_once __DIR__.'/gestionale-supporto.php';
+    $site = getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site';
+    require_once $site.'/vendor/autoload.php';
+    $svuota = gestionaleSupporto('svuota-cache-stripe.php');
+
+    if ($svuota !== null) {
+        passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg($svuota), $statoSvuota);
+        if ($statoSvuota !== 0) {
+            echo "Cache dei tipi Stripe NON svuotata: i test d'integrazione non partono.\n";
+            exit(1);
+        }
+    } else {
+        echo "tests/supporto/svuota-cache-stripe.php del gestionale non c'è: i test d'integrazione non partono.\n";
+        exit(1);
+    }
 } else {
     echo "Sito di prova assente: test d'integrazione saltati.\n";
 }

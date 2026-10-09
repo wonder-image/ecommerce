@@ -7,6 +7,39 @@ if (!defined('WONDER_NO_MAIL')) {
     define('WONDER_NO_MAIL', true);
 }
 
+// Nessuna chiamata a Stripe, mai: nel sito di prova ci sono le chiavi test vere.
+// Il client senza rete è quello del gestionale, ricavato dal pacchetto installato.
+// Se manca, ogni richiesta a Stripe viene bloccata e la suite esce rossa.
+require_once __DIR__.'/gestionale-supporto.php';
+
+if (class_exists(\Stripe\ApiRequestor::class)) {
+    $senzaRete = gestionaleSupporto('StripeSenzaRete.php');
+
+    if ($senzaRete !== null) {
+        require_once $senzaRete;
+    } else {
+        $GLOBALS['__stripeBloccata'] = [];
+
+        \Stripe\ApiRequestor::setHttpClient(new class implements \Stripe\HttpClient\ClientInterface {
+            public function request($method, $absUrl, $headers, $params, $hasFile, $apiMode = 'v1', $maxNetworkRetries = null)
+            {
+                $richiesta = strtoupper((string) $method).' '.(string) parse_url((string) $absUrl, PHP_URL_PATH);
+                $GLOBALS['__stripeBloccata'][] = $richiesta;
+
+                throw new \LogicException('Stripe bloccato: tests/supporto/StripeSenzaRete.php del gestionale non c\'è, e un test non deve mai uscire in rete ('.$richiesta.').');
+            }
+        });
+
+        // Anche se il codice sotto prova inghiotte l'eccezione, la suite non passa.
+        register_shutdown_function(static function (): void {
+            if (($GLOBALS['__stripeBloccata'] ?? []) !== []) {
+                echo "\n  ✗ Stripe bloccato: client senza rete del gestionale assente, richieste: ".implode(', ', $GLOBALS['__stripeBloccata'])."\n";
+                exit(1);
+            }
+        });
+    }
+}
+
 $GLOBALS['__tests'] = 0;
 $GLOBALS['__failures'] = 0;
 
