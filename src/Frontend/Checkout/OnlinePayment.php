@@ -26,11 +26,25 @@ final class OnlinePayment
 {
     public const SESSION = 'ecommerce_checkout_pending';
     public const RECEIPT = 'ecommerce_checkout_receipt';
+    /** Chi ha avviato il pagamento: 0 per l'ospite. */
+    public const OWNER = 'ecommerce_checkout_pending_user';
 
-    /** L'ordine ricordato in sessione, senza guardare in che stato è. */
+    /**
+     * L'ordine ricordato in sessione, senza guardare in che stato è. Il login
+     * tiene la sessione: se nel frattempo è entrato un altro utente, l'ordine
+     * non è suo e si dimentica, ricevuta compresa.
+     */
     public static function sessionOrder(): int
     {
-        return (int) ($_SESSION[self::SESSION] ?? 0);
+        $id = (int) ($_SESSION[self::SESSION] ?? 0);
+        if ($id > 0 && (int) ($_SESSION[self::OWNER] ?? 0) !== (int) ($_SESSION['user_id'] ?? 0)) {
+            self::forget();
+            unset($_SESSION[self::RECEIPT]);
+
+            return 0;
+        }
+
+        return $id;
     }
 
     /** L'ordine in sessione se è ancora da pagare; altrimenti lo dimentica. */
@@ -54,11 +68,12 @@ final class OnlinePayment
     public static function remember(int $orderId): void
     {
         $_SESSION[self::SESSION] = $orderId;
+        $_SESSION[self::OWNER] = (int) ($_SESSION['user_id'] ?? 0);
     }
 
     public static function forget(): void
     {
-        unset($_SESSION[self::SESSION]);
+        unset($_SESSION[self::SESSION], $_SESSION[self::OWNER]);
     }
 
     /**

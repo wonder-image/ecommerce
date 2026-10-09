@@ -129,6 +129,28 @@ check('pending dimentica un ordine che non è più in attesa', fn () => prova(st
     return OnlinePayment::pending() === 0 && OnlinePayment::sessionOrder() === 0;
 }));
 
+check('l\'ordine in sospeso non passa a chi entra dopo sullo stesso browser', fn () => prova(static function (): bool {
+    [$ordine] = avviato();
+    $_SESSION[OnlinePayment::RECEIPT] = ['order_id' => $ordine];
+    $primaDelLogin = OnlinePayment::pending();
+    // Il login tiene la sessione e cambia solo l'utente.
+    $_SESSION['user_id'] = 987654;
+
+    return $primaDelLogin === $ordine
+        && OnlinePayment::pending() === 0
+        && OnlinePayment::sessionOrder() === 0
+        && !isset($_SESSION[OnlinePayment::RECEIPT])
+        && (Order::findById($ordine)['status'] ?? '') === 'pending';
+}));
+
+check('chi ha avviato il pagamento da cliente lo ritrova', fn () => prova(static function (): bool {
+    [$ordine] = avviato();
+    $_SESSION['user_id'] = 987654;
+    OnlinePayment::start($ordine);
+
+    return OnlinePayment::pending() === $ordine;
+}));
+
 check('dropPending annulla l\'ordine in sospeso e il suo intento', fn () => prova(static function () use ($finto): bool {
     [$ordine, , $intento] = avviato();
 
