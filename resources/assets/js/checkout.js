@@ -4,6 +4,10 @@ class Checkout {
         this.sequence = 0;
         this.timer = null;
         this.latest = null;
+        // Un gruppo elements per ogni scelta Stripe (chiave → { elements, element, container }); le scelte
+        // il cui Payment Element non si carica (loaderror) si tolgono per sempre dal modulo.
+        this.groups = {};
+        this.dropped = new Set();
 
         if (!this.root || !this.root.dataset.summaryUrl) {
             return;
@@ -42,6 +46,12 @@ class Checkout {
             }
 
             this.announce(event.target.name);
+
+            // Il gruppo della nuova scelta parte subito: «Paga» non deve trovare l'elemento della scelta di prima.
+            if (event.target.name === 'payment_method_id') {
+                this.stripeBox(this.latest);
+            }
+
             this.schedule();
         });
         this.form.addEventListener('input', (event) => {
@@ -300,9 +310,9 @@ class Checkout {
             const pane = node.querySelector('[data-choice-panel]');
 
             if (pane) {
-                const card = pane.querySelector('[data-checkout-stripe-element]');
+                const cards = [...pane.querySelectorAll('[data-checkout-stripe-element]')];
 
-                [...pane.childNodes].filter((child) => child !== card).forEach((child) => child.remove());
+                [...pane.childNodes].filter((child) => !cards.includes(child)).forEach((child) => child.remove());
                 pane.prepend(panel);
                 this.pane(pane);
             }
@@ -321,9 +331,9 @@ class Checkout {
 
     // Il pannello si vede se ha un testo o i campi della carta.
     pane(pane) {
-        const card = pane.querySelector('[data-checkout-stripe-element]');
+        const cards = [...pane.querySelectorAll('[data-checkout-stripe-element]')];
 
-        pane.hidden = pane.textContent.trim() === '' && (!card || card.hidden);
+        pane.hidden = pane.textContent.trim() === '' && cards.every((card) => card.hidden);
     }
 
     // Al massimo tre loghi, poi «+N».
@@ -392,9 +402,14 @@ class Checkout {
             return;
         }
 
-        const options = (payload.payment_methods.options || []).map((o) => ({ ...o, value: o.id }));
+        const options = (payload.payment_methods.options || []).filter((o) => !this.dropped.has(o.key)).map((o) => ({ ...o, value: o.key }));
+        // Resta spuntata la scelta di prima, se c'è ancora; altrimenti la voce dell'anteprima (carta, per i metodi Stripe).
+        const checked = this.form?.querySelector('[name="payment_method_id"]:checked')?.value;
+        const selected = options.some((o) => o.value === checked)
+            ? checked
+            : options.find((o) => String(o.id) === String(payload.payment_methods.selected) && ['', 'card'].includes(o.stripe_method_type ?? ''))?.value;
 
-        this.choices(box, 'payment_method_id', options, payload.payment_methods.selected,
+        this.choices(box, 'payment_method_id', options, selected,
             (o) => [o.name, '', o.fee_display || '', o.icon_urls || [], o.panel || '']);
     }
 
@@ -417,7 +432,7 @@ class Checkout {
             return;
         }
 
-        const chosen = payload.payment_methods.options.find((o) => o.id === payload.payment_methods.selected);
+        const chosen = this.chosenPayment(payload);
 
         if (chosen) {
             document.querySelectorAll('[data-checkout-submit]').forEach((button) => {
@@ -514,21 +529,28 @@ class Checkout {
         });
     }
 
-    // L'opzione scelta: il radio spuntato, o quella dell'anteprima prima del primo disegno.
+    // L'opzione scelta: il radio spuntato (vale la chiave della scelta), o quella dell'anteprima prima del primo disegno.
     chosenPayment(payload = this.latest) {
+        const options = payload?.payment_methods?.options || [];
         const checked = this.form?.querySelector('[name="payment_method_id"]:checked');
-        const id = checked ? Number(checked.value) : Number(payload?.payment_methods?.selected);
 
-        return (payload?.payment_methods?.options || []).find((o) => Number(o.id) === id) || null;
+        if (checked) {
+            return options.find((o) => String(o.key) === checked.value) || null;
+        }
+
+        return options.find((o) => String(o.id) === String(payload?.payment_methods?.selected) && ['', 'card'].includes(o.stripe_method_type ?? '')) || null;
     }
 
-    // Il Payment Element: si monta la prima volta che serve, poi segue importo e valuta del riepilogo.
+    // Il Payment Element: ogni scelta Stripe ha il suo gruppo, creato la prima volta che serve,
+    // poi tutti seguono importo e valuta del riepilogo.
     stripeBox(payload) {
         const box = document.querySelector('[data-checkout-stripe]');
         const keys = payload?.stripe;
+        const stripeChoices = (payload?.payment_methods?.options || []).filter((o) => o.provider === 'stripe');
         const chosen = this.chosenPayment(payload);
-        const on = Boolean(box && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
+        const on = Boolean(box && stripeChoices.length && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
 
+        this.stripeOn = on;
         box?.toggleAttribute('hidden', !on);
         this.stripeSlot(on);
 
@@ -538,45 +560,105 @@ class Checkout {
 
         this.stripeOptions = { mode: 'payment', amount: keys.amount, currency: keys.currency };
 
-        if (chosen.payment_method_types?.length) {
-            this.stripeOptions.paymentMethodTypes = chosen.payment_method_types;
-        }
-
         if (!this.stripeReady) {
             this.stripeReady = loadStripe().then(() => {
                 this.stripe = window.Stripe(keys.publishable_key, keys.account ? { stripeAccount: keys.account } : {});
-                this.elements = this.stripe.elements(this.stripeOptions);
-                this.paymentElement = this.elements.create('payment', STRIPE_PAYMENT_ELEMENT);
-                this.stripeSlot(!box.hidden);
             }).catch(() => {
                 this.stripeReady = null;
                 this.say([this.labels.stripe_error]);
             });
-
-            return;
         }
 
         this.stripeReady.then(() => {
-            // Se Stripe.js non è partito, non c'è niente da aggiornare.
-            if (this.elements) {
+            // Se Stripe.js non è partito, non c'è niente da fare. Intanto la scelta può essere cambiata: vale l'ultima.
+            const chosen = this.chosenPayment(this.latest);
+
+            if (!this.stripe || !this.stripeOn || chosen?.provider !== 'stripe') {
+                return;
+            }
+
+            try {
+                let group = this.groups[chosen.key];
+
+                if (!group) {
+                    const options = { ...this.stripeOptions, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
+                    const elements = this.stripe.elements(options);
+
+                    group = { elements, element: elements.create('payment', STRIPE_PAYMENT_ELEMENT), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
+                    this.groups[chosen.key] = group;
+
+                    // Klarna, Link… fuori dai loro limiti (importo, paese) non si caricano: la scelta sparisce e torna la carta.
+                    if (!['', 'card'].includes(chosen.stripe_method_type ?? '')) {
+                        const key = chosen.key;
+
+                        group.element.on('loaderror', () => this.dropChoice(key));
+                    }
+                }
+
+                this.elements = group.elements;
+                this.paymentElement = group.element;
+
+                Object.entries(this.groups).forEach(([key, other]) => {
+                    if (other !== group) {
+                        other.elements.update({ amount: this.stripeOptions.amount, currency: this.stripeOptions.currency });
+                    }
+                });
                 this.elements.update(this.stripeOptions);
+                this.stripeSlot(true);
+            } catch (error) {
+                if (['', 'card'].includes(chosen.stripe_method_type ?? '')) {
+                    this.say([this.labels.stripe_error]);
+                } else {
+                    this.dropChoice(chosen.key);
+                }
             }
         });
     }
 
-    // I campi della carta vanno nel pannello della scelta Stripe. Spostare l'iframe lo ricarica:
-    // si smonta e si rimonta solo se il pannello è cambiato, e scegliendo altro si nasconde e basta.
+    // Il contenitore del Payment Element di una scelta: la carta usa quello della vista, le altre ne hanno uno loro.
+    stripeContainer(key, type) {
+        const free = ['', 'card'].includes(type ?? '')
+            ? [...document.querySelectorAll('[data-checkout-stripe-element]')].find((node) => !node.dataset.checkoutStripeElement)
+            : null;
+        const container = free || document.createElement('div');
+
+        container.dataset.checkoutStripeElement = key;
+        container.className = container.className || 'w-100';
+
+        return container;
+    }
+
+    // I campi vanno nel pannello della scelta Stripe. Spostare l'iframe lo ricarica: ogni gruppo si monta
+    // una volta sola, si rimonta solo se il pannello è cambiato, e scegliendo altro si nasconde e basta.
     stripeSlot(on) {
-        this.stripeCard = this.stripeCard || document.querySelector('[data-checkout-stripe-element]');
-
-        const card = this.stripeCard;
         const radio = this.form?.querySelector('[name="payment_method_id"]:checked');
-        const target = on ? radio?.closest('label')?.querySelector('[data-choice-panel]') : null;
-        const holder = card?.closest('[data-choice-panel]');
 
-        if (!card) {
+        Object.entries(this.groups).forEach(([key, other]) => {
+            if (on && radio && key === radio.value) {
+                return;
+            }
+
+            const holder = other.container.closest('[data-choice-panel]');
+
+            other.container.hidden = true;
+
+            if (holder) {
+                this.pane(holder);
+            }
+        });
+
+        const group = on && radio ? this.groups[radio.value] : null;
+
+        if (!group) {
             return;
         }
+
+        this.elements = group.elements;
+        this.paymentElement = group.element;
+
+        const card = group.container;
+        const target = radio.closest('label')?.querySelector('[data-choice-panel]');
+        const holder = card.closest('[data-choice-panel]');
 
         card.hidden = !target;
 
@@ -589,20 +671,52 @@ class Checkout {
         }
 
         if (holder !== target || !card.isConnected) {
-            if (this.stripeMounted) {
+            if (group.mounted) {
                 this.paymentElement.unmount();
-                this.stripeMounted = false;
+                group.mounted = false;
             }
 
             target.append(card);
         }
 
-        if (this.paymentElement && !this.stripeMounted) {
+        if (!group.mounted) {
             this.paymentElement.mount(card);
-            this.stripeMounted = true;
+            group.mounted = true;
         }
 
         this.pane(target);
+    }
+
+    // Il Payment Element di una scelta non si carica: la voce sparisce, torna spuntata la carta Stripe. Niente messaggi.
+    dropChoice(key) {
+        const radios = [...(this.form?.querySelectorAll('[name="payment_method_id"]') || [])];
+        const radio = radios.find((r) => r.value === key);
+        const group = this.groups[key];
+        const wasChecked = Boolean(radio?.checked);
+
+        this.dropped.add(key);
+        radio?.closest('label')?.toggleAttribute('hidden', true);
+
+        if (group) {
+            try { group.element.destroy(); } catch (error) { /* già smontato */ }
+            group.container.remove();
+            delete this.groups[key];
+        }
+
+        if (!wasChecked) {
+            return;
+        }
+
+        const card = (this.latest?.payment_methods?.options || []).find((o) => o.provider === 'stripe' && o.stripe_method_type === 'card');
+        const cardRadio = card ? radios.find((r) => r.value === card.key) : null;
+
+        if (cardRadio) {
+            cardRadio.checked = true;
+        }
+
+        this.stripeBox(this.latest);
+        // Il totale può avere un'altra commissione: il riepilogo si rilegge con la carta.
+        this.schedule();
     }
 
     // «Paga»: Stripe controlla la carta, il server fa nascere l'ordine e l'intento, poi Stripe incassa.
@@ -611,11 +725,17 @@ class Checkout {
             return;
         }
 
-        if (!this.elements) {
+        // L'elemento è quello della scelta di adesso: se il suo gruppo non è ancora pronto non si paga.
+        const group = this.groups[this.chosenPayment()?.key];
+
+        if (!group) {
             this.say([this.labels.stripe_error]);
 
             return;
         }
+
+        this.elements = group.elements;
+        this.paymentElement = group.element;
 
         // Una risposta del riepilogo ancora in viaggio non deve ridisegnare il modulo mentre si paga.
         this.sequence++;

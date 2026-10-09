@@ -125,6 +125,15 @@ check('i campi della carta stanno nel pannello della scelta e sopravvivono al ri
         && str_contains($js, '[data-checkout-stripe-element]');
 });
 
+check('ogni scelta Stripe ha il suo gruppo elements, con i soli tipi della scelta', fn () =>
+    str_contains($js, 'this.groups')
+    && str_contains($js, 'paymentMethodTypes: chosen.payment_method_types')
+    && str_contains($js, "'loaderror'")
+    && str_contains($js, 'dropChoice('));
+
+check('il radio del pagamento vale la chiave della scelta', fn () =>
+    str_contains($js, 'value: o.key') && !str_contains(substr($js, (int) strpos($js, '    payments(payload) {'), 900), 'value: o.id'));
+
 $dati = OnlinePayment::billingDetails([
     'email' => 'mario@example.com',
     'phone' => '',
