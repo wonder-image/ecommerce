@@ -142,8 +142,9 @@ solo quando ha una prova automatica o una verifica descritta.
   gestionale esporrà in modo verificato il customer id; fino ad allora il
   percorso resta visibile ma non apre sessioni Stripe.
 
-Della fase C restano sospesi i resi (C4b) e i consensi (C3), che aspettano la
-loro struttura nel gestionale e un progetto a parte.
+Della fase C restano aperti i resi (C4b), i consensi (C3) e il collegamento a Stripe
+dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambito
+(§10, `2026-10-08-pannello-account-design.md`) e vanno ripresi con un progetto a parte.
 
 ## Fase D — Carrello e checkout
 

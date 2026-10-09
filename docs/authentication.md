@@ -88,19 +88,33 @@ password in un modal), Indirizzi e Fatturazione sono del core: vedi
 | `account.billing` | `/account/fatturazione/` | core |
 | `account.email.confirm` | `/account/email/conferma/` | core |
 | `account.payment-methods` | `/account/metodi-di-pagamento/` | ecommerce |
+| `account.orders` | `/account/ordini/` (`?pagina=N`) | ecommerce |
+| `account.orders.show` | `/account/ordini/{code}/` | ecommerce |
+| `account.coupons` | `/account/coupon/` (`?pagina=N`) | ecommerce, solo con la funzionalità `coupons` accesa (404 se spenta) |
 
-Ordini e coupon (piano 2 del pannello) arriveranno come altre sezioni della stessa
-estensione. `EcommerceAccountExtension` usa quattro ganci di `BaseAccountExtension`:
+Gli ordini sono quelli della scheda del cliente (`stage = order`, in qualsiasi stato; i
+carrelli no), dal più recente, a dieci per pagina. Il dettaglio si cerca per `code`:
+ordini di altri clienti, carrelli, ordini degli ospiti e codici che non esistono danno
+tutti 404, e senza la scheda del cliente non si cerca nulla. I coupon sono quelli
+riservati al cliente che può usare adesso (`AccountCoupons::forCustomer()`, sopra
+`Coupons::reserved()` del gestionale). La paginazione è del core
+(`AccountPagination` e il componente `frontend.account.pagination`).
 
-- `routes()`: `account.payment-methods`, nel gruppo privato del pannello;
-- `navigation()`: applica `account.navigation` al menu del core;
+`EcommerceAccountExtension` usa quattro ganci di `BaseAccountExtension`:
+
+- `routes()`: `account.payment-methods`, `account.orders`, `account.orders.show` e
+  `account.coupons`, nel gruppo privato del pannello (la route dei coupon c'è sempre:
+  con la funzionalità spenta risponde 404 il controller);
+- `navigation()`: aggiunge `orders` e, con la funzionalità Coupon accesa, `coupons`
+  subito dopo Panoramica, poi applica `account.navigation` al menu;
 - `personalRows()`: la riga «Metodi di pagamento» in «Dati personali»;
 - `head()`: font e stile del negozio nell'head delle pagine del pannello.
 
-`EcommerceAccountController` estende `AccountController`: risponde a
-`payment-methods` e passa le altre azioni al core. La pagina sta dentro «Dati
-personali», che resta la voce di menu attiva. Una nuova sezione segue lo stesso
-schema: route in `routes()`, azione nel controller, voce in `navigation()`.
+`EcommerceAccountController` estende `AccountController`: risponde a `payment-methods`,
+`orders`, `orders.show` e `coupons` e passa le altre azioni al core. «Metodi di
+pagamento» sta dentro «Dati personali», che resta la voce di menu attiva; il dettaglio
+dell'ordine tiene attiva «Ordini». Una nuova sezione segue lo stesso schema: route in
+`routes()`, azione nel controller, voce in `navigation()`.
 
 Il sito configura il pannello da `config/module.php`:
 
@@ -110,9 +124,10 @@ Il sito configura il pannello da `config/module.php`:
   una classe che non è un `AccountPanel` fa lanciare `LogicException` e non registra
   nessuna route del frontend, non solo quelle dell'account;
 - `account.navigation`: ritocchi al menu per chiave. Le chiavi sono quelle del core,
-  `overview`, `personal`, `addresses` e `billing`. `false` nasconde la voce (non
-  cambia le autorizzazioni); un array ne ritocca `label`, `icon`, `href` (o `route`,
-  risolta in `href`) o aggiunge una voce nuova. Una voce senza `href` o etichetta
+  `overview`, `personal`, `addresses` e `billing`, più `orders` e `coupons` (`coupons`
+  solo con la funzionalità Coupon accesa), che stanno subito dopo `overview`. `false`
+  nasconde la voce (non cambia le autorizzazioni); un array ne ritocca `label`, `icon`,
+  `href` (o `route`, risolta in `href`) o aggiunge una voce nuova. Una voce senza `href` o etichetta
   non esce. Le chiavi del vecchio pannello (`profile`, `shipping`, `payment-methods`,
   `password`) sono ignorate;
 - `account.payment_methods.enabled`: `false` per default. Spento, la riga «Metodi di
@@ -138,8 +153,9 @@ chiamano `render()` senza specificare un tema: il renderer segue la pagina.
 Il riferimento visivo è `elenajossifov-com/account`: nav laterale senza box
 annidati, menu orizzontale su telefono, righe compatte con separatore, dati a
 sinistra e azioni a destra. Non ne vengono copiati helper, query o CSS float.
-I componenti sono `frontend.account.navigation` / `frontend.account.row`, del core;
-ordini e coupon li riutilizzeranno quando saranno disponibili i flussi.
+I componenti sono `frontend.account.navigation`, `frontend.account.row` e
+`frontend.account.pagination`, del core: Ordini e Coupon li usano, con la tabella a righe
+(`.wi-row-table`) della lib.
 
 La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
 modelli del core `Wonder\App\Models\Contacts` / `Models\System`.
