@@ -171,7 +171,18 @@
             "text": "Il tuo ordine {{number}} è stato registrato.",
             "account": "Vai al tuo account",
             "email_sent": "Ti abbiamo mandato il riepilogo dell'ordine via email. Se non hai ancora una password, nell'email trovi il link per sceglierla e seguire i tuoi ordini.",
-            "shop": "Torna al negozio"
+            "shop": "Torna al negozio",
+            "processing": "Il pagamento è in lavorazione: ti scriviamo appena arriva la conferma."
+        },
+        "pay": {
+            "title": "Pagamento dell'ordine",
+            "text": "Ordine {{number}}, totale {{total}}.",
+            "submit": "Paga ora",
+            "abandon": "Annulla l'ordine",
+            "abandoned": "L'ordine è stato annullato.",
+            "failed": "Il pagamento non è andato a buon fine. Riprova o usa un altro metodo.",
+            "canceled": "Il pagamento è stato annullato. Puoi riprovare.",
+            "error": "Il pagamento online non è disponibile in questo momento. Riprova tra poco."
         }
     },
     "auth": {

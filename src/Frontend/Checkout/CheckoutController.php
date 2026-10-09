@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
+use OutOfBoundsException;
 use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
@@ -32,6 +33,9 @@ final class CheckoutController
             'summary' => self::summary(),
             'coupon' => self::coupon(),
             'completed' => self::completed(),
+            'return' => self::returned(),
+            'pay' => self::pay(),
+            'abandon' => self::abandon(),
             default => self::notFound(),
         };
     }
@@ -45,7 +49,8 @@ final class CheckoutController
 
         $cart = CartSession::current(false);
         if ((array) ($cart['items'] ?? []) === []) {
-            self::redirect(self::route('ecommerce.cart.index'));
+            // Il carrello è diventato l'ordine: si torna a pagarlo.
+            self::redirect(self::route(OnlinePayment::pending() > 0 ? 'ecommerce.checkout.pay' : 'ecommerce.cart.index'));
         }
 
         $formState = self::pullFormState();
@@ -321,6 +326,91 @@ final class CheckoutController
         View::make(Ecommerce::viewPath('pages/checkout/completed.php'), [
             'result' => $result,
         ])->render();
+    }
+
+    /**
+     * Il ritorno dal gateway. L'esito si chiede a Stripe e vale solo per
+     * l'ordine in sessione: un `payment_intent` estraneo è un 404.
+     */
+    private static function returned(): void
+    {
+        $orderId = OnlinePayment::sessionOrder();
+        if ($orderId <= 0) {
+            self::notFound();
+        }
+
+        try {
+            $outcome = OnlinePayment::settle($orderId, (string) ($_GET['payment_intent'] ?? ''));
+        } catch (OutOfBoundsException) {
+            self::notFound();
+        }
+
+        if ($outcome === 'retry' || $outcome === 'canceled') {
+            FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
+            self::redirect(self::route('ecommerce.checkout.pay'));
+        }
+
+        OnlinePayment::forget();
+        $receipt = (array) ($_SESSION[OnlinePayment::RECEIPT] ?? []);
+        unset($_SESSION[OnlinePayment::RECEIPT]);
+        if ((int) ($receipt['order_id'] ?? 0) !== $orderId) {
+            $order = (array) Order::findById($orderId);
+            $receipt = [
+                'order_id' => $orderId,
+                'order_number' => (string) ($order['order_number'] ?? $order['code'] ?? ''),
+                'total' => (string) ($order['total'] ?? ''),
+                'guest' => !CartSession::authenticated(),
+            ];
+        }
+
+        // L'email di conferma parte con l'incasso; in lavorazione arriverà più tardi.
+        $_SESSION[self::COMPLETED] = [
+            'processing' => $outcome === 'processing',
+            'email_sent' => !empty($receipt['guest']) && $outcome === 'succeeded',
+        ] + $receipt;
+        self::redirect(self::route('ecommerce.checkout.completed'));
+    }
+
+    /** La pagina per pagare l'ordine in sospeso della sessione, anche dopo un rifiuto. */
+    private static function pay(): void
+    {
+        $orderId = OnlinePayment::pending();
+        if ($orderId === 0) {
+            self::redirect(self::route('ecommerce.cart.index'));
+        }
+
+        try {
+            $clientSecret = OnlinePayment::start($orderId)['client_secret'];
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.pay', ['order_id' => $orderId]);
+            $clientSecret = '';
+        }
+
+        self::seo((string) __t('ecommerce.checkout.pay.title'), self::route('ecommerce.checkout.pay'));
+        View::make(Ecommerce::viewPath('pages/checkout/pay.php'), [
+            'order' => (array) Order::findById($orderId),
+            'client_secret' => $clientSecret,
+            'stripe' => OnlinePayment::browserKeys(),
+            'return_url' => self::route('ecommerce.checkout.return'),
+            'csrf_token' => AuthSession::csrfToken(),
+        ])->render();
+    }
+
+    /** «Annulla l'ordine» dalla pagina di pagamento. */
+    private static function abandon(): never
+    {
+        self::requirePost();
+        self::requireCsrf();
+
+        try {
+            OnlinePayment::dropPending();
+        } catch (Throwable $error) {
+            // Senza annullo l'ordine scade da solo con le prenotazioni.
+            Errors::internal($error, 'ecommerce.checkout.abandon');
+        }
+
+        FlashMessage::info((string) __t('ecommerce.checkout.pay.abandoned'), (string) __t('ecommerce.checkout.notice_title'));
+        self::redirect(self::route('ecommerce.cart.index'));
     }
 
     /** @return array<string, string> */
