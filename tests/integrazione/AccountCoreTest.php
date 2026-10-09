@@ -17,12 +17,14 @@ use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\AccountAddresses;
 use Wonder\Auth\Frontend\AccountBilling;
 use Wonder\Auth\Frontend\AccountController;
+use Wonder\Auth\Frontend\AccountEmail;
 use Wonder\Auth\Frontend\AccountPanel;
 use Wonder\Auth\Frontend\AccountPersonal;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\AuthProfile;
 use Wonder\Auth\Frontend\AuthRoutes;
 use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Auth\OneTimeToken;
 use Wonder\Http\Csrf;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
@@ -79,6 +81,22 @@ function pagina(string $action, array $parameters = [], string $method = 'GET', 
         ob_end_clean();
         return $e->getMessage();
     }
+}
+
+/** Esegue `$fn` raccogliendo gli avvisi PHP: [risultato, avvisi]. */
+function conAvvisi(callable $fn): array
+{
+    $avvisi = [];
+    set_error_handler(static function (int $livello, string $messaggio) use (&$avvisi): bool {
+        $avvisi[] = $messaggio;
+        return true;
+    });
+    try {
+        $risultato = $fn();
+    } finally {
+        restore_error_handler();
+    }
+    return [$risultato, $avvisi];
 }
 
 /** Come la fixture di AuthAccountTest.php:140-163: User::create, email verificata, password con user(). */
@@ -329,12 +347,90 @@ try {
             $changed === 'redirect '.Route::url('account.personal') && ($_SESSION['wonder_account_notice'] ?? '') === (string) __t('account.password.saved'));
         unset($_SESSION['wonder_account_notice']);
 
-        // Conferma dell'email: solo il rendering dell'esito, la logica è nel test dell'email.
+        // Conferma dell'email: la GET non cambia niente e chiede il clic, il POST cambia. La logica è nel test dell'email.
         $_GET['token'] = 'inventato';
         $confirm = pagina('email.confirm');
         check('conferma con un link inventato: testo di link non valido, senza pannello', fn () =>
             str_contains($confirm, htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES)) && !str_contains($confirm, 'wi-side-layout'));
+        check('link inventato: l\'esito è subito sulla GET, senza bottone', fn () =>
+            !str_contains($confirm, htmlspecialchars((string) __t('account.email.confirm_button'), ENT_QUOTES)));
+        [$arrayToken, $arrayTokenWarnings] = conAvvisi(static function (): string {
+            $_GET['token'] = ['x'];
+            return pagina('email.confirm');
+        });
+        check('token mandato come array: link non valido, senza avvisi PHP', fn () =>
+            $arrayTokenWarnings === [] && str_contains($arrayToken, htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES)));
         unset($_GET['token']);
+
+        $confirmId = clienteDiProva('account-confirm');
+        $confirmBefore = (string) infoUser($confirmId, 'id')->email;
+        $confirmNew = "o'neill-".bin2hex(random_bytes(4)).'@example.com';
+        $confirmTokens = new OneTimeToken(AccountEmail::PURPOSE, 86400);
+        $confirmToken = $confirmTokens->issue($confirmId, $confirmId, null, ['email' => $confirmNew])->token;
+        $_GET['token'] = $confirmToken;
+        $ask = pagina('email.confirm');
+        unset($_GET['token']);
+        check('GET del link valido: nessun cambio e il link resta usabile', fn () =>
+            (string) infoUser($confirmId, 'id')->email === $confirmBefore && $confirmTokens->inspect($confirmToken) !== null);
+        check('GET del link valido: titolo, bottone di conferma e nuova email scritta con l\'escape', fn () =>
+            str_contains($ask, htmlspecialchars((string) __t('account.email.confirm_title'), ENT_QUOTES))
+            && str_contains($ask, htmlspecialchars((string) __t('account.email.confirm_button'), ENT_QUOTES))
+            && str_contains($ask, htmlspecialchars($confirmNew, ENT_QUOTES))
+            && !str_contains($ask, 'wi-side-layout'));
+        check('GET del link valido: un form POST con token e CSRF nascosti e un solo bottone wi-input-submit', function () use ($ask, $confirmToken, $csrf) {
+            preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $ask, $submits);
+            return preg_match('/<form\b[^>]*method="post"/i', $ask) === 1
+                && preg_match('/<input\b[^>]*name="token"[^>]*value="'.preg_quote($confirmToken, '/').'"|<input\b[^>]*value="'.preg_quote($confirmToken, '/').'"[^>]*name="token"/', $ask) === 1
+                && preg_match('/<input\b[^>]*name="_csrf"[^>]*value="'.preg_quote($csrf, '/').'"|<input\b[^>]*value="'.preg_quote($csrf, '/').'"[^>]*name="_csrf"/', $ask) === 1
+                && count($submits[0]) === 1 && str_contains($submits[0][0], 'wi-input-submit');
+        });
+
+        check('POST senza CSRF: 419 e il link resta usabile', fn () =>
+            pagina('email.confirm', [], 'POST', ['token' => $confirmToken]) === '419' && $confirmTokens->inspect($confirmToken) !== null);
+        check('POST con CSRF sbagliato: 419', fn () =>
+            pagina('email.confirm', [], 'POST', ['_csrf' => 'sbagliato', 'token' => $confirmToken]) === '419'
+            && (string) infoUser($confirmId, 'id')->email === $confirmBefore);
+
+        // Da un altro browser: nessun login, la sessione è quella della pagina appena aperta.
+        $loggedIn = $_SESSION['user_id'];
+        unset($_SESSION['user_id']);
+        $done = pagina('email.confirm', [], 'POST', ['_csrf' => $csrf, 'token' => $confirmToken]);
+        $_SESSION['user_id'] = $loggedIn;
+        check('POST: l\'email cambia e la pagina dice che è fatto, senza pannello e senza login', fn () =>
+            // user() salva l'email con l'apostrofo scritto come entità (comportamento di sempre): si confronta dopo averla letta.
+            html_entity_decode((string) infoUser($confirmId, 'id')->email, ENT_QUOTES | ENT_HTML5) === strtolower($confirmNew)
+            && str_contains($done, htmlspecialchars((string) __t('account.email.confirmed'), ENT_QUOTES))
+            && !str_contains($done, 'wi-side-layout'));
+        check('POST con lo stesso link di nuovo: link non valido', fn () =>
+            str_contains(pagina('email.confirm', [], 'POST', ['_csrf' => $csrf, 'token' => $confirmToken]), htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES)));
+        $_GET['token'] = $confirmToken;
+        $usedAsk = pagina('email.confirm');
+        unset($_GET['token']);
+        check('GET di un link già usato: l\'esito è subito sulla GET, senza bottone', fn () =>
+            str_contains($usedAsk, htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES))
+            && !str_contains($usedAsk, htmlspecialchars((string) __t('account.email.confirm_button'), ENT_QUOTES)));
+        [$arrayPost, $arrayPostWarnings] = conAvvisi(static fn (): string => pagina('email.confirm', [], 'POST', ['_csrf' => Csrf::token(), 'token' => ['x']]));
+        check('POST con il token come array: link non valido, senza avvisi PHP', fn () =>
+            $arrayPostWarnings === [] && str_contains($arrayPost, htmlspecialchars((string) __t('account.email.invalid'), ENT_QUOTES)));
+
+        // Campi mandati come array (name[]=x): valgono vuoti, senza «Array» e senza avvisi PHP.
+        $nameBefore = (string) infoUser($userId, 'id')->name;
+        [$arrayName, $arrayNameWarnings] = conAvvisi(static fn (): string =>
+            pagina('personal', [], 'POST', ['_csrf' => Csrf::token(), 'form' => 'personal', 'name' => ['x'], 'surname' => 'Hopper', 'birth_date' => '1990-05-17']));
+        check('Dati personali con name[]=x: nome obbligatorio, modal riaperto, senza «Array» e senza avvisi', fn () =>
+            $arrayNameWarnings === []
+            && preg_match('/<section[^>]*class="[^"]*\bwi-show\b[^"]*"[^>]*id="account-personal"/', $arrayName) === 1
+            && !str_contains($arrayName, 'value="Array"')
+            && (string) infoUser($userId, 'id')->name === $nameBefore);
+        foreach ([
+            'email' => ['form' => 'email', 'email' => ['x'], 'current_password' => ['y']],
+            'password' => ['form' => 'password', 'current_password' => ['x'], 'password' => ['y']],
+            'form' => ['form' => ['personal'], 'name' => 'X'],
+        ] as $campo => $post) {
+            [$html, $avvisi] = conAvvisi(static fn (): string => pagina('personal', [], 'POST', ['_csrf' => Csrf::token()] + $post));
+            check('campo «'.$campo.'» mandato come array: nessun avviso PHP e nessun «Array» nella pagina', fn () =>
+                $avvisi === [] && !str_contains($html, 'value="Array"'));
+        }
 
         // Account senza password (accesso social): la riga email non apre il modal e dice cosa fare.
         $socialId = clienteDiProva('account-social');
@@ -362,6 +458,8 @@ try {
         check('scheda con nome, tel: e righe dell\'indirizzo', fn () =>
             str_contains($list, 'wi-address-card__name') && str_contains($list, 'href="tel:+393331234567"')
             && str_contains($list, 'Via Roma 1, 20100') && str_contains($list, 'Milano (MI)'));
+        check('il telefono della scheda ha la sua classe, senza stile in linea', fn () =>
+            str_contains($list, 'class="wi-address-card__link"') && !str_contains($list, 'style="text-decoration'));
 
         $aperti = static fn (string $html): int => (int) preg_match_all('/<section\b[^>]*class="[^"]*\bwi-show\b/', $html);
         check('elenco: per ogni indirizzo il modal di modifica e quello di conferma, tutti chiusi', fn () =>
@@ -394,6 +492,16 @@ try {
         check('eliminazione propria', fn () =>
             pagina('addresses.delete', ['id' => $id], 'POST', ['_csrf' => $csrf]) === 'redirect '.Route::url('account.addresses')
             && AccountAddresses::find($contactId, $id) === null);
+
+        foreach ([
+            'indirizzo nuovo' => ['addresses.create', [], ['name' => ['x'], 'street' => ['y']] + $address],
+            'modifica indirizzo' => ['addresses.edit', ['id' => $id], ['city' => ['x'], 'cap' => ['y']] + $address],
+            'fatturazione' => ['billing', [], ['type' => ['x'], 'name' => ['y'], 'city' => ['z']] + $address],
+        ] as $nome => [$azione, $parametri, $post]) {
+            [$html, $avvisi] = conAvvisi(static fn (): string => pagina($azione, $parametri, 'POST', $post));
+            check($nome.' con campi mandati come array: nessun avviso PHP e nessun «Array» nella pagina', fn () =>
+                $avvisi === [] && !str_contains($html, 'value="Array"'));
+        }
 
         $billingInvalid = pagina('billing', [], 'POST', ['_csrf' => $csrf, 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
         check('Fatturazione con errori: si riapre il modal con gli errori', fn () =>
@@ -500,8 +608,11 @@ try {
         check('Metodi di pagamento: la voce attiva del menu è Dati personali', fn () =>
             (bool) preg_match('~<a class="wi-side-nav__link" href="'.preg_quote($personalUrl, '~').'" aria-current="page"~', $payment));
         check('Metodi di pagamento: SEO privata', fn () => str_contains($payment, 'NOINDEX,NOFOLLOW'));
-        check('Metodi di pagamento: l\'estensione mette font e foglio di stile del negozio nell\'head', fn () =>
-            str_contains($payment, 'store.css'));
+        check('Metodi di pagamento: l\'estensione mette font e foglio di stile del negozio nell\'head', function () use ($payment) {
+            $head = preg_match('~<head\b.*?</head>~si', $payment, $found) === 1 ? $found[0] : '';
+            $body = $head === '' ? $payment : substr($payment, strlen($head));
+            return str_contains($head, 'store.css') && !str_contains($body, 'store.css');
+        });
         $notFound = pagina('nessuna', [], 'GET', [], ControllerEcommerceDiProva::class);
         $billing = pagina('billing', [], 'GET', [], ControllerEcommerceDiProva::class);
         check('le azioni del core passano ancora dal controller dell\'ecommerce', fn () =>

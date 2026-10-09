@@ -458,4 +458,68 @@ check('coupon: senza coupon stato vuoto; funzionalità spenta dà 404 e niente v
         && $spento === '404' && !isset($nav['coupons']);
 }));
 
+check('coupon: l\'elenco è in ordine di codice', fn () => prova(static function (): bool {
+    accendiFunzionalita(['coupons']);
+    [$userId, $scheda] = clienteConScheda('coupon-ordine');
+    // Creati in disordine: l'ordine che si vede non è quello di inserimento.
+    foreach (['ZETA', 'ALFA', 'MEDIO', 'BETA'] as $codice) {
+        couponDelCliente($scheda, ['code' => $codice]);
+    }
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('coupons');
+    $posizioni = array_map(static fn (string $codice): int|false => strpos($html, '>'.$codice.'<'), ['ALFA', 'BETA', 'MEDIO', 'ZETA']);
+
+    return !in_array(false, $posizioni, true)
+        && $posizioni[0] < $posizioni[1] && $posizioni[1] < $posizioni[2] && $posizioni[2] < $posizioni[3];
+}));
+
+check('coupon: la seconda pagina, 10 per pagina, con ?pagina= fuori misura riportato a una pagina valida', fn () => prova(static function (): bool {
+    accendiFunzionalita(['coupons']);
+    [$userId, $scheda] = clienteConScheda('coupon-pagina');
+    for ($i = 1; $i <= 12; $i++) {
+        couponDelCliente($scheda, ['code' => sprintf('PAG%02d', $i)]);
+    }
+    $_SESSION['user_id'] = $userId;
+    $summary = static fn (int $from, int $to): string => e((string) __t('account.pagination.summary', ['from' => $from, 'to' => $to, 'total' => 12]));
+    $prima = paginaNegozio('coupons');
+    $seconda = paginaNegozio('coupons', [], ['pagina' => '2']);
+    $oltre = paginaNegozio('coupons', [], ['pagina' => '99']);
+    $strana = paginaNegozio('coupons', [], ['pagina' => 'abc']);
+
+    return str_contains($prima, $summary(1, 10)) && str_contains($prima, 'PAG01') && str_contains($prima, 'PAG10') && !str_contains($prima, 'PAG11')
+        && str_contains($prima, 'href="'.Route::url('account.coupons').'?pagina=2"')
+        && str_contains($seconda, $summary(11, 12)) && str_contains($seconda, 'PAG11') && str_contains($seconda, 'PAG12')
+        && !str_contains($seconda, 'PAG10') && !str_contains($seconda, 'PAG01')
+        && str_contains($oltre, $summary(11, 12)) && str_contains($strana, $summary(1, 10));
+}));
+
+check('coupon: il codice con < & " esce con l\'escape, una volta sola', fn () => prova(static function (): bool {
+    accendiFunzionalita(['coupons']);
+    [$userId, $scheda] = clienteConScheda('coupon-escape');
+    $id = couponDelCliente($scheda, ['code' => 'ESCAPE-PROVA']);
+    $codice = 'A<B&C"D';
+    // Il modello potrebbe non lasciare passare il codice com'è: si scrive a mano, come `deleted` sopra.
+    Coupon::query()->Update(Coupon::$table, ['code' => $codice], 'id', $id);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('coupons');
+
+    return str_contains($html, htmlspecialchars($codice, ENT_QUOTES))
+        && !str_contains($html, $codice) && !str_contains($html, 'A<B')
+        && !str_contains($html, '&amp;amp;') && !str_contains($html, '&amp;lt;') && !str_contains($html, '&amp;quot;');
+}));
+
+check('coupon: scheda in conflitto, errore della scheda e nessun coupon', fn () => prova(static function (): bool {
+    accendiFunzionalita(['coupons']);
+    // Come per gli ordini: la scheda di un altro utente ha già l'email del cliente, e i coupon sono riservati a quella.
+    [$userId] = clienteConScheda('coupon-senza-scheda', false);
+    [, $altra] = clienteConScheda('coupon-conflitto');
+    Contact::update(['email' => \infoUser($userId, 'id')->email], $altra);
+    couponDelCliente($altra, ['code' => 'DELLALTRA']);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('coupons');
+
+    return !str_contains($html, 'DELLALTRA') && str_contains($html, 'wi-empty-state')
+        && str_contains($html, e((string) __t('account.errors.contact')));
+}));
+
 summary();

@@ -81,7 +81,10 @@ class EcommerceAccountController extends AccountController
         ]);
     }
 
-    /** I coupon riservati al cliente che può usare adesso, a dieci per pagina. Con la funzionalità spenta la pagina non c'è. */
+    /**
+     * I coupon riservati al cliente e in corso (anche con tutti gli usi spesi o validi solo in negozio), a dieci per pagina.
+     * Con la funzionalità spenta la pagina non c'è.
+     */
     protected function coupons(): void
     {
         if (!Gestionale::feature('coupons')) {

@@ -9,10 +9,6 @@ final class CustomerAccount
 {
     public static function hook(array $post, array $values, object $user): object
     {
-        if ((int) ($user->id ?? 0) > 0 && !empty($post['_ecommerce_link_contact'])) {
-            self::linkContact((int) $user->id, $post);
-        }
-
         return (object) ['values' => $values, 'user' => $user];
     }
 

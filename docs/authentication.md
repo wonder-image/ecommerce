@@ -8,7 +8,8 @@
 - `wonder-image/ecommerce` definisce `EcommerceAuthProfile`, il cliente, i
   consensi ecommerce, il cellulare obbligatorio e il collegamento a
   `contacts`; `EcommerceAccountExtension` aggiunge al pannello del core la
-  riga e la pagina dei metodi di pagamento.
+  riga e la pagina dei metodi di pagamento e le sezioni Ordini (elenco e
+  dettaglio) e Coupon.
 - Il sito configura credenziali, colori, testi consentiti dagli slot e flag del
   modulo. Non duplica controller o logica account.
 
@@ -96,8 +97,9 @@ Gli ordini sono quelli della scheda del cliente (`stage = order`, in qualsiasi s
 carrelli no), dal più recente, a dieci per pagina. Il dettaglio si cerca per `code`:
 ordini di altri clienti, carrelli, ordini degli ospiti e codici che non esistono danno
 tutti 404, e senza la scheda del cliente non si cerca nulla. I coupon sono quelli
-riservati al cliente che può usare adesso (`AccountCoupons::forCustomer()`, sopra
-`Coupons::reserved()` del gestionale). La paginazione è del core
+riservati al cliente e in corso (`AccountCoupons::forCustomer()`, sopra
+`Coupons::reserved()` del gestionale), anche con tutti gli usi già spesi e quelli
+validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazione è del core
 (`AccountPagination` e il componente `frontend.account.pagination`).
 
 `EcommerceAccountExtension` usa quattro ganci di `BaseAccountExtension`:
@@ -154,8 +156,9 @@ Il riferimento visivo è `elenajossifov-com/account`: nav laterale senza box
 annidati, menu orizzontale su telefono, righe compatte con separatore, dati a
 sinistra e azioni a destra. Non ne vengono copiati helper, query o CSS float.
 I componenti sono `frontend.account.navigation`, `frontend.account.row` e
-`frontend.account.pagination`, del core: Ordini e Coupon li usano, con la tabella a righe
-(`.wi-row-table`) della lib.
+`frontend.account.pagination`, del core. Ordini e Coupon non usano `frontend.account.row`:
+sono una tabella a righe (`.wi-row-table`) della lib con `frontend.account.pagination`, e il
+dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
 
 La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
 modelli del core `Wonder\App\Models\Contacts` / `Models\System`.

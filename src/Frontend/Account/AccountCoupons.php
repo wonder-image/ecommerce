@@ -7,7 +7,10 @@ use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
 use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
 use Wonder\Plugin\Gestionale\Support\Promotions\Coupons;
 
-/** I coupon riservati al cliente che può usare adesso, con valore e usi pronti da stampare. */
+/**
+ * I coupon riservati al cliente e in corso, con valore e usi pronti da stampare. Restano nell'elenco anche quelli
+ * con tutti gli usi già spesi e quelli validi solo in negozio: non sono «quelli che può usare adesso».
+ */
 final class AccountCoupons
 {
     /** @return list<array{code: string, value: string, uses: string}> */

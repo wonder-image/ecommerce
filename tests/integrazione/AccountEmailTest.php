@@ -14,7 +14,10 @@ require __DIR__.'/dns-fixture.php';
 use Wonder\App\Models\Contacts\Contact;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\AccountEmail;
+use Wonder\Auth\Frontend\AccountPassword;
 use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Auth\OneTimeToken;
+use Wonder\Auth\PasswordReset;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAccountEmail extends RuntimeException {}
@@ -120,7 +123,57 @@ try {
         check('email presa nel frattempo: esito taken, nulla cambia', fn () =>
             AccountEmail::confirm($pending) === 'taken' && infoUser($raceId, 'id')->email === $raceUser->email);
 
+        $tokens = new OneTimeToken(AccountEmail::PURPOSE, 86400);
+        check('email presa nel frattempo: il link è bruciato', fn () => $tokens->inspect($pending) === null);
+
         check('un token inventato non vale', fn () => AccountEmail::confirm('inventato') === 'invalid');
+
+        // La pagina del link legge senza consumare: la nuova email viene dal token, non dalla richiesta.
+        $peekId = clienteDiProva('email-peek');
+        $peekNew = 'guarda-'.bin2hex(random_bytes(6)).'@example.com';
+        AccountEmail::request(infoUser($peekId, 'id'), $peekNew, 'password-di-prova-123', $url, $mail);
+        $peekToken = $mail->token();
+        check('pendingEmail dice la nuova email del link senza consumarlo', fn () =>
+            AccountEmail::pendingEmail($peekToken) === $peekNew
+            && AccountEmail::pendingEmail($peekToken) === $peekNew
+            && $tokens->inspect($peekToken) !== null
+            && infoUser($peekId, 'id')->email !== $peekNew);
+        check('pendingEmail: un link inventato non porta nessuna email', fn () => AccountEmail::pendingEmail('inventato') === null);
+        check('pendingEmail: un link già usato non porta nessuna email', fn () =>
+            AccountEmail::confirm($peekToken) === 'confirmed' && AccountEmail::pendingEmail($peekToken) === null);
+
+        // Un salvataggio che non riesce non brucia il link: la scheda rifiuta il dominio (nessun MX) e tutto torna indietro.
+        $failId = clienteDiProva('email-fail');
+        $failUser = infoUser($failId, 'id');
+        ContactAccount::link($failId);
+        $failNew = 'senza-mx-'.bin2hex(random_bytes(4)).'@dominio-senza-mx.invalid';
+        AccountEmail::request($failUser, $failNew, 'password-di-prova-123', $url, $mail);
+        $failToken = $mail->token();
+        check('salvataggio che non riesce: esito invalid', fn () => $failToken !== '' && AccountEmail::confirm($failToken) === 'invalid');
+        check('salvataggio che non riesce: email e verifica restano come prima', fn () =>
+            infoUser($failId, 'id')->email === $failUser->email && (string) infoUser($failId, 'id')->email_verified === '1');
+        check('salvataggio che non riesce: il link resta usabile', fn () => $tokens->inspect($failToken) !== null);
+
+        // Cambio password: i link di cambio email ancora aperti non valgono più.
+        $pwId = clienteDiProva('email-pw');
+        $pwNew = 'dopo-password-'.bin2hex(random_bytes(6)).'@example.com';
+        AccountEmail::request(infoUser($pwId, 'id'), $pwNew, 'password-di-prova-123', $url, $mail);
+        $pwToken = $mail->token();
+        $pwChange = AccountPassword::change($pwId, ['current_password' => 'password-di-prova-123', 'password' => 'un-altra-password-456']);
+        check('cambio password dal pannello: riesce', fn () => $pwChange->success);
+        check('cambio password dal pannello: il link di cambio email non vale più', fn () =>
+            AccountEmail::confirm($pwToken) === 'invalid' && infoUser($pwId, 'id')->email !== $pwNew);
+
+        // Ripristino della password: stessa cosa.
+        $resetId = clienteDiProva('email-reset');
+        $resetNew = 'dopo-reset-'.bin2hex(random_bytes(6)).'@example.com';
+        AccountEmail::request(infoUser($resetId, 'id'), $resetNew, 'password-di-prova-123', $url, $mail);
+        $resetToken = $mail->token();
+        $reset = new PasswordReset();
+        $resetDone = $reset->reset($reset->issueForUser($resetId)->token, 'un-altra-password-789');
+        check('ripristino della password: riesce', fn () => $resetDone->success === true);
+        check('ripristino della password: il link di cambio email non vale più', fn () =>
+            AccountEmail::confirm($resetToken) === 'invalid' && infoUser($resetId, 'id')->email !== $resetNew);
 
         // Posta che non parte: nessun link valido, nessun successo.
         $sendId = clienteDiProva('email-send');
