@@ -16,6 +16,7 @@ class Checkout {
 
         if (this.latest) {
             this.submit(this.latest);
+            this.stripeBox(this.latest);
         } else if (this.form) {
             // Sul Carrello non si chiede il riepilogo: per l'ospite porterebbe al login.
             this.refresh();
@@ -60,6 +61,11 @@ class Checkout {
         // Una risposta già in viaggio non deve riportare indietro quello che il cliente ha appena cambiato.
         this.sequence++;
         clearTimeout(this.timer);
+
+        if (this.frozen) {
+            return;
+        }
+
         this.timer = setTimeout(() => this.refresh(), 300);
     }
 
@@ -156,6 +162,7 @@ class Checkout {
         this.payments(payload);
         this.couponBox(payload);
         this.submit(payload);
+        this.stripeBox(payload);
         this.notices(payload.notices);
     }
 
@@ -488,10 +495,183 @@ class Checkout {
         });
     }
 
+    // L'opzione scelta: il radio spuntato, o quella dell'anteprima prima del primo disegno.
+    chosenPayment(payload = this.latest) {
+        const checked = this.form?.querySelector('[name="payment_method_id"]:checked');
+        const id = checked ? Number(checked.value) : Number(payload?.payment_methods?.selected);
+
+        return (payload?.payment_methods?.options || []).find((o) => Number(o.id) === id) || null;
+    }
+
+    // Il Payment Element: si monta la prima volta che serve, poi segue importo e valuta del riepilogo.
+    stripeBox(payload) {
+        const box = document.querySelector('[data-checkout-stripe]');
+        const keys = payload?.stripe;
+        const chosen = this.chosenPayment(payload);
+        const on = Boolean(box && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
+
+        box?.toggleAttribute('hidden', !on);
+
+        if (!on) {
+            return;
+        }
+
+        this.stripeOptions = { mode: 'payment', amount: keys.amount, currency: keys.currency };
+
+        if (chosen.payment_method_types?.length) {
+            this.stripeOptions.paymentMethodTypes = chosen.payment_method_types;
+        }
+
+        if (!this.stripeReady) {
+            this.stripeReady = loadStripe().then(() => {
+                this.stripe = window.Stripe(keys.publishable_key, keys.account ? { stripeAccount: keys.account } : {});
+                this.elements = this.stripe.elements(this.stripeOptions);
+                this.elements.create('payment').mount(box.querySelector('[data-checkout-stripe-element]'));
+            }).catch(() => {
+                this.stripeReady = null;
+                this.say([this.labels.stripe_error]);
+            });
+
+            return;
+        }
+
+        this.stripeReady.then(() => {
+            // Se Stripe.js non è partito, non c'è niente da aggiornare.
+            if (this.elements) {
+                this.elements.update(this.stripeOptions);
+            }
+        });
+    }
+
+    // «Paga»: Stripe controlla la carta, il server fa nascere l'ordine e l'intento, poi Stripe incassa.
+    async payOnline() {
+        if (this.paying) {
+            return;
+        }
+
+        if (!this.elements) {
+            this.say([this.labels.stripe_error]);
+
+            return;
+        }
+
+        // Una risposta del riepilogo ancora in viaggio non deve ridisegnare il modulo mentre si paga.
+        this.sequence++;
+        clearTimeout(this.timer);
+        this.paying = true;
+        this.lock(true);
+        this.say([]);
+
+        try {
+            const checked = await this.elements.submit();
+
+            if (checked.error) {
+                this.say([checked.error.message || this.labels.pay_failed]);
+
+                return;
+            }
+
+            if (!this.placed) {
+                this.placed = await this.place();
+
+                if (!this.placed) {
+                    return;
+                }
+
+                this.freeze();
+            }
+
+            const { error } = await this.stripe.confirmPayment({
+                elements: this.elements,
+                clientSecret: this.placed.client_secret,
+                confirmParams: { return_url: new URL(this.placed.return_url, window.location.href).href },
+            });
+
+            // Senza errore Stripe ha già portato il cliente al ritorno.
+            if (error) {
+                this.say([error.message || this.labels.pay_failed]);
+            }
+        } catch (error) {
+            this.say([this.labels.stripe_error]);
+        } finally {
+            this.paying = false;
+            this.lock(false);
+        }
+    }
+
+    // L'ordine nasce qui: il server controlla che il totale sia quello che il cliente ha visto.
+    async place() {
+        const response = await fetch(this.form.action, {
+            method: 'POST',
+            body: this.body({ expected_total: String(this.latest?.order?.total ?? '') }),
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (payload.client_secret) {
+            return payload;
+        }
+
+        if (payload.redirect) {
+            window.location.href = payload.redirect;
+
+            return null;
+        }
+
+        if (payload.error === 'total_changed' && payload.summary) {
+            this.render(payload.summary);
+            this.say([payload.message]);
+        } else {
+            this.say(payload.errors || [payload.message || payload.error || this.labels.summary_error]);
+        }
+
+        // Il reCAPTCHA vale una volta sola: l'ospite lo rifà prima del prossimo «Paga».
+        if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+            window.grecaptcha.reset();
+        }
+
+        return null;
+    }
+
+    // L'ordine è nato: il modulo non cambia più, altrimenti si pagherebbe un ordine diverso da quello che si vede.
+    freeze() {
+        this.frozen = true;
+        clearTimeout(this.timer);
+        this.form.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = true; });
+        document.querySelectorAll('[data-checkout-coupon] input, [data-checkout-coupon] button').forEach((field) => { field.disabled = true; });
+        document.querySelector('[data-checkout-stripe-abandon]')?.removeAttribute('hidden');
+    }
+
+    lock(on) {
+        document.querySelectorAll('[data-checkout-submit]').forEach((button) => { button.disabled = on; });
+        this.busy(on);
+    }
+
+    // Gli errori del pagamento si leggono vicino alla carta e nel riepilogo.
+    say(messages) {
+        const list = (messages || []).filter(Boolean);
+        const box = document.querySelector('[data-checkout-stripe-notice]');
+
+        if (box) {
+            box.textContent = list.join(' ');
+        }
+
+        this.notices(list);
+    }
+
     // Un clic solo: il bottone si spegne all'invio e torna acceso se il browser riapre la pagina dalla cache.
+    // Con Stripe il modulo non parte: lo manda payOnline() in JSON.
     guardSubmit() {
         this.form.addEventListener('submit', (event) => {
             if (!this.validate(event)) {
+                return;
+            }
+
+            if (this.chosenPayment()?.provider === 'stripe') {
+                event.preventDefault();
+                this.payOnline();
+
                 return;
             }
 
@@ -639,6 +819,83 @@ window.addEventListener('pageshow', (event) => {
     document.querySelectorAll('form[data-cart-action]').forEach((form) => { delete form.dataset.cartSending; });
     cartSpinner(false);
 });
+
+let stripeScript = null;
+
+// Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
+function loadStripe() {
+    if (window.Stripe) {
+        return Promise.resolve();
+    }
+
+    if (!stripeScript) {
+        stripeScript = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+
+            script.src = 'https://js.stripe.com/v3/';
+            script.onload = () => resolve();
+            script.onerror = () => {
+                stripeScript = null;
+                script.remove();
+                reject(new Error('Stripe.js'));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    return stripeScript;
+}
+
+// La pagina «Paga ora»: ordine e intento ci sono già, il Payment Element parte dal client_secret.
+class CheckoutPay {
+    constructor(root) {
+        this.root = root;
+        this.labels = JSON.parse(root.dataset.labels || '{}');
+        this.button = root.querySelector('[data-checkout-pay-submit]');
+        this.notice = root.querySelector('[data-checkout-pay-notice]');
+
+        loadStripe().then(() => this.mount()).catch(() => this.say(this.labels.error));
+    }
+
+    mount() {
+        const account = this.root.dataset.account;
+
+        this.stripe = window.Stripe(this.root.dataset.publishableKey, account ? { stripeAccount: account } : {});
+        this.elements = this.stripe.elements({ clientSecret: this.root.dataset.clientSecret });
+        this.elements.create('payment').mount(this.root.querySelector('[data-checkout-pay-element]'));
+        this.button.addEventListener('click', () => this.pay());
+        this.button.disabled = false;
+    }
+
+    async pay() {
+        this.button.disabled = true;
+        this.say('');
+
+        try {
+            const { error } = await this.stripe.confirmPayment({
+                elements: this.elements,
+                confirmParams: { return_url: new URL(this.root.dataset.returnUrl, window.location.href).href },
+            });
+
+            // Senza errore Stripe ha già portato il cliente al ritorno.
+            if (error) {
+                this.say(error.message || this.labels.failed);
+            }
+        } catch (error) {
+            this.say(this.labels.error);
+        } finally {
+            this.button.disabled = false;
+        }
+    }
+
+    say(message) {
+        if (this.notice) {
+            this.notice.textContent = message || '';
+        }
+    }
+}
+
+document.querySelectorAll('[data-checkout-pay]').forEach((root) => new CheckoutPay(root));
 
 window.Checkout = Checkout;
 window.ecommerceCheckout = new Checkout();

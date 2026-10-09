@@ -6,6 +6,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Providers\Payments\StripeProvider;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\Plugin\Gestionale\Support\Promotions\Coupons;
@@ -64,6 +65,18 @@ final class CheckoutSummary
             $preview['payment_methods']['options'][$i] = $opzione + self::paymentDisplay((array) $opzione, $valuta);
         }
 
+        // Il Payment Element si disegna prima che l'ordine nasca: gli servono
+        // le chiavi pubbliche, l'importo in centesimi e la valuta, come all'intento.
+        foreach ((array) ($preview['payment_methods']['options'] ?? []) as $opzione) {
+            if (($opzione['provider'] ?? '') === 'stripe') {
+                $preview['stripe'] = OnlinePayment::browserKeys() + [
+                    'amount' => (int) round((float) $preview['order']['total'] * 100),
+                    'currency' => strtolower($valuta),
+                ];
+                break;
+            }
+        }
+
         $preview['shipping_methods']['address_complete'] = CheckoutRules::addressComplete((array) Order::findById($cartId));
         $preview['display']['shipping_pending'] = Gestionale::feature('shipping')
             && (string) ($preview['fulfillment']['type'] ?? 'shipping') === 'shipping'
@@ -76,7 +89,7 @@ final class CheckoutSummary
      * Loghi, commissione e pannello di un'opzione di pagamento.
      *
      * @param array<string, mixed> $option
-     * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string}
+     * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string, payment_method_types: list<string>}
      */
     private static function paymentDisplay(array $option, string $currency): array
     {
@@ -92,12 +105,21 @@ final class CheckoutSummary
         // (contrassegno dal listino, percentuale fino al 100%).
         $fee = (float) ($option['fee'] ?? 0);
 
+        $stripe = ($option['provider'] ?? '') === 'stripe';
+
         return [
             'icon_urls' => $icons,
             'fee_display' => $fee > 0 ? '+ '.CartPresenter::money($fee, $currency) : '',
-            'panel' => !empty($option['manual'])
-                ? (string) ($option['instructions'] ?? '')
-                : (string) __t('ecommerce.checkout.redirect_panel', ['name' => (string) ($option['name'] ?? '')]),
+            'panel' => match (true) {
+                !empty($option['manual']) => (string) ($option['instructions'] ?? ''),
+                // La carta si scrive nel Payment Element, sotto le scelte: niente pannello.
+                $stripe => '',
+                default => (string) __t('ecommerce.checkout.redirect_panel', ['name' => (string) ($option['name'] ?? '')]),
+            },
+            // Gli stessi metodi che avrà l'intento: Stripe rifiuta la conferma se non coincidono.
+            'payment_method_types' => $stripe
+                ? StripeProvider::methodTypes((string) (((array) PaymentMethod::findById((int) ($option['id'] ?? 0)))['stripe_payment_method_types'] ?? ''))
+                : [],
         ];
     }
 

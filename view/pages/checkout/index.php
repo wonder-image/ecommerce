@@ -55,6 +55,8 @@ foreach (['free', 'no_shipping', 'shipping_pending', 'shipping_methods_pending',
 foreach (['products_total', 'discount', 'total'] as $key) {
     $labels[$key] = (string) __t('ecommerce.cart.'.$key);
 }
+$labels['stripe_error'] = (string) __t('ecommerce.checkout.pay.error');
+$labels['pay_failed'] = (string) __t('ecommerce.checkout.pay.failed');
 
 $gaItems = array_map(static fn (array $item): array => [
     'item_id' => (string) ($item['sku'] ?? $item['product_id'] ?? ''),
@@ -171,6 +173,12 @@ View::head(DataLayer::script([
                     <?=ChoiceGroup::make()->variant('list')->choices(...array_map($payment, $payments))?>
                 <?php endif; ?>
             </div>
+            <?php /* Lo riempie checkout.js quando la scelta è Stripe; senza JavaScript resta nascosto e il server rifiuta il pagamento online. */ ?>
+            <div class="w-100 mt-3" data-checkout-stripe hidden>
+                <div class="w-100" data-checkout-stripe-element></div>
+                <p class="text-small mt-3" data-checkout-stripe-notice role="status"></p>
+                <button type="submit" form="checkout-abandon" class="btn btn-link mt-2" data-checkout-stripe-abandon hidden><?=e(__t('ecommerce.checkout.pay.abandon'))?></button>
+            </div>
         </div>
 
         <div id="fatturazione" class="w-100">
@@ -224,6 +232,10 @@ View::head(DataLayer::script([
     </form>
     <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), $aside + ['button' => ''])?>
 </div>
+<?php /* Fuori dal modulo del checkout: un form dentro un form non vale. Lo usa il bottone «Annulla l'ordine» dopo una carta rifiutata. */ ?>
+<form id="checkout-abandon" method="post" action="<?=e(__r('ecommerce.checkout.abandon'))?>" hidden>
+    <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+</form>
 <?php if (!$guest && $user_email !== ''): ?>
     <form id="checkout-logout" method="post" action="<?=e(__r('ecommerce.auth.logout'))?>" hidden>
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
