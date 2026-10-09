@@ -56,6 +56,8 @@ check('reopen: POST e CSRF, poi l\'ordine si annulla e il modulo torna col riepi
 
 check('reopen e il ritorno, se il denaro è arrivato, portano al ritorno col suo intento', fn () =>
     str_contains($reopen, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
+    && str_contains($returned, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
+    && str_contains($returned, "self::redirect(self::returnUrl(\$reopened['reference']))")
     && str_contains($reopen, "self::returnUrl(\$reopened['reference'])")
     && str_contains(corpo($controller, 'returnUrl'), "'?payment_intent='.rawurlencode("));
 

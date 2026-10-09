@@ -424,6 +424,10 @@ final class CheckoutController
         if ($outcome === 'retry' || $outcome === 'canceled') {
             // Il modulo si riapre: l'ordine si annulla e le righe tornano nel carrello.
             $reopened = self::reopenPending();
+            if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
+                // Il denaro è arrivato nel frattempo: vale il nuovo esito.
+                self::redirect(self::returnUrl($reopened['reference']));
+            }
             FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
             self::flashRemoved($reopened['removed']);
             self::redirect(self::route('ecommerce.checkout.index'));
