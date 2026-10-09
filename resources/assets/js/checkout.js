@@ -623,6 +623,8 @@ class Checkout {
         this.paying = true;
         this.lock(true);
         this.say([]);
+        payAlert('');
+        paySpinner(true, this.labels.processing);
 
         try {
             const checked = await this.elements.submit();
@@ -654,13 +656,14 @@ class Checkout {
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
-                this.say([error.message || this.labels.pay_failed]);
+                this.say([payAlert(error.message || this.labels.pay_failed)]);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
         } finally {
             this.paying = false;
             this.lock(false);
+            paySpinner(false);
         }
     }
 
@@ -856,6 +859,41 @@ function cartSpinner(on) {
     }
 }
 
+// Mentre si paga lo spinner dice cosa succede; spento torna al testo della lib. Se Stripe chiede il 3DS,
+// la sua finestra sta sopra lo spinner. Riuscito il pagamento, lo spinner resta fino alla pagina di ritorno.
+// Un rifiuto di Stripe (la carta, il 3DS) si legge in un alert della lib, che resta finché il cliente non lo chiude
+// o non riprova. Restituisce il messaggio che non ha potuto mostrare, così torna sotto la carta.
+function payAlert(message) {
+    document.querySelectorAll('[data-pay-alert]').forEach((node) => node.remove());
+
+    const alert = document.querySelector('[data-checkout-pay-alert]')?.content.firstElementChild?.cloneNode(true);
+
+    if (!message || !alert || typeof alertContainer !== 'function') {
+        return message;
+    }
+
+    alert.removeAttribute('id');
+    alert.dataset.payAlert = '';
+    alert.classList.remove('wi-show');
+    alert.querySelector('.wi-alert-body').textContent = message;
+    alertContainer().appendChild(alert);
+    // Entra da destra come gli alert della lib.
+    requestAnimationFrame(() => requestAnimationFrame(() => alert.classList.add('wi-show')));
+
+    return '';
+}
+
+function paySpinner(on, text = '') {
+    const message = document.querySelector('#loading-spinner .text');
+
+    if (message) {
+        message.dataset.text ??= message.textContent;
+        message.textContent = on && text ? text : message.dataset.text;
+    }
+
+    cartSpinner(on);
+}
+
 document.addEventListener('submit', (event) => {
     const form = event.target;
 
@@ -890,7 +928,7 @@ window.addEventListener('pageshow', (event) => {
     }
 
     document.querySelectorAll('form[data-cart-action]').forEach((form) => { delete form.dataset.cartSending; });
-    cartSpinner(false);
+    paySpinner(false);
 });
 
 let stripeScript = null;
@@ -947,6 +985,8 @@ class CheckoutPay {
     async pay() {
         this.button.disabled = true;
         this.say('');
+        payAlert('');
+        paySpinner(true, this.labels.processing);
 
         try {
             const { error } = await this.stripe.confirmPayment({
@@ -959,12 +999,13 @@ class CheckoutPay {
 
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
-                this.say(error.message || this.labels.failed);
+                this.say(payAlert(error.message || this.labels.failed));
             }
         } catch (error) {
             this.say(this.labels.error);
         } finally {
             this.button.disabled = false;
+            paySpinner(false);
         }
     }
 

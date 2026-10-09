@@ -18,13 +18,18 @@
 .StripeElement div {
     float: none;
 }
+/* A ordine nato il radio è spento e la lib sbiadisce la scelta, ma dopo un rifiuto la carta si cambia qui. */
+.wi-choice:has(> .wi-choice__panel .StripeElement) {
+    opacity: 1;
+}
 /* Un pannello chiuso sparisce anche quando è una griglia (.d-grid vince su [hidden]). */
 .wi-checkout [hidden] {
     display: none !important;
 }
+/* Sul desktop il modulo prende 3 colonne su 5 e il riepilogo 2. */
 .wi-checkout__form {
     width: 100%;
-    max-width: 560px;
+    max-width: 720px;
     margin-left: auto;
 }
 .wi-checkout__aside {
@@ -72,6 +77,7 @@
 }
 @media (max-width: 1024px) {
     .wi-checkout__form {
+        grid-column: 1 / -1;
         max-width: none;
     }
     .wi-checkout__aside {

@@ -10,6 +10,7 @@ $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_H
 $labels = [
     'failed' => (string) __t('ecommerce.checkout.pay.failed'),
     'error' => (string) __t('ecommerce.checkout.pay.error'),
+    'processing' => (string) __t('ecommerce.checkout.pay.processing'),
 ];
 ?>
 <div class="w-100 wi-box p-6">
@@ -30,6 +31,7 @@ $labels = [
             data-labels="<?=e(json_encode($labels, $flags))?>">
             <div class="w-100" data-checkout-pay-element></div>
             <p class="text-small mt-3" data-checkout-pay-notice role="status"></p>
+            <template data-checkout-pay-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.pay.alert_title'), '')?></template>
             <button type="button" class="btn btn-primary w-100 mt-4" data-checkout-pay-submit disabled><?=e(__t('ecommerce.checkout.pay.submit'))?></button>
         </div>
     <?php endif; ?>

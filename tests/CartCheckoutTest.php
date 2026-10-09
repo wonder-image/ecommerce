@@ -28,6 +28,18 @@ check('il presenter formatta totali e quantità senza dipendere dalla view', fn 
     ]) === '3,5'
 );
 
+check('nel carrello il nome di un prodotto è senza simboli: «Maglietta Girocollo Blu S Cotone»', function () use ($root) {
+    $lines = CartPresenter::lines([
+        ['type' => 'product', 'name' => 'Maglietta Girocollo &#8212; Blu / S / Cotone'],
+        ['type' => 'product', 'name' => 'Borsa 24/7 — Nera'],
+        ['type' => 'product', 'name' => 'Tazza'],
+    ]);
+    $mini = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+
+    return array_column($lines, 'name') === ['Maglietta Girocollo Blu S Cotone', 'Borsa 24/7 Nera', 'Tazza']
+        && str_contains($mini, 'CartPresenter::lines(');
+});
+
 check('le route pubbliche espongono carrello e checkout con mutazioni POST', function () use ($root) {
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
 
@@ -425,8 +437,20 @@ check('il riepilogo è sticky e le righe non hanno lo SKU', function (): bool {
     $css = (string) @file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
     $righe = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/lines.php');
 
-    return str_contains($css, 'position: sticky') && str_contains($css, '560px')
+    return str_contains($css, 'position: sticky')
         && !str_contains($righe, 'data-line-sku') && str_contains($righe, '64px');
+});
+
+check('sul desktop il modulo prende 3 colonne su 5 e il riepilogo 2; sotto i 1024px il modulo va a tutta riga', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $aside = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/aside.php');
+
+    return str_contains($view, '<div class="w-100 d-grid col-5 col-t-1 gap-6 wi-checkout">')
+        && str_contains($view, 'class="w-100 col-3 col-t-1 d-flex d-column gap-6 wi-checkout__form"')
+        && str_contains($aside, "'w-100 col-2 col-t-1 wi-checkout__aside'")
+        && !str_contains($css, '560px')
+        && (bool) preg_match('/@media \(max-width: 1024px\) \{\s*\.wi-checkout__form \{[^}]*grid-column: 1 \/ -1;/', $css);
 });
 
 check('il riepilogo è un box grigio che resta fermo: la section del layout non taglia lo sticky', function (): bool {
@@ -446,6 +470,12 @@ check('i float delle section del sito non rompono il riepilogo mobile, gli impor
         && (bool) preg_match('/\.wi-checkout__mobile > div\s*\{[^}]*float:\s*none[^}]*display:\s*flow-root/', $css)
         && (bool) preg_match('/\[data-checkout-total\],\s*\[data-line-total\]\s*\{[^}]*white-space:\s*nowrap/', $css)
         && (bool) preg_match('/\.StripeElement div\s*\{[^}]*float:\s*none/', $css);
+});
+
+check('a ordine nato i campi di Stripe non sembrano spenti: si cambia carta dopo un rifiuto', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
+
+    return (bool) preg_match('/\.wi-choice:has\(> \.wi-choice__panel \.StripeElement\)\s*\{[^}]*opacity:\s*1/', $css);
 });
 
 check('i pannelli nascosti del checkout spariscono anche se sono griglie', fn (): bool =>
@@ -662,7 +692,8 @@ check('le operazioni del carrello mostrano lo spinner per un tempo minimo e lo t
 
     return str_contains($js, "form[data-cart-action]")
         && str_contains($js, 'loadingSpinner(on)')
-        && str_contains($js, 'cartSpinner(true)') && str_contains($js, 'cartSpinner(false)')
+        // Tornando indietro lo spegne paySpinner(false), che rimette anche il testo della lib.
+        && str_contains($js, 'cartSpinner(true)') && str_contains($js, "paySpinner(false);\n});")
         && (bool) preg_match('/CART_SPINNER_MIN\s*=\s*\d{3,4}/', $js)
         // Il bottone premuto porta quantità e formaction: form.submit() li perderebbe.
         && str_contains($js, 'form.requestSubmit(submitter)')

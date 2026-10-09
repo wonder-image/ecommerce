@@ -164,6 +164,8 @@
             "title": "Order payment",
             "text": "Order {{number}}, total {{total}}.",
             "submit": "Pay now",
+            "processing": "Processing payment",
+            "alert_title": "Payment failed",
             "abandon": "Cancel the order",
             "abandoned": "The order has been cancelled.",
             "failed": "The payment did not go through. Try again or use a different method.",

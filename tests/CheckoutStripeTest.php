@@ -159,4 +159,34 @@ check('per un\'azienda il nome è la ragione sociale; senza indirizzi resta il p
 ])['name'] === 'Rossi Srl'
     && OnlinePayment::billingDetails(['billing_country' => ''])['address']['country'] === 'IT');
 
+check('mentre si paga lo spinner della lib dice «Elaborazione pagamento» e torna com\'era dopo', function () use ($js, $view, $pay, $root): bool {
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return ($it['checkout']['pay']['processing'] ?? '') === 'Elaborazione pagamento'
+        && ($en['checkout']['pay']['processing'] ?? '') === 'Processing payment'
+        && str_contains($view, "\$labels['processing'] = (string) __t('ecommerce.checkout.pay.processing')")
+        && str_contains($pay, "'processing' => (string) __t('ecommerce.checkout.pay.processing')")
+        && str_contains($js, 'function paySpinner(')
+        && substr_count($js, 'paySpinner(true, this.labels.processing)') === 2
+        && substr_count($js, 'paySpinner(false)') >= 3
+        && str_contains($js, '#loading-spinner .text');
+});
+
+check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che resta finché non lo chiudi', function () use ($js, $view, $pay, $root): bool {
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+    $template = "<template data-checkout-pay-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.pay.alert_title'), '')?></template>";
+
+    return ($it['checkout']['pay']['alert_title'] ?? '') === 'Pagamento non riuscito'
+        && ($en['checkout']['pay']['alert_title'] ?? '') === 'Payment failed'
+        && str_contains($view, $template) && str_contains($pay, $template)
+        && str_contains($js, 'function payAlert(')
+        && str_contains($js, 'alertContainer()')
+        && str_contains($js, "'.wi-alert-body'")
+        && str_contains($js, 'payAlert(error.message || this.labels.pay_failed)')
+        && str_contains($js, 'payAlert(error.message || this.labels.failed)')
+        && substr_count($js, "payAlert('')") === 2;
+});
+
 summary();
