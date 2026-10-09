@@ -141,7 +141,8 @@
         "errors": {
             "empty": "Your cart is empty.",
             "payment_method": "Choose an available payment method.",
-            "provider_pending": "Online payment is not available yet. Choose a different payment method.",
+            "online_javascript": "Online payment needs JavaScript enabled in your browser. Enable it or choose a different payment method.",
+            "total_changed": "The order total has changed. Please check it and press «Pay» again.",
             "generic": "The order could not be completed. Check the details and try again.",
             "contact": "Enter first name, last name, a valid email and a phone number.",
             "address": "Complete the shipping address.",

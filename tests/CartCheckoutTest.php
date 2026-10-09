@@ -98,7 +98,8 @@ check('il checkout non finge il completamento dei provider online non collegati'
     $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
 
     return str_contains($controller, 'CheckoutForm::isManual($method)')
-        && str_contains($controller, 'ecommerce.checkout.errors.provider_pending')
+        && str_contains($controller, 'ecommerce.checkout.errors.online_javascript')
+        && !str_contains($controller, 'provider_pending')
         && str_contains($controller, 'Checkout::place')
         && str_contains($controller, 'ecommerce_checkout_completed');
 });

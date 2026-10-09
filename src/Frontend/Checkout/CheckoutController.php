@@ -106,13 +106,22 @@ final class CheckoutController
     }
 
 
+    /**
+     * L'ordine nasce qui. Un metodo manuale porta alla pagina «completato»;
+     * un metodo online risponde al JavaScript col segreto dell'intento, e
+     * l'ordine resta in sessione finché il denaro non arriva.
+     */
     private static function place(): void
     {
         self::requirePost();
+        $json = self::wantsJson();
+        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
+        }
         self::requireCsrf();
 
         if (!self::guestAllowed() && !CartSession::authenticated()) {
-            self::redirect(self::loginUrl());
+            self::leave(self::loginUrl(), $json, 401);
         }
 
         $post = CheckoutRules::post($_POST, CartSession::user());
@@ -128,6 +137,14 @@ final class CheckoutController
 
             $cartId = self::cartId();
             if ($cartId === 0) {
+                // Il carrello è già diventato l'ordine: si torna a pagarlo.
+                if (OnlinePayment::pending() > 0) {
+                    self::leave(self::route('ecommerce.checkout.pay'), $json);
+                }
+                if ($json) {
+                    self::leave(self::route('ecommerce.cart.index'), true, 409);
+                }
+
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
             }
 
@@ -142,8 +159,7 @@ final class CheckoutController
                 CheckoutRules::paymentErrors($post, $billing, $asked)
             )));
             if ($missing !== []) {
-                self::rememberErrors(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post);
-                self::redirect(self::route('ecommerce.checkout.index'));
+                self::reject(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing), $post, $json);
             }
 
             // Vale solo un metodo che la pagina ha offerto.
@@ -151,8 +167,19 @@ final class CheckoutController
             if ($method === null) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.payment_method'));
             }
-            if (!CheckoutForm::isManual($method)) {
-                throw new RuntimeException((string) __t('ecommerce.checkout.errors.provider_pending'));
+
+            $online = !CheckoutForm::isManual($method);
+            if ($online && !$json) {
+                throw new RuntimeException((string) __t('ecommerce.checkout.errors.online_javascript'));
+            }
+            // Il Payment Element mostra un importo: se nel frattempo è cambiato, il cliente lo rivede prima di pagare.
+            if ($online && !OnlinePayment::sameTotal($_POST['expected_total'] ?? null, $preview['order']['total'] ?? null)) {
+                self::json([
+                    'success' => false,
+                    'error' => 'total_changed',
+                    'message' => (string) __t('ecommerce.checkout.errors.total_changed'),
+                    'summary' => $preview,
+                ], 409);
             }
 
             $data = CheckoutForm::data([
@@ -168,7 +195,17 @@ final class CheckoutController
                 $account = GuestCheckout::account($order, $post, $asked);
                 $userId = $account['user_id'];
                 $customerId = $account['customer_id'];
-                $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'));
+                // Online il link parte con la conferma, dal modulo (Ecommerce::orderEmailExtras).
+                if (!$online) {
+                    $passwordLink = GuestCheckout::passwordLink($userId, self::route('ecommerce.auth.password.restore'));
+                }
+            }
+
+            // Un ordine online lasciato a metà non resta a tenere la merce.
+            try {
+                OnlinePayment::dropPending();
+            } catch (Throwable $error) {
+                Errors::internal($error, 'ecommerce.checkout.drop');
             }
 
             $result = Checkout::place($cartId, $data + [
@@ -187,7 +224,7 @@ final class CheckoutController
                 }
             }
 
-            $_SESSION[self::COMPLETED] = [
+            $receipt = [
                 'order_id' => (int) ($result['order_id'] ?? 0),
                 'order_number' => (string) ($result['order_number'] ?? ''),
                 'total' => (string) ($result['total'] ?? ''),
@@ -196,17 +233,34 @@ final class CheckoutController
                 'guest' => $guest,
                 'email_sent' => $guest && ($result['customer_email_sent'] ?? false),
             ];
-            self::redirect(self::route('ecommerce.checkout.completed'));
+
+            if (!$online) {
+                $_SESSION[self::COMPLETED] = $receipt;
+                self::leave(self::route('ecommerce.checkout.completed'), $json);
+            }
+
+            $_SESSION[OnlinePayment::RECEIPT] = $receipt;
+            try {
+                $clientSecret = OnlinePayment::start($receipt['order_id'])['client_secret'];
+            } catch (Throwable $error) {
+                // L'ordine c'è: la pagina di pagamento riprova a creare l'intento.
+                Errors::internal($error, 'ecommerce.checkout.start', ['order_id' => $receipt['order_id']]);
+                self::json(['success' => false, 'redirect' => self::route('ecommerce.checkout.pay')], 502);
+            }
+
+            self::json([
+                'success' => true,
+                'client_secret' => $clientSecret,
+                'return_url' => self::route('ecommerce.checkout.return'),
+            ]);
         } catch (UserError $error) {
-            self::rememberErrors([$error->getMessage()], $post);
+            self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
-            self::rememberErrors([$error->getMessage()], $post);
+            self::reject([$error->getMessage()], $post, $json);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.place');
-            self::rememberErrors([(string) __t('ecommerce.checkout.errors.generic')], $post);
+            self::reject([(string) __t('ecommerce.checkout.errors.generic')], $post, $json);
         }
-
-        self::redirect(self::route('ecommerce.checkout.index'));
     }
 
     private static function summary(): never
@@ -313,6 +367,27 @@ final class CheckoutController
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
+    }
+
+    /** Fuori dal checkout: in JSON un indirizzo da seguire, altrimenti un redirect. */
+    private static function leave(string $url, bool $json, int $status = 200): never
+    {
+        if ($json) {
+            self::json(['success' => $status === 200, 'redirect' => $url], $status);
+        }
+
+        self::redirect($url);
+    }
+
+    /** Errori da mostrare sul modulo: in JSON tornano al JavaScript, altrimenti in sessione. */
+    private static function reject(array $errors, array $post, bool $json): never
+    {
+        if ($json) {
+            self::json(['success' => false, 'errors' => array_values($errors)], 422);
+        }
+
+        self::rememberErrors($errors, $post);
+        self::redirect(self::route('ecommerce.checkout.index'));
     }
 
     private static function completed(): void

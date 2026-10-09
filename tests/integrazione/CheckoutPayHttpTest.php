@@ -33,4 +33,22 @@ check('la pagina di pagamento senza ordine in sessione rimanda al carrello', fn 
 [$status] = $request('/checkout/abandon/', ['csrf_token' => 'invalid']);
 check('l\'abbandono con CSRF invalido viene rifiutato', fn () => $status === 419);
 
+$xhr = ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'];
+
+[$status, , $body] = $request('/checkout/', ['csrf_token' => 'invalid'], $xhr);
+$risposta = json_decode($body, true);
+check('place in JSON con CSRF invalido risponde 419 in JSON', fn () =>
+    $status === 419 && is_array($risposta) && ($risposta['success'] ?? null) === false);
+
+// Il token valido viene dalla pagina di login, nella stessa sessione.
+[, , $login] = $request('/account/auth/login/');
+preg_match('/name="csrf_token" value="([^"]+)"/', $login, $token);
+[$status, , $body] = $request('/checkout/', ['csrf_token' => $token[1] ?? ''], $xhr);
+$risposta = json_decode($body, true);
+check('place in JSON senza carrello risponde in JSON e non con una pagina', fn () =>
+    ($token[1] ?? '') !== ''
+    && in_array($status, [401, 409, 422], true)
+    && is_array($risposta)
+    && ($risposta['success'] ?? null) === false);
+
 summary();

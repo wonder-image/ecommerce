@@ -156,7 +156,8 @@
         "errors": {
             "empty": "Il carrello è vuoto.",
             "payment_method": "Scegli un metodo di pagamento disponibile.",
-            "provider_pending": "Il pagamento online non è ancora disponibile. Scegli un altro metodo di pagamento.",
+            "online_javascript": "Per pagare online serve JavaScript attivo nel browser. Attivalo o scegli un altro metodo di pagamento.",
+            "total_changed": "Il totale dell'ordine è cambiato. Controllalo e premi di nuovo «Paga».",
             "generic": "Non è stato possibile completare l’ordine. Controlla i dati e riprova.",
             "contact": "Inserisci nome, cognome, un’email valida e il telefono.",
             "address": "Completa l’indirizzo di spedizione.",
