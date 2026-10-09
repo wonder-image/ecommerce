@@ -224,6 +224,18 @@ check('con l\'accesso fatto vince l\'email dell\'utente', function (): bool {
     return $p['email'] === 'ada@example.com' && $senza['email'] === 'altra@example.com';
 });
 
+check('post spezza «id:tipo» in id nudo e tipo Stripe; senza due punti il tipo è vuoto', function (): bool {
+    $klarna = CheckoutRules::post(['payment_method_id' => '891:klarna']);
+    $carta = CheckoutRules::post(['payment_method_id' => '891']);
+    $strano = CheckoutRules::post(['payment_method_id' => 'x:y']);
+    $senza = CheckoutRules::post(['email' => 'c@example.com']);
+
+    return $klarna['payment_method_id'] === 891 && $klarna['stripe_method_type'] === 'klarna'
+        && $carta['payment_method_id'] === 891 && $carta['stripe_method_type'] === ''
+        && $strano['payment_method_id'] === 0 && $strano['stripe_method_type'] === ''
+        && !array_key_exists('payment_method_id', $senza) && !array_key_exists('stripe_method_type', $senza);
+});
+
 check('un metodo di pagamento che non è nell\'anteprima non vale', function (): bool {
     $preview = ['payment_methods' => ['options' => [['id' => 4, 'name' => 'Bonifico', 'manual' => true]]]];
 

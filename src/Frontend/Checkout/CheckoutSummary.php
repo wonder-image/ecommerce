@@ -6,7 +6,6 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
-use Wonder\Plugin\Gestionale\Providers\Payments\StripeProvider;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\Plugin\Gestionale\Support\Promotions\Coupons;
@@ -108,7 +107,7 @@ final class CheckoutSummary
      * Loghi, commissione e pannello di un'opzione di pagamento.
      *
      * @param array<string, mixed> $option
-     * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string, payment_method_types: list<string>}
+     * @return array{icon_urls: list<array{src: string, alt: string}>, fee_display: string, panel: string, key: string, stripe_method_type: string, payment_method_types: list<string>}
      */
     private static function paymentDisplay(array $option, string $currency): array
     {
@@ -127,10 +126,11 @@ final class CheckoutSummary
                 $stripe => '',
                 default => (string) __t('ecommerce.checkout.redirect_panel', ['name' => (string) ($option['name'] ?? '')]),
             },
-            // Gli stessi metodi che avrà l'intento: Stripe rifiuta la conferma se non coincidono.
-            'payment_method_types' => $stripe
-                ? StripeProvider::methodTypes((string) (((array) PaymentMethod::findById((int) ($option['id'] ?? 0)))['stripe_payment_method_types'] ?? ''))
-                : [],
+            // Chiave e tipo li dà il gestionale (`+` tiene i suoi); questi sono solo il ripiego.
+            'key' => (string) ($option['id'] ?? ''),
+            'stripe_method_type' => $stripe ? 'card' : '',
+            // Gli stessi metodi che avrà l'intento: li decide il gestionale, Stripe rifiuta la conferma se non coincidono.
+            'payment_method_types' => $stripe ? array_values((array) ($option['payment_method_types'] ?? [])) : [],
         ];
     }
 

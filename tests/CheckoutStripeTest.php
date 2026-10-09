@@ -26,7 +26,7 @@ check('il Payment Element del checkout parte senza intento, con importo e valuta
     && str_contains($js, "chosen?.provider === 'stripe'"));
 
 check('«Paga»: prima Stripe controlla la carta, poi nasce l\'ordine col totale visto, poi Stripe incassa', function () use ($js): bool {
-    $submit = strpos($js, 'await this.elements.submit()');
+    $submit = strpos($js, 'await elements.submit()');
     $place = strpos($js, 'await this.place()');
     $confirm = strpos($js, 'await this.stripe.confirmPayment(');
 
@@ -93,9 +93,10 @@ check('la pagina «Paga ora» offre «Cambia metodo di pagamento», che riapre i
         && !isset($it['checkout']['pay']['abandon'], $it['checkout']['pay']['abandoned'], $en['checkout']['pay']['abandon'], $en['checkout']['pay']['abandoned']);
 });
 
-check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e metodi della carta', fn () => str_contains($summary, 'OnlinePayment::browserKeys()')
+check('il riepilogo dà al browser solo chiavi pubbliche, centesimi e i tipi che il gestionale dà alla scelta', fn () => str_contains($summary, 'OnlinePayment::browserKeys()')
     && str_contains($summary, "'amount' => (int) round((float) \$preview['order']['total'] * 100)")
-    && str_contains($summary, 'StripeProvider::methodTypes(')
+    && !str_contains($summary, 'StripeProvider')
+    && str_contains($summary, "\$option['payment_method_types']")
     && str_contains($summary, "'payment_method_types' =>")
     && str_contains($summary, "(\$option['provider'] ?? '') === 'stripe'")
     && !str_contains($summary, 'stripe_private_key')
@@ -123,6 +124,15 @@ check('i campi della carta stanno nel pannello della scelta e sopravvivono al ri
         && str_contains($js, 'this.paymentElement.mount(')
         && str_contains($js, '[data-checkout-stripe-element]');
 });
+
+check('ogni scelta Stripe ha il suo gruppo elements, con i soli tipi della scelta', fn () =>
+    str_contains($js, 'this.groups')
+    && str_contains($js, 'paymentMethodTypes: chosen.payment_method_types')
+    && str_contains($js, "'loaderror'")
+    && str_contains($js, 'dropChoice('));
+
+check('il radio del pagamento vale la chiave della scelta', fn () =>
+    str_contains($js, 'value: o.key') && !str_contains(substr($js, (int) strpos($js, '    payments(payload) {'), 900), 'value: o.id'));
 
 $dati = OnlinePayment::billingDetails([
     'email' => 'mario@example.com',
@@ -228,5 +238,99 @@ check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box de
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed);')
         && str_contains($js, 'payAlert(error.message || this.labels.failed);');
 });
+
+check('il radio del pagamento vale la chiave della scelta; post la spezza in id e tipo', fn () =>
+    str_contains($view, "Choice::make('payment_method_id', (string) \$p['key'])")
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891:klarna') === [891, 'klarna']
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891') === [891, '']
+    && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('x:y') === [0, '']);
+
+check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirmPayment; durante il pagamento la scelta non cambia', function () use ($js): bool {
+    $from = (int) strpos($js, '    async payOnline() {');
+    $pay = substr($js, $from, (int) strpos($js, '    async place() {') - $from);
+    $drop = substr($js, (int) strpos($js, '    dropChoice(key) {'), 160);
+    $schedule = substr($js, (int) strpos($js, '    schedule() {'), 600);
+
+    return str_contains($pay, 'const { elements } = group;')
+        && str_contains($pay, 'await elements.submit()')
+        && (bool) preg_match('/confirmPayment\(\{\s*elements,/', $pay)
+        && !str_contains($pay, 'this.elements')
+        && !str_contains($pay, 'this.paymentElement')
+        && str_contains($pay, 'this.payKey = ')
+        && str_contains($js, 'syncPaymentRadios()')
+        && str_contains($js, 'radio.disabled = Boolean(this.paying) || Boolean(this.frozen)')
+        && str_contains($js, "if (this.payKey) {\n            data.set('payment_method_id', this.payKey);")
+        && (bool) preg_match('/^\s*dropChoice\(key\) \{\s*(\/\/[^\n]*\s*)?if \(this\.paying\)/', $drop)
+        && (bool) preg_match('/if \(this\.frozen\) \{\s*return;\s*\}\s*(\/\/[^\n]*\s*)?if \(this\.paying\) \{\s*return;/', $schedule);
+});
+
+check('il riquadro dei metodi a reindirizzamento è senza bordo né sfondo', fn () =>
+    str_contains($js, "const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };")
+    && str_contains($js, 'appearance: STRIPE_APPEARANCE')
+    && !str_contains($js, '// PROVA'));
+
+check('nessuna scelta mostra i wallet: Link, Apple Pay e Google Pay stanno nella barra rapida', fn () =>
+    !str_contains($js, "link: 'auto'")
+    && str_contains($js, "elements.create('payment', STRIPE_PAYMENT_ELEMENT)")
+    && str_contains($js, "const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }"));
+
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
+
+check('dopo un rifiuto con redirect lo stato del modulo ricorda il valore grezzo del radio', function (): bool {
+    $post = CheckoutRules::post(['payment_method_id' => '891:klarna', 'email' => 'a@example.com']);
+    $kept = CheckoutRules::rememberedPost($post, ['payment_method_id' => '891:klarna']);
+    $card = CheckoutRules::rememberedPost(CheckoutRules::post(['payment_method_id' => '891']), ['payment_method_id' => '891']);
+
+    return $post['payment_method_id'] === 891 && $post['stripe_method_type'] === 'klarna'
+        && $kept['payment_method_id'] === '891:klarna' && !array_key_exists('stripe_method_type', $kept)
+        && $kept['email'] === 'a@example.com'
+        && $card['payment_method_id'] === '891'
+        && CheckoutRules::rememberedPost(['payment_method_id' => 7], [])['payment_method_id'] === 7
+        && CheckoutRules::rememberedPost(['payment_method_id' => 7], ['payment_method_id' => ['x']])['payment_method_id'] === 7
+        // Al riepilogo e al carrello torna l'id nudo.
+        && CheckoutRules::post(['payment_method_id' => $kept['payment_method_id']])['payment_method_id'] === 891;
+});
+
+check('nella vista è spuntata la scelta con la chiave salvata; senza corrispondenza vale l\'id più la carta', function () use ($view, $controller): bool {
+    $options = [
+        ['id' => 891, 'key' => '891', 'stripe_method_type' => 'card'],
+        ['id' => 891, 'key' => '891:klarna', 'stripe_method_type' => 'klarna'],
+        ['id' => 7, 'key' => '7', 'stripe_method_type' => ''],
+    ];
+
+    return CheckoutRules::checkedPayment($options, '891:klarna', 891) === '891:klarna'
+        && CheckoutRules::checkedPayment($options, '891:link', 891) === '891'
+        && CheckoutRules::checkedPayment($options, '891', 891) === '891'
+        && CheckoutRules::checkedPayment($options, '', 7) === '7'
+        && CheckoutRules::checkedPayment($options, '', 0) === ''
+        && str_contains($view, 'CheckoutRules::checkedPayment(')
+        && str_contains($controller, 'CheckoutRules::rememberedPost(');
+});
+
+check('i tipi della scelta arrivano dal gestionale, non dal CSV', fn () =>
+    str_contains($summary, "'payment_method_types' =>")
+    && !str_contains($summary, 'stripe_payment_method_types')
+    && str_contains($controller, "'stripe_method_type' =>"));
+
+check('splitPayment: tipo valido solo [a-z0-9_]{1,40}, id solo positivo, valori non scalari scartati', function (): bool {
+    $split = fn (mixed $v): array => \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment($v);
+
+    return $split(891) === [891, '']
+        && $split('891:Klarna') === [891, '']
+        && $split('891:bad-type') === [891, '']
+        && $split('891:') === [891, '']
+        && $split('891:'.str_repeat('a', 41)) === [891, '']
+        && $split('891:'.str_repeat('a', 40)) === [891, str_repeat('a', 40)]
+        && $split('891:us_bank_account') === [891, 'us_bank_account']
+        && $split('891:klarna:x') === [891, '']
+        && $split('0:klarna') === [0, '']
+        && $split('-3') === [0, '']
+        && $split('') === [0, '']
+        && $split(['891']) === [0, '']
+        && $split(null) === [0, ''];
+});
+
+check('dopo un pagamento rifiutato il modulo rispunta la scelta Stripe ricordata', fn () =>
+    str_contains($controller, 'OnlinePayment::pullChoice()'));
 
 summary();

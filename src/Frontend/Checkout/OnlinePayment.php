@@ -28,6 +28,8 @@ final class OnlinePayment
     public const RECEIPT = 'ecommerce_checkout_receipt';
     /** Chi ha avviato il pagamento: 0 per l'ospite. */
     public const OWNER = 'ecommerce_checkout_pending_user';
+    /** La scelta Stripe dell'ordine riaperto («891:klarna»), da rispuntare nel modulo. */
+    public const CHOICE = 'ecommerce_checkout_reopened_choice';
 
     /**
      * L'ordine ricordato in sessione, senza guardare in che stato è. Il login
@@ -227,7 +229,8 @@ final class OnlinePayment
     public static function reopen(): array
     {
         $id = self::sessionOrder();
-        $reference = $id > 0 ? (string) (OnlinePayments::payment($id)['provider_reference'] ?? '') : '';
+        $payment = $id > 0 ? (array) OnlinePayments::payment($id) : [];
+        $reference = (string) ($payment['provider_reference'] ?? '');
         $outcome = self::dropPending();
         if ($outcome === 'none' && $id > 0 && (Order::findById($id)['status'] ?? '') === 'cancelled') {
             // Annullato da altri (scadenza, webhook): le righe tornano lo stesso.
@@ -238,10 +241,23 @@ final class OnlinePayment
         }
 
         unset($_SESSION[self::RECEIPT]);
+        $method = (string) ($payment['provider_method'] ?? '');
+        if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
+            $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
+        }
         $cart = CartSession::current(true);
         $restored = Cart::restore($id, (int) ($cart['order']['id'] ?? 0));
 
         return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => array_values((array) ($restored['removed'] ?? []))];
+    }
+
+    /** La scelta ricordata da `reopen()`, una volta sola; vuota se non c'è. */
+    public static function pullChoice(): string
+    {
+        $choice = (string) ($_SESSION[self::CHOICE] ?? '');
+        unset($_SESSION[self::CHOICE]);
+
+        return $choice;
     }
 
     private static function confirm(string $provider, string $reference, PaymentState $state): string

@@ -7,6 +7,7 @@ use Wonder\Elements\Components\ChoiceGroup;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -29,6 +30,8 @@ $pickupOptions = (array) ($summary['pickup_locations']['options'] ?? []);
 $pickupSelected = (int) ($summary['pickup_locations']['selected'] ?? 0);
 $payments = (array) ($summary['payment_methods']['options'] ?? []);
 $paymentSelected = (int) ($values['payment_method_id'] ?? $summary['payment_methods']['selected'] ?? 0);
+// Il valore salvato del radio è la chiave («891:klarna»); senza corrispondenza vale l'id più la carta.
+$paymentChecked = CheckoutRules::checkedPayment($payments, (string) ($values['payment_method_id'] ?? ''), $paymentSelected);
 $manual = true;
 foreach ($payments as $p) {
     if ((int) $p['id'] === $paymentSelected) {
@@ -66,10 +69,10 @@ $gaItems = array_map(static fn (array $item): array => [
     'quantity' => (float) ($item['quantity'] ?? 1),
 ], array_values(array_filter($items, static fn (array $item): bool => (string) ($item['type'] ?? 'product') === 'product')));
 
-$payment = static fn (array $p): Choice => Choice::make('payment_method_id', (int) $p['id'])
+$payment = static fn (array $p): Choice => Choice::make('payment_method_id', (string) $p['key'])
     ->type('radio')->title((string) $p['name'])->aside((string) ($p['fee_display'] ?? ''))
     ->icons((array) ($p['icon_urls'] ?? []))->panel((string) ($p['panel'] ?? ''))
-    ->checked((int) $p['id'] === $paymentSelected);
+    ->checked((string) $p['key'] === $paymentChecked);
 
 Ecommerce::layout('checkout');
 View::head(DataLayer::script([

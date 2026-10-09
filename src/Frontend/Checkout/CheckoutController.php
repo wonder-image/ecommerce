@@ -56,6 +56,11 @@ final class CheckoutController
         $formState = self::pullFormState();
         $fromCart = array_filter(self::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
         $values = $formState !== [] ? self::defaults($formState) : $fromCart + self::defaults([]);
+        // Riaperto dopo un pagamento rifiutato: torna spuntata la scelta Stripe di prima (Klarna…), non la carta.
+        $choice = OnlinePayment::pullChoice();
+        if ($formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0)) {
+            $values['payment_method_id'] = $choice;
+        }
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
         $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $formState === []);
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
@@ -209,6 +214,8 @@ final class CheckoutController
             }
 
             $result = Checkout::place($cartId, $data + [
+                // Su una riga Stripe vuoto vale «card»: lo decide il gestionale.
+                'stripe_method_type' => (string) ($post['stripe_method_type'] ?? ''),
                 'customer_id' => $customerId,
                 'source' => 'ecommerce',
                 'user_id' => $userId,
@@ -397,7 +404,7 @@ final class CheckoutController
             self::json(['success' => false, 'errors' => array_values($errors)], 422);
         }
 
-        self::rememberErrors($errors, $post);
+        self::rememberErrors($errors, CheckoutRules::rememberedPost($post, $_POST));
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 

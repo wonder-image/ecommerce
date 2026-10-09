@@ -97,7 +97,83 @@ final class CheckoutRules
             $post['email'] = $email;
         }
 
+        // Il radio vale «id» oppure «id:tipo»: da qui in poi l'id è nudo e il tipo sta a parte.
+        if (array_key_exists('payment_method_id', $post)) {
+            [$post['payment_method_id'], $post['stripe_method_type']] = self::splitPayment($post['payment_method_id']);
+        }
+
         return array_merge($post, self::billing($post, $post));
+    }
+
+    /**
+     * Il valore del radio del pagamento: «891» è il metodo, «891:klarna» è la
+     * scelta Stripe «klarna» di quel metodo. Un id che non è un intero
+     * positivo vale 0 (nessun metodo); un tipo che non è `[a-z0-9_]{1,40}`
+     * vale `''`.
+     *
+     * @return array{0: int, 1: string} id e tipo Stripe
+     */
+    public static function splitPayment(mixed $value): array
+    {
+        if (is_int($value)) {
+            return [$value > 0 ? $value : 0, ''];
+        }
+
+        if (!is_string($value)) {
+            return [0, ''];
+        }
+
+        [$id, $type] = array_pad(explode(':', trim($value), 2), 2, '');
+
+        $id = ctype_digit($id) && (int) $id > 0 ? (int) $id : 0;
+
+        return $id > 0 && preg_match('/^[a-z0-9_]{1,40}$/', $type) === 1 ? [$id, $type] : [$id, ''];
+    }
+
+    /**
+     * Il POST come va nello stato del modulo in sessione: del radio del
+     * pagamento resta il valore grezzo che il browser ha mandato («891:klarna»),
+     * non l'id nudo, così dopo un redirect con errori torna spuntata la stessa
+     * scelta. `post()` lo spezza di nuovo per riepilogo e carrello.
+     *
+     * @param array<string, mixed> $post il POST già passato da `post()`
+     * @param array<string, mixed> $raw il POST come è arrivato
+     * @return array<string, mixed>
+     */
+    public static function rememberedPost(array $post, array $raw): array
+    {
+        $value = $raw['payment_method_id'] ?? null;
+
+        if (is_string($value) && $value !== '') {
+            $post['payment_method_id'] = $value;
+            unset($post['stripe_method_type']);
+        }
+
+        return $post;
+    }
+
+    /**
+     * La chiave della scelta di pagamento da spuntare: quella salvata, se la
+     * pagina la offre; altrimenti la voce con l'id scelto e, per Stripe, la
+     * carta. Vuota se nessuna.
+     *
+     * @param list<array<string, mixed>> $options
+     */
+    public static function checkedPayment(array $options, string $saved, int $selected): string
+    {
+        foreach ($options as $option) {
+            if ($saved !== '' && (string) ($option['key'] ?? '') === $saved) {
+                return $saved;
+            }
+        }
+
+        foreach ($options as $option) {
+            if ((int) ($option['id'] ?? 0) === $selected && in_array((string) ($option['stripe_method_type'] ?? ''), ['', 'card'], true)) {
+                return (string) ($option['key'] ?? $option['id'] ?? '');
+            }
+        }
+
+        return '';
     }
 
     /**
