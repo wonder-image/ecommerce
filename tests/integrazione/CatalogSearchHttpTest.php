@@ -64,7 +64,7 @@ check('la scheda conserva SEO e tracking senza il titolo Varianti', function () 
         && str_contains($html, 'aria-current="page"')
         && str_contains($html, '"event":"view_product"')
         && str_contains($html, '"user":{"id":null}')
-        && str_contains($html, 'https://ecommerce.test/prodotto/maglietta-girocollo/rosso/');
+        && str_contains($html, (getenv('WI_TEST_URL') ?: 'https://ecommerce.test').'/prodotto/maglietta-girocollo/rosso/');
 });
 
 summary();
