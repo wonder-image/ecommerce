@@ -438,6 +438,16 @@ check('il riepilogo è un box grigio che resta fermo: la section del layout non 
         && (bool) preg_match('/\.wi-checkout-section\s*\{[^}]*overflow:\s*visible/', $css);
 });
 
+check('i float delle section del sito non rompono il riepilogo mobile, gli importi e i campi di Stripe', function (): bool {
+    $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css');
+    $mobile = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/mobile.php');
+
+    return str_contains($mobile, 'wi-checkout__mobile')
+        && (bool) preg_match('/\.wi-checkout__mobile > div\s*\{[^}]*float:\s*none[^}]*display:\s*flow-root/', $css)
+        && (bool) preg_match('/\[data-checkout-total\],\s*\[data-line-total\]\s*\{[^}]*white-space:\s*nowrap/', $css)
+        && (bool) preg_match('/\.StripeElement div\s*\{[^}]*float:\s*none/', $css);
+});
+
 check('i pannelli nascosti del checkout spariscono anche se sono griglie', fn (): bool =>
     (bool) preg_match('/\.wi-checkout \[hidden\]\s*\{\s*display:\s*none\s*!important/', (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/checkout.css'))
 );

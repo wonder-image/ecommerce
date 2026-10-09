@@ -6,6 +6,18 @@
 .wi-checkout {
     align-items: start;
 }
+/* Le section del sito fanno galleggiare ogni div: il riepilogo mobile li contiene,
+   gli importi restano su una riga e i div interni di Stripe tornano larghi quanto il pannello. */
+.wi-checkout__mobile > div {
+    float: none;
+    display: flow-root;
+}
+[data-checkout-total], [data-line-total] {
+    white-space: nowrap;
+}
+.StripeElement div {
+    float: none;
+}
 /* Un pannello chiuso sparisce anche quando è una griglia (.d-grid vince su [hidden]). */
 .wi-checkout [hidden] {
     display: none !important;

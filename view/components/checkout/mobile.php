@@ -5,7 +5,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
 ?>
-<details class="wi-box p-4 mb-4 pc-none">
+<details class="wi-box p-4 mb-4 pc-none wi-checkout__mobile">
     <summary class="d-flex gap-3">
         <span class="w-100"><?=e(__t('ecommerce.checkout.show_cart'))?></span>
         <strong data-checkout-total><?=e(CartPresenter::money($order['total'] ?? 0, $currency))?></strong>
