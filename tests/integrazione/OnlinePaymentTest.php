@@ -250,8 +250,11 @@ check('reopen riapre anche un ordine già annullato da altri, ma non uno estrane
 check('reopen ricorda la scelta Stripe diversa dalla carta: il modulo la rispunta una volta sola', fn () => prova(static function (): bool {
     [$ordine] = avviatoConRighe();
     $riga = OnlinePayments::payment($ordine);
+    Order::update(['payment_method_id' => 891], $ordine);
     Payment::update(['payment_method_id' => 891, 'provider_method' => 'klarna'], (int) $riga['id']);
     OnlinePayment::reopen();
+    // Il carrello riaperto ha lo stesso metodo: l'indice confronta la scelta con lui.
+    $metodo = (int) (CartSession::current(false)['order']['payment_method_id'] ?? 0);
     $prima = OnlinePayment::pullChoice();
     $dopo = OnlinePayment::pullChoice();
 
@@ -259,7 +262,7 @@ check('reopen ricorda la scelta Stripe diversa dalla carta: il modulo la rispunt
     Payment::update(['payment_method_id' => 891, 'provider_method' => 'card'], (int) OnlinePayments::payment($carta)['id']);
     OnlinePayment::reopen();
 
-    return $prima === '891:klarna' && $dopo === '' && OnlinePayment::pullChoice() === '';
+    return $metodo === 891 && $prima === '891:klarna' && $dopo === '' && OnlinePayment::pullChoice() === '';
 }));
 
 PaymentProviders::reset();
