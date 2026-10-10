@@ -1154,6 +1154,14 @@ class CheckoutPay {
         loadStripe().then(() => this.mount()).catch(() => this.say(this.labels.error));
     }
 
+    // Centesimi di un pezzo (della variante scelta, se la scheda l'ha cambiata) per la quantità della form.
+    productAmount() {
+        const unit = Number(this.root.dataset.expressUnit) || this.config.amount;
+        const quantity = parseFloat(String(this.productForm?.querySelector('[name="quantity"]')?.value || '').replace(',', '.'));
+
+        return Math.max(1, Math.round(unit * (quantity > 0 ? quantity : 1)));
+    }
+
     mount() {
         const account = this.root.dataset.account;
 
@@ -1236,6 +1244,15 @@ class Express {
         this.invoice?.addEventListener('change', () => this.toggle());
         this.toggle();
 
+        // Sulla scheda il foglio si apre col totale di quantità e variante scelte: Stripe mostra l'importo prima di ogni evento.
+        this.productForm = this.config.source === 'product' ? document.querySelector('form[data-ecommerce-add-to-cart]') : null;
+        if (this.productForm) {
+            const refresh = () => this.elements?.update({ amount: this.productAmount() });
+            this.productForm.addEventListener('input', refresh);
+            this.productForm.addEventListener('change', refresh);
+            root.addEventListener('express:amount', refresh);
+        }
+
         this.waiting = Boolean(root.dataset.expressWait) && !expressNoWallet();
         if (this.waiting) {
             paySpinner(true, root.dataset.expressWait);
@@ -1263,7 +1280,7 @@ class Express {
         this.stripe = window.Stripe(key, account ? { stripeAccount: account } : {});
         this.elements = this.stripe.elements({
             mode: 'payment',
-            amount: this.config.amount,
+            amount: this.productForm ? this.productAmount() : this.config.amount,
             currency: this.config.currency,
             appearance: STRIPE_APPEARANCE,
         });

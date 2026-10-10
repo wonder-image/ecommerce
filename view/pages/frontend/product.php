@@ -310,6 +310,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (submit) submit.disabled = !offer || !offer.available;
         const expressBox = document.querySelector('[data-express-product]');
         if (expressBox) expressBox.hidden = !offer || !offer.available;
+        // Il foglio rapido si apre col prezzo della variante scelta.
+        const expressRoot = expressBox?.querySelector('[data-express]');
+        if (expressRoot && offer) {
+            expressRoot.dataset.expressUnit = Math.round(offer.price * 100);
+            expressRoot.dispatchEvent(new Event('express:amount'));
+        }
         if (price && offer) price.textContent = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> }).format(offer.price);
         if (availability && offer) availability.innerHTML = offer.available
             ? '<i class="bi bi-circle-fill tx-success"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.in_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>

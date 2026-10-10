@@ -316,4 +316,17 @@ check('riquadro: carrello e checkout dicono cosa preparano mentre aspettano i bo
         && !str_contains(riquadro('product'), 'data-express-wait');
 }));
 
+check('prodotto: il foglio si apre col totale di quantità e variante scelte, non di un pezzo', fn () => prova(static function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__, 2).'/resources/assets/js/checkout.js');
+    $scheda = (string) file_get_contents(dirname(__DIR__, 2).'/view/pages/frontend/product.php');
+
+    // L'importo segue la form «Aggiungi» e il prezzo della variante che la scheda scrive sul riquadro.
+    return str_contains($js, 'productAmount()')
+        && str_contains($js, "amount: this.productForm ? this.productAmount() : this.config.amount")
+        && str_contains($js, "this.elements?.update({ amount: this.productAmount() })")
+        && str_contains($js, "'express:amount'")
+        && str_contains($scheda, 'dataset.expressUnit = Math.round(offer.price * 100)')
+        && str_contains($scheda, "new Event('express:amount')");
+}));
+
 summary();
