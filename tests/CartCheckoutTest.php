@@ -295,6 +295,17 @@ check('il check-out rapido non ha ancora bottoni (arrivano coi pagamenti online)
     \Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout::buttons(['total' => '10.00']) === []
 );
 
+check('il check-out rapido ha le sue quattro rotte POST', function (): bool {
+    $rotte = (string) file_get_contents(dirname(__DIR__).'/config/routes/route.frontend.php');
+    foreach (['start', 'shipping', 'place', 'cancel'] as $azione) {
+        if (!str_contains($rotte, "Route::post('/express/{$azione}/', \$express, ['express_action' => '{$azione}'])->name('express.{$azione}')")) {
+            return false;
+        }
+    }
+
+    return str_contains($rotte, "Ecommerce::handlerPath('frontend/express.php')");
+});
+
 check('accesso, account e checkout stampano il loro font', function (): bool {
     $root = dirname(__DIR__);
     $sources = [

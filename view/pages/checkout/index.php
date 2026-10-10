@@ -102,7 +102,7 @@ View::head(DataLayer::script([
         <?php if ($express !== []): ?>
             <div id="rapido" class="w-100">
                 <h2 class="text-small a-c mb-3"><?=e(__t('ecommerce.checkout.express'))?></h2>
-                <div class="w-100 d-grid col-3 gap-3"><?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?></div>
+                <?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?>
                 <p class="wi-checkout__or mt-5"><?=e(__t('ecommerce.checkout.or'))?></p>
             </div>
         <?php endif; ?>

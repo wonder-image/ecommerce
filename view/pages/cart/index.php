@@ -5,6 +5,7 @@ use Wonder\Elements\Components\Accordion;
 use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\View\View;
 
 $order = (array) ($cart['order'] ?? []);
@@ -89,6 +90,12 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 'coupons' => false, 'couponCode' => '', 'notices' => [],
                 'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 mt-5'),
             ])?>
+            <?php if (($expressBox = ExpressCheckout::render('cart', $order)) !== ''): ?>
+                <div id="rapido" class="w-100"><?=$expressBox?></div>
+                <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+                    View::head('<script src="'.e($checkoutJs).'" defer></script>');
+                } ?>
+            <?php endif; ?>
             <?php if ($coupons): ?>
                 <?php
                 $couponCode = (string) ($order['coupon_code'] ?? '');
