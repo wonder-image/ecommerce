@@ -49,7 +49,8 @@ final class ExpressCart
 
             return $id;
         });
-        $items = array_column(array_map(static fn (array $item): array => [(int) $item['id'], (float) $item['quantity']], $real), 1, 0);
+        $products = array_filter($real, static fn (array $item): bool => (string) ($item['type'] ?? '') === 'product');
+        $items = array_column(array_map(static fn (array $item): array => [(int) $item['id'], (float) $item['quantity']], $products), 1, 0);
         $_SESSION[self::SESSION] = ['id' => $id, 'source_cart' => $realId, 'source_items' => $items];
 
         return $id;
@@ -108,6 +109,10 @@ final class ExpressCart
     {
         $totals = [];
         foreach ($items as $item) {
+            // Come Cart::restore: la spedizione e le altre righe non sono articoli.
+            if ((string) ($item['type'] ?? '') !== 'product') {
+                continue;
+            }
             $product = (int) ($item['product_id'] ?? 0);
             $totals[$product] = round(($totals[$product] ?? 0.0) + (float) $item['quantity'], 3);
         }

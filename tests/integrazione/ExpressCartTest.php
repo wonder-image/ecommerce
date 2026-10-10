@@ -24,6 +24,7 @@ use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Promotions\Coupon;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Models\Sales\OrderItem;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Payments\Ledger;
@@ -139,6 +140,21 @@ check('fromCart: un articolo non più acquistabile → errore e niente carrello 
     } catch (RuntimeException $errore) {
         return $errore->getMessage() !== '' && ExpressCart::id() === 0 && righe($vero) === [[$a, 1.0], [$b, 2.0]];
     }
+}));
+
+check('fromCart: la riga di spedizione del carrello vero non conta come articolo mancante', fn () => prova(static function (): bool {
+    $a = articolo(1.0);
+    $vero = carrello([[$a, 2]]);
+    OrderItem::create([
+        'order_id' => $vero, 'type' => 'shipping', 'position' => 800, 'name' => 'Spedizione',
+        'quantity' => '1.000', 'price_source' => 'base', 'tax_category_id' => 0,
+    ]);
+    $express = ExpressCart::fromCart($vero);
+
+    $prodotto = (int) Cart::contents($vero)['items'][0]['id'];
+
+    return $express !== $vero && righe($express) === [[$a, 2.0]]
+        && $_SESSION[ExpressCart::SESSION]['source_items'] === [$prodotto => 2.0];
 }));
 
 check('settled: se nel vero la quantità è cresciuta, toglie solo quella copiata', fn () => prova(static function (): bool {
