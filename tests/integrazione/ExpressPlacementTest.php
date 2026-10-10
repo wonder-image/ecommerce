@@ -22,6 +22,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRejected;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCart;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressController;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
@@ -238,6 +239,20 @@ check('start: senza metodi rapidi non nasce nessun carrello', fn () => prova(sta
     }
 
     return false;
+}));
+
+check('riquadro: la scritta dice che si accettano condizioni e privacy', fn () => prova(static function (): bool {
+    stripeConTipi(['card', 'apple_pay']);
+    metodoStripe();
+    Setting::update(['checkout_guest' => 'true'], (int) Setting::current()['id']);
+    $html = ExpressCheckout::render('product', ['total' => '10.00', 'currency' => 'EUR'], articolo(1.0, 10.0));
+    $testo = static fn (string $chiave): string => htmlspecialchars((string) __t('ecommerce.checkout.'.$chiave), ENT_QUOTES);
+
+    return $html !== ''
+        && str_contains($html, $testo('express_terms_link'))
+        && str_contains($html, $testo('express_privacy_join'))
+        && str_contains($html, $testo('express_privacy_link'))
+        && !str_contains($html, 'ecommerce.checkout.express_privacy');
 }));
 
 summary();

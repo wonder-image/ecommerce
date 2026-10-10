@@ -145,6 +145,8 @@
         "express_unavailable": "Spedizione non disponibile per questo indirizzo.",
         "express_terms": "Pagando accetti le",
         "express_terms_link": "condizioni di vendita",
+        "express_privacy_join": "e l'",
+        "express_privacy_link": "informativa sulla privacy",
         "express_error": "Il pagamento rapido non è riuscito. Riprova o usa il modulo qui sotto.",
         "express_changed": "Qualche articolo del carrello non è più disponibile nella quantità scelta: controlla il carrello e riprova.",
         "secure": "Tutte le transazioni sono sicure e crittografate",

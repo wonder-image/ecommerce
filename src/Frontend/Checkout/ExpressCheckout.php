@@ -66,7 +66,8 @@ final class ExpressCheckout
 
             return (string) View::component(Ecommerce::viewPath('components/checkout/express.php'), [
                 'config' => $config,
-                'terms' => self::termsUrl(),
+                'terms' => self::legalUrl('terms_conditions'),
+                'privacy' => self::legalUrl('privacy_policy'),
             ]);
         } catch (Throwable) {
             return '';
@@ -96,10 +97,10 @@ final class ExpressCheckout
         return $method['types'] === [] ? null : $method;
     }
 
-    /** Il primo link della spunta delle condizioni di vendita attive nella lingua; vuoto se non c'è. */
-    private static function termsUrl(): string
+    /** Il primo link della spunta del documento legale attivo nella lingua; vuoto se non c'è. */
+    private static function legalUrl(string $docType): string
     {
-        $row = sqlSelect('legal_documents', ['doc_type' => 'terms_conditions', 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC');
+        $row = sqlSelect('legal_documents', ['doc_type' => $docType, 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC');
         if (!$row->exists) {
             return '';
         }
