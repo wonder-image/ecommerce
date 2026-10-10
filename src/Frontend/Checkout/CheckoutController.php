@@ -359,6 +359,12 @@ final class CheckoutController
         }
 
         OnlinePayment::forget();
+        try {
+            // Pagato dalla barra rapida: dal carrello vero vanno via le righe comprate.
+            ExpressCart::settled($orderId);
+        } catch (Throwable $e) {
+            Errors::internal($e, 'ecommerce.checkout.express_settle');
+        }
         $receipt = (array) ($_SESSION[OnlinePayment::RECEIPT] ?? []);
         unset($_SESSION[OnlinePayment::RECEIPT]);
         if ((int) ($receipt['order_id'] ?? 0) !== $orderId) {
