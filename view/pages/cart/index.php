@@ -89,7 +89,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency, 'csrf_token' => $csrf_token,
                 'coupons' => false, 'couponCode' => '', 'notices' => [],
                 // I bottoni rapidi stanno sopra «Procedi».
-                'express' => ExpressCheckout::render('cart', $order),
+                'express' => Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', $order) : '',
                 'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 mt-5'),
             ])?>
             <?php if (ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {

@@ -99,6 +99,7 @@
             "empty": "Nessun prodotto nel carrello",
             "continue_shopping": "Continua lo shopping",
             "view_cart": "Vai al carrello",
+            "checkout": "Vai al checkout",
             "remove_item": "Rimuovi {{name}} dal carrello"
         }
     },
@@ -140,6 +141,8 @@
         "billing_same": "Uguale all’indirizzo di spedizione",
         "express": "Check-out rapido con",
         "express_product": "Oppure acquista ora con",
+        "express_wait_cart": "Preparazione carrello",
+        "express_wait_checkout": "Preparazione checkout",
         "or": "OPPURE",
         "express_pending_rate": "Spedizione: calcolata dopo l'indirizzo",
         "express_no_shipping": "Nessuna spedizione",

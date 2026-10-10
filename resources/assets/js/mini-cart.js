@@ -124,6 +124,7 @@ class Cart {
         }
 
         this.content.innerHTML = payload.html;
+        this.element.querySelectorAll('[data-cart-checkout]').forEach((link) => link.classList.toggle('d-none', Boolean(payload.empty)));
         document.dispatchEvent(new CustomEvent('ecommerce:cart:updated', {
             detail: {
                 count: payload.count,

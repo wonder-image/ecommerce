@@ -1198,6 +1198,25 @@ class CheckoutPay {
     }
 }
 
+// Carrello e checkout restano sotto lo spinner finché i bottoni rapidi non sono pronti, al massimo EXPRESS_WAIT_MAX ms:
+// meglio la pagina un attimo dopo che i bottoni che compaiono e spingono giù il resto. Se in questa sessione
+// il browser non aveva wallet, non si aspetta più.
+const EXPRESS_WAIT_MAX = 2000;
+const EXPRESS_NO_WALLET = 'wi-express-no-wallet';
+
+function expressNoWallet(value) {
+    try {
+        if (value === undefined) {
+            return sessionStorage.getItem(EXPRESS_NO_WALLET) === '1';
+        }
+        value ? sessionStorage.setItem(EXPRESS_NO_WALLET, '1') : sessionStorage.removeItem(EXPRESS_NO_WALLET);
+    } catch (error) {
+        // Senza sessionStorage (navigazione privata, dati bloccati) si aspetta ogni volta, sempre col tetto.
+    }
+
+    return false;
+}
+
 // Il check-out rapido: l'Express Checkout Element di Stripe (Apple Pay, Google Pay, Link) nel checkout,
 // nel carrello e nella scheda prodotto. Il foglio del wallet chiede indirizzo e tariffa; il server compra
 // da un carrello a parte e crea ordine e intento solo alla conferma.
@@ -1217,7 +1236,23 @@ class Express {
         this.invoice?.addEventListener('change', () => this.toggle());
         this.toggle();
 
+        this.waiting = Boolean(root.dataset.expressWait) && !expressNoWallet();
+        if (this.waiting) {
+            paySpinner(true, root.dataset.expressWait);
+            this.timer = setTimeout(() => this.done(), EXPRESS_WAIT_MAX);
+        }
+
         loadStripe().then(() => this.mount()).catch(() => this.hide());
+    }
+
+    // Fine dell'attesa: bottoni pronti, nessun wallet, errore o tetto raggiunto.
+    done() {
+        if (!this.waiting) {
+            return;
+        }
+        this.waiting = false;
+        clearTimeout(this.timer);
+        paySpinner(false);
     }
 
     mount() {
@@ -1242,9 +1277,11 @@ class Express {
                 klarna: 'never',
             },
             ...(this.config.layout ? { layout: this.config.layout } : {}),
+            ...(this.config.buttonType ? { buttonType: this.config.buttonType } : {}),
         });
 
         this.element.on('ready', ({ availablePaymentMethods }) => {
+            expressNoWallet(!availablePaymentMethods);
             if (!availablePaymentMethods) {
                 this.hide();
                 return;
@@ -1252,6 +1289,7 @@ class Express {
             // Titolo, condizioni e «OPPURE» compaiono solo coi bottoni.
             this.ready = true;
             this.toggle();
+            this.done();
         });
         this.element.on('loaderror', () => this.hide());
         this.element.on('click', (event) => this.click(event));
@@ -1427,6 +1465,7 @@ class Express {
     hide() {
         this.unavailable = true;
         this.toggle();
+        this.done();
     }
 
     toggle() {

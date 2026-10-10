@@ -745,7 +745,7 @@ check('nel carrello i bottoni rapidi stanno nel riepilogo, sopra «Procedi»', f
     $express = strpos($aside, '<?=$express');
     $button = strpos($aside, '<?=$button');
 
-    return str_contains($cart, "'express' => ExpressCheckout::render('cart', \$order)")
+    return str_contains($cart, "'express' => Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', \$order) : ''")
         && !str_contains($cart, 'id="rapido"')
         && $express !== false && $button !== false && $express < $button;
 });
@@ -763,7 +763,9 @@ check('il riquadro rapido non fa galleggiare i suoi div e si mostra solo a Strip
     $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
     $component = (string) file_get_contents($root.'/view/components/checkout/express.php');
 
-    return str_contains($css, '.wi-express > div')
+    // Anche i div che Stripe mette dentro l'elemento: un involucro che galleggia stringe i bottoni in colonna.
+    return str_contains($css, '.wi-express div {')
+        && !str_contains($css, '.wi-express > div')
         && str_contains($css, 'float: none')
         && str_contains($css, '.wi-express__or')
         && str_contains($css, '[data-express-loading]')
@@ -780,4 +782,65 @@ check('il riquadro rapido ha le sue misure anche dove store.css non c\'è (sched
         && str_contains($css, 'font-size: 14px')
         && str_contains($css, 'font-size: 12px');
 });
+check('il sito sceglie dove stanno i bottoni rapidi e se il prodotto ha −/+: di base rapidi ovunque, −/+ spento', function () use ($root): bool {
+    $config = require $root.'/config/module.php';
+    $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $product = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+
+    return ($config['express']['cart'] ?? null) === true
+        && ($config['express']['product'] ?? null) === true
+        && ($config['catalog']['product_quantity'] ?? null) === false
+        && str_contains($cart, "Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', \$order) : ''")
+        && str_contains($product, "Ecommerce::config('express.product', true)")
+        && str_contains($product, "Ecommerce::config('catalog.product_quantity', false)");
+});
+
+check('il mini-carrello non dice «Prodotto aggiunto» e porta anche al checkout, finché non è vuoto', function () use ($root): bool {
+    $shell = (string) file_get_contents($root.'/view/components/cart/mini-cart.php');
+    $body = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+    $script = (string) file_get_contents($root.'/resources/assets/js/mini-cart.js');
+
+    return !str_contains($body, 'alert-success')
+        && str_contains($body, 'alert-danger')
+        && str_contains($shell, "__r('ecommerce.checkout.index')")
+        && str_contains($shell, 'data-cart-checkout')
+        && str_contains($shell, "__t('ecommerce.cart.mini.checkout')")
+        && str_contains($script, '[data-cart-checkout]')
+        && str_contains($script, 'payload.empty');
+});
+
+check('la quantità con −/+ sulla scheda prodotto cambia il campo del modulo, senza inviarlo', function () use ($root): bool {
+    $add = (string) file_get_contents($root.'/view/components/cart/add.php');
+    $stepper = (string) @file_get_contents($root.'/view/components/cart/quantity.php');
+    $product = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+
+    return str_contains($add, "components/cart/quantity.php")
+        && str_contains($product, "components/cart/quantity.php")
+        && str_contains($stepper, 'type="number" name="quantity"')
+        && str_contains($stepper, 'data-quantity-step="-1"')
+        && str_contains($stepper, 'data-quantity-step="1"')
+        && substr_count($stepper, 'type="button"') === 2
+        && str_contains($stepper, 'stepDown()')
+        && str_contains($stepper, 'stepUp()');
+});
+
+check('carrello e checkout restano sotto lo spinner finché i bottoni rapidi non sono pronti, per poco', function () use ($root): bool {
+    $component = (string) file_get_contents($root.'/view/components/checkout/express.php');
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return ($it['checkout']['express_wait_cart'] ?? '') === 'Preparazione carrello'
+        && ($it['checkout']['express_wait_checkout'] ?? '') === 'Preparazione checkout'
+        && ($en['checkout']['express_wait_cart'] ?? '') !== ''
+        && ($en['checkout']['express_wait_checkout'] ?? '') !== ''
+        && ($it['cart']['mini']['checkout'] ?? '') === 'Vai al checkout'
+        && ($en['cart']['mini']['checkout'] ?? '') !== ''
+        && str_contains($component, 'data-express-wait=')
+        && str_contains($component, 'rel="preconnect" href="https://js.stripe.com"')
+        && str_contains($js, 'EXPRESS_WAIT_MAX')
+        && str_contains($js, 'sessionStorage')
+        && str_contains($js, 'this.done()');
+});
+
 summary();

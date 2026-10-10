@@ -22,6 +22,13 @@ return [
             'attributes' => [],
         ],
         'recommendations_limit' => 12,
+        // Quantità con −/+ accanto ad «Aggiungi al carrello» nella scheda prodotto.
+        'product_quantity' => false,
+    ],
+    // Bottoni del pagamento rapido (Apple Pay, Google Pay, Link): nel checkout ci sono sempre.
+    'express' => [
+        'cart' => true,
+        'product' => true,
     ],
     // Partial del sito innestate negli slot delle view sigillate (piano 2):
     // chiave dello slot => percorso della partial dentro `custom/`.

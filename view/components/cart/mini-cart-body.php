@@ -8,9 +8,6 @@ $items = CartPresenter::lines(array_values((array) (($cart ?? [])['items'] ?? []
 $currency = (string) ($order['currency'] ?? 'EUR');
 ?>
 <div class="w-100 h-100">
-    <?php if (trim((string) ($notice ?? '')) !== ''): ?>
-        <div class="alert alert-success" role="status"><?=e($notice)?></div>
-    <?php endif; ?>
     <?php if ((array) ($errors ?? []) !== []): ?>
         <div class="alert alert-danger" role="alert">
             <?php foreach ((array) $errors as $error): ?>

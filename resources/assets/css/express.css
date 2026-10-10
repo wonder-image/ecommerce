@@ -1,6 +1,7 @@
 /* Il check-out rapido: titolo, bottoni di Stripe, condizioni e «OPPURE». */
-/* Le section del sito fanno galleggiare ogni div: qui le righe restano una sotto l'altra. */
-.wi-express > div {
+/* Le section del sito fanno galleggiare ogni div, anche quelli che Stripe mette nell'elemento: un involucro
+   che galleggia si stringe e Stripe impila i bottoni. Qui ogni riga resta larga e una sotto l'altra. */
+.wi-express div {
     float: none;
 }
 /* Finché Stripe non mostra i bottoni il riquadro non si vede, ma resta largo quanto serve all'elemento. */

@@ -289,12 +289,31 @@ check('riquadro: titolo, bottoni, condizioni piccole e staccate, poi «OPPURE» 
     return true;
 }));
 
-check('riquadro del prodotto: «Oppure acquista ora con», bottoni tutti in fila, niente «OPPURE»', fn () => prova(static function () use ($tradotto): bool {
+check('riquadro del prodotto: «Oppure acquista ora con», niente «OPPURE»', fn () => prova(static function () use ($tradotto): bool {
     $html = riquadro('product');
 
     return str_contains($html, '>'.$tradotto('express_product').'<')
-        && !str_contains($html, 'wi-express__or')
-        && str_contains(html_entity_decode($html, ENT_QUOTES), '"layout":{"overflow":"never"}');
+        && !str_contains($html, 'wi-express__or');
+}));
+
+check('riquadro: nel carrello e sul prodotto i bottoni stanno in fila e Google Pay mostra solo il logo', fn () => prova(static function (): bool {
+    foreach (['cart', 'product'] as $fonte) {
+        $html = html_entity_decode(riquadro($fonte), ENT_QUOTES);
+        if (!str_contains($html, '"layout":{"overflow":"never"}') || !str_contains($html, '"buttonType":{"googlePay":"plain"}')) {
+            return false;
+        }
+    }
+    $checkout = html_entity_decode(riquadro('checkout'), ENT_QUOTES);
+
+    return str_contains($checkout, '"layout":null') && str_contains($checkout, '"buttonType":null');
+}));
+
+check('riquadro: carrello e checkout dicono cosa preparano mentre aspettano i bottoni, il prodotto no', fn () => prova(static function (): bool {
+    $attesa = static fn (string $chiave): string => 'data-express-wait="'.htmlspecialchars((string) __t('ecommerce.checkout.'.$chiave), ENT_QUOTES).'"';
+
+    return str_contains(riquadro('cart'), $attesa('express_wait_cart'))
+        && str_contains(riquadro('checkout'), $attesa('express_wait_checkout'))
+        && !str_contains(riquadro('product'), 'data-express-wait');
 }));
 
 summary();
