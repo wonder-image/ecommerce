@@ -70,7 +70,7 @@ final class ExpressController
     {
         $cartId = self::expressCart();
         $address = json_decode((string) ($_POST['address'] ?? ''), true, 4);
-        $post = ExpressAddress::partial(is_array($address) ? $address : [], (string) ($_POST['rate'] ?? ''));
+        $post = ExpressAddress::partial(is_array($address) ? $address : [], (string) ($_POST['rate'] ?? ''), ExpressAddress::knownBilling(self::contact()));
         $shipping = Gestionale::feature('shipping');
 
         if ($shipping && ShippingZones::resolve($post['shipping_country'], $post['shipping_province']) === null) {
@@ -118,7 +118,7 @@ final class ExpressController
         $type = (string) ($_POST['type'] ?? '');
         $wallet = json_decode((string) ($_POST['wallet'] ?? ''), true, 8);
         $user = CartSession::user();
-        $contact = CartSession::authenticated() ? (array) Contact::findById(CartSession::customerId()) : null;
+        $contact = self::contact();
         $asked = CheckoutRules::askedConsents((int) ($user->id ?? 0));
 
         try {
@@ -126,6 +126,8 @@ final class ExpressController
             $placed = CheckoutPlacement::place($cartId, $post, $user, ['json' => true, 'expected_total' => $_POST['expected_total'] ?? null, 'express' => true]);
         } catch (CheckoutRejected $error) {
             if ($error->totalChanged()) {
+                // Il prossimo foglio conta l'imposta su questa fatturazione: il totale torna.
+                ExpressAddress::remember($post);
                 self::json(['success' => false, 'error' => 'total_changed', 'message' => $error->getMessage()], 409);
             }
 
@@ -183,6 +185,12 @@ final class ExpressController
         if (!GuestCheckout::enabled() && !CartSession::authenticated()) {
             self::json(['success' => false, 'redirect' => \__r('ecommerce.auth.login') ?: '/'], 401);
         }
+    }
+
+    /** @return array<string, mixed>|null La scheda del cliente entrato. */
+    private static function contact(): ?array
+    {
+        return CartSession::authenticated() ? (array) Contact::findById(CartSession::customerId()) : null;
     }
 
     private static function expressCart(): int

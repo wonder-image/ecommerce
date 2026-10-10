@@ -35,8 +35,31 @@ check('province: sconosciuta', fn () => ExpressAddress::province('IT', 'Atlantid
 check('province: vuota o paese senza province', fn () => ExpressAddress::province('IT', '') === '' && ExpressAddress::province('ZZ', 'Milano') === '');
 check('partial', fn () => ExpressAddress::partial(['country' => 'it', 'state' => 'Milano', 'city' => 'Milano', 'postal_code' => '20100'], '7') === [
     'fulfillment_type' => 'shipping', 'shipping_country' => 'IT', 'shipping_province' => 'MI',
-    'shipping_city' => 'Milano', 'shipping_cap' => '20100', 'shipping_method_id' => '7',
+    'shipping_city' => 'Milano', 'shipping_cap' => '20100',
+    'billing_country' => 'IT', 'billing_province' => 'MI', 'billing_city' => 'Milano', 'billing_cap' => '20100',
+    'shipping_method_id' => '7',
 ]);
+check('partial: la fatturazione nota vince sulla spedizione, solo nel luogo', function (): bool {
+    $nota = ['billing_name' => 'Hans', 'billing_country' => 'DE', 'billing_province' => '', 'billing_city' => 'Berlin', 'billing_cap' => '10115'];
+    $p = ExpressAddress::partial(['country' => 'IT', 'state' => 'MI', 'city' => 'Milano', 'postal_code' => '20100'], '7', $nota);
+
+    return $p['billing_country'] === 'DE' && $p['billing_city'] === 'Berlin' && $p['billing_cap'] === '10115'
+        && $p['billing_province'] === '' && !isset($p['billing_name']) && $p['shipping_country'] === 'IT';
+});
+check('knownBilling: la scheda salvata, poi quella del wallet ricordata, poi niente', function (): bool {
+    $_SESSION = [];
+    $vuoto = ExpressAddress::knownBilling(null) === null;
+    $wallet = ExpressAddress::post(walletProva(), null, 1, 'link', []);
+    $wallet['billing_country'] = 'DE';
+    ExpressAddress::remember($wallet);
+    $ricordata = ExpressAddress::knownBilling(null);
+    $c = ['name' => 'Ditta', 'surname' => 'Bianchi', 'country' => 'FR', 'province' => '', 'city' => 'Parigi', 'cap' => '75001', 'street' => 'Rue 1', 'number' => '3'];
+    $salvata = ExpressAddress::knownBilling($c);
+    $_SESSION = [];
+
+    return $vuoto && $ricordata === ['billing_country' => 'DE', 'billing_province' => 'TO', 'billing_city' => 'Torino', 'billing_cap' => '10100']
+        && ($salvata['billing_country'] ?? '') === 'FR';
+});
 check('partial: tariffa provvisoria non è un metodo', fn () => !isset(ExpressAddress::partial(['country' => 'IT'], 'pending')['shipping_method_id']));
 check('partial: valori non scalari diventano vuoti', fn () => ExpressAddress::partial(['country' => ['IT'], 'city' => null], '0')['shipping_city'] === ''
     && ExpressAddress::partial(['country' => ['IT']], '0')['shipping_country'] === '');

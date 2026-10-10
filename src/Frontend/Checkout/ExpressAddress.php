@@ -11,6 +11,11 @@ use Normalizer;
  */
 final class ExpressAddress
 {
+    /** La fatturazione del wallet dell'ultimo totale cambiato: l'anteprima del foglio dopo ne conta l'imposta. */
+    public const SESSION = 'ecommerce_express_billing';
+
+    private const PLACE = ['country', 'province', 'city', 'cap'];
+
     /** La sigla della provincia da sigla o nome; maiuscole, accenti e trattini indifferenti. */
     public static function province(string $country, string $state): string
     {
@@ -32,12 +37,14 @@ final class ExpressAddress
 
     /**
      * Il post dell'anteprima mentre il cliente sceglie nel foglio del wallet:
-     * Stripe dà solo paese, provincia, città e CAP.
+     * Stripe dà solo paese, provincia, città e CAP. L'imposta si conta sulla
+     * fatturazione: quella nota se c'è, se no il luogo della spedizione.
      *
      * @param array<string, mixed> $address
+     * @param array<string, string>|null $billing Campi `billing_*`, di cui conta solo il luogo.
      * @return array<string, string>
      */
-    public static function partial(array $address, string $rateId): array
+    public static function partial(array $address, string $rateId, ?array $billing = null): array
     {
         $country = strtoupper(self::text($address['country'] ?? ''));
         $post = [
@@ -47,6 +54,9 @@ final class ExpressAddress
             'shipping_city' => self::text($address['city'] ?? ''),
             'shipping_cap' => self::text($address['postal_code'] ?? ''),
         ];
+        foreach (self::PLACE as $field) {
+            $post['billing_'.$field] = $billing === null ? $post['shipping_'.$field] : self::text($billing['billing_'.$field] ?? '');
+        }
         // Prima della scelta Stripe usa una tariffa provvisoria, che non è un metodo.
         if (ctype_digit($rateId) && (int) $rateId > 0) {
             $post['shipping_method_id'] = (string) (int) $rateId;
@@ -76,7 +86,7 @@ final class ExpressAddress
 
         // La fatturazione salvata nella scheda vince su quella del wallet.
         $billing = self::savedBilling($contact) ?? self::walletBilling((array) ($wallet['billing'] ?? []));
-        $post += $billing === null ? ['same_as_shipping' => '1'] : ['same_as_shipping' => '0'] + $billing;
+        $post = array_merge($post, $billing === null ? ['same_as_shipping' => '1'] : ['same_as_shipping' => '0'] + $billing);
 
         // Il foglio del wallet non mostra caselle: chi paga accetta le condizioni scritte sopra il bottone.
         foreach ($asked as $document) {
@@ -84,6 +94,30 @@ final class ExpressAddress
         }
 
         return $post;
+    }
+
+    /**
+     * La fatturazione già nota prima del pagamento: quella salvata nella
+     * scheda, se no quella del wallet ricordata dopo un totale cambiato.
+     *
+     * @param array<string, mixed>|null $contact
+     * @return array<string, string>|null
+     */
+    public static function knownBilling(?array $contact): ?array
+    {
+        $remembered = $_SESSION[self::SESSION] ?? null;
+
+        return self::savedBilling($contact) ?? (is_array($remembered) ? $remembered : null);
+    }
+
+    /** Ricorda il luogo di fatturazione del post rapido, per l'anteprima del prossimo foglio. */
+    public static function remember(array $post): void
+    {
+        $billing = [];
+        foreach (self::PLACE as $field) {
+            $billing['billing_'.$field] = self::text($post['billing_'.$field] ?? '');
+        }
+        $_SESSION[self::SESSION] = $billing;
     }
 
     /**
