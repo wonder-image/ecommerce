@@ -12,7 +12,8 @@ $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
 $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
 $summary = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutSummary.php');
 $pay = (string) file_get_contents($root.'/view/pages/checkout/pay.php');
-$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php')
+    .(string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
 
 check('Stripe.js arriva da Stripe, una volta sola e solo quando serve', fn () => str_contains($js, "'https://js.stripe.com/v3/'")
     && str_contains($js, 'function loadStripe()')
