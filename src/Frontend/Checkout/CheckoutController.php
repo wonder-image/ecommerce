@@ -6,6 +6,7 @@ use OutOfBoundsException;
 use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
+use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
@@ -517,6 +518,10 @@ final class CheckoutController
         foreach (Order::shippingAddress()->keys() as $key) {
             $source = substr($key, strlen('shipping_'));
             $values[$key] = (string) ($shipping[$source] ?? '');
+        }
+        // Place ID e coordinate seguono l'indirizzo: l'aiuto di Google li svuota se lo si cambia a mano.
+        foreach (GoogleMaps::cleanGeo($shipping) as $key => $value) {
+            $values['shipping_'.$key] = $value === null ? '' : (string) $value;
         }
         $values['billing_country'] = $values['billing_country'] ?: 'IT';
         $values['shipping_country'] = $values['shipping_country'] ?: 'IT';

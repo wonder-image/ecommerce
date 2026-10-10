@@ -132,7 +132,7 @@ View::head(DataLayer::script([
             </div>
             <div class="w-100 mt-4 mt-p-3" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
                 <div class="w-100 d-grid col-4 gap-4 gap-p-3">
-                    <?php foreach ($shipping_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
+                    <?php foreach ($shipping_fields as $key => $field): ?><?php if (CheckoutFields::hidden($key)): ?><?=$field?><?php else: ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endif; ?><?php endforeach; ?>
                 </div>
             </div>
             <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">

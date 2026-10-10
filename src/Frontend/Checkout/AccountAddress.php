@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
+use Wonder\App\Support\GoogleMaps;
 use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
@@ -19,10 +20,7 @@ final class AccountAddress
             return null;
         }
 
-        $address = [];
-        foreach (Order::shippingAddress()->keys() as $key) {
-            $address[substr($key, strlen('shipping_'))] = trim((string) ($order[$key] ?? ''));
-        }
+        $address = self::address($order);
         if ($address['street'] === '') {
             return null;
         }
@@ -45,10 +43,32 @@ final class AccountAddress
         return (int) ($created->insert_id ?? 0) ?: null;
     }
 
-    /** Uguali a meno di maiuscole e spazi. */
+    /**
+     * L'indirizzo di consegna dell'ordine con le chiavi della rubrica: place
+     * ID e coordinate valide vengono con lui, quelle non valide valgono null.
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, string|float|null>
+     */
+    public static function address(array $order): array
+    {
+        $address = [];
+        foreach (Order::shippingAddress()->keys() as $key) {
+            $address[substr($key, strlen('shipping_'))] = trim((string) ($order[$key] ?? ''));
+        }
+
+        foreach (GoogleMaps::cleanGeo($order, 'shipping_') as $key => $value) {
+            $address[substr($key, strlen('shipping_'))] = $value;
+        }
+
+        return $address;
+    }
+
+    /** Uguali a meno di maiuscole e spazi; place ID e coordinate non contano. */
     private static function same(array $address, array $row): bool
     {
         $normal = static fn (mixed $value): string => mb_strtolower((string) preg_replace('/\s+/u', ' ', trim((string) $value)));
+        unset($address['place_id'], $address['lat'], $address['lng']);
 
         foreach ($address as $key => $value) {
             if ($normal($value) !== $normal($row[$key] ?? '')) {

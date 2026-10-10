@@ -20,6 +20,12 @@ final class CheckoutFields
         return self::SPANS[preg_replace('/^(shipping|billing)_/', '', $key)] ?? 4;
     }
 
+    /** Place ID e coordinate dell'aiuto di Google: campi nascosti, fuori dalla griglia. */
+    public static function hidden(string $key): bool
+    {
+        return in_array($key, ['shipping_place_id', 'shipping_lat', 'shipping_lng'], true);
+    }
+
     /**
      * I campi che le regole del checkout vogliono pieni: la label prende
      * l'asterisco. Il codice fiscale dipende dal tipo e lo decide la pagina;

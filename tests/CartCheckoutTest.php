@@ -843,4 +843,51 @@ check('carrello e checkout restano sotto lo spinner finché i bottoni rapidi non
         && str_contains($js, 'this.done()');
 });
 
+// Col ritiro post() legge le chiavi dell'indirizzo, che passano dalle etichette.
+if (!function_exists('__t')) {
+    function __t(string $key): string
+    {
+        return $key;
+    }
+}
+
+check('place ID e coordinate della consegna: puliti, vuoti col ritiro e se mancano', function (): bool {
+    $rules = \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::class;
+    $ok = $rules::post(['shipping_place_id' => ' ChIJabc_def-123 ', 'shipping_lat' => '45.4642035', 'shipping_lng' => '9.189982']);
+    $bad = $rules::post(['shipping_place_id' => 'x', 'shipping_lat' => '45.46', 'shipping_lng' => 'abc']);
+    $pickup = $rules::post(['fulfillment_type' => 'pickup', 'shipping_place_id' => 'ChIJabc_def-123', 'shipping_lat' => '45.46', 'shipping_lng' => '9.18']);
+    $none = $rules::post([]);
+
+    return $ok['shipping_place_id'] === 'ChIJabc_def-123' && $ok['shipping_lat'] === '45.4642035' && $ok['shipping_lng'] === '9.189982'
+        && $bad['shipping_place_id'] === '' && $bad['shipping_lat'] === '' && $bad['shipping_lng'] === ''
+        && $pickup['shipping_place_id'] === '' && $pickup['shipping_lat'] === '' && $pickup['shipping_lng'] === ''
+        && $none['shipping_place_id'] === '' && $none['shipping_lat'] === '' && $none['shipping_lng'] === ''
+        && !isset($ok['billing_place_id']);
+});
+
+check('i tre campi nascosti della consegna stanno fuori dalla griglia, solo nella spedizione', function () use ($root): bool {
+    $view = checkoutViews($root);
+
+    return CheckoutFields::hidden('shipping_place_id') && CheckoutFields::hidden('shipping_lat') && CheckoutFields::hidden('shipping_lng')
+        && !CheckoutFields::hidden('shipping_street') && !CheckoutFields::hidden('billing_street')
+        && str_contains($view, '<?php if (CheckoutFields::hidden($key)): ?><?=$field?><?php else: ?>');
+});
+
+check('l\'indirizzo salvato porta al checkout place ID e coordinate', function () use ($root): bool {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($controller, "GoogleMaps::cleanGeo(\$shipping)");
+});
+
+check('l\'indirizzo che va in rubrica si porta dietro place ID e coordinate valide', function (): bool {
+    $order = ['shipping_name' => 'Ada', 'shipping_street' => 'Via Roma', 'shipping_place_id' => 'ChIJabc_def-123', 'shipping_lat' => '45.4642035', 'shipping_lng' => '9.189982'];
+    $address = \Wonder\Plugin\Ecommerce\Frontend\Checkout\AccountAddress::address($order);
+    $bad = \Wonder\Plugin\Ecommerce\Frontend\Checkout\AccountAddress::address(['shipping_street' => 'Via Roma', 'shipping_lat' => '95', 'shipping_lng' => '9']);
+
+    return $address['street'] === 'Via Roma' && $address['name'] === 'Ada'
+        && $address['place_id'] === 'ChIJabc_def-123' && $address['lat'] === 45.4642035 && $address['lng'] === 9.189982
+        && $bad['place_id'] === null && $bad['lat'] === null && $bad['lng'] === null
+        && !isset($address['shipping_street']);
+});
+
 summary();
