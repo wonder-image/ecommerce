@@ -12,7 +12,8 @@ $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
 $view = (string) file_get_contents($root.'/view/pages/checkout/index.php');
 $summary = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutSummary.php');
 $pay = (string) file_get_contents($root.'/view/pages/checkout/pay.php');
-$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php')
+    .(string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
 
 check('Stripe.js arriva da Stripe, una volta sola e solo quando serve', fn () => str_contains($js, "'https://js.stripe.com/v3/'")
     && str_contains($js, 'function loadStripe()')
@@ -232,7 +233,11 @@ check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che res
 });
 
 check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box del pagamento', function () use ($js): bool {
-    return !str_contains($js, 'this.say(payAlert(')
+    // I bottoni rapidi stanno anche in pagine senza il template dell'alert: lì il testo resta sotto i bottoni
+    [$pay, $express] = explode('class Express', $js, 2) + ['', ''];
+
+    return !str_contains($pay, 'this.say(payAlert(')
+        && str_contains($express, 'this.say(payAlert(error.message || this.labels.error));')
         && !str_contains($js, 'this.say([message])')
         && !str_contains($js, 'this.reopen([message])')
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed);')

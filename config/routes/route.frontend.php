@@ -70,6 +70,12 @@ Route::area('frontend')
                 Route::get('/return/', $handler, ['checkout_action' => 'return'])->name('return');
                 Route::get('/pay/', $handler, ['checkout_action' => 'pay'])->name('pay');
                 Route::post('/reopen/', $handler, ['checkout_action' => 'reopen'])->name('reopen');
+
+                $express = Ecommerce::handlerPath('frontend/express.php');
+                Route::post('/express/start/', $express, ['express_action' => 'start'])->name('express.start');
+                Route::post('/express/shipping/', $express, ['express_action' => 'shipping'])->name('express.shipping');
+                Route::post('/express/place/', $express, ['express_action' => 'place'])->name('express.place');
+                Route::post('/express/cancel/', $express, ['express_action' => 'cancel'])->name('express.cancel');
             });
 
         $authProfileClass = Ecommerce::config('auth.profile', \Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile::class);

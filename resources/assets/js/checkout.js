@@ -1198,6 +1198,249 @@ class CheckoutPay {
     }
 }
 
+// Il check-out rapido: l'Express Checkout Element di Stripe (Apple Pay, Google Pay, Link) nel checkout,
+// nel carrello e nella scheda prodotto. Il foglio del wallet chiede indirizzo e tariffa; il server compra
+// da un carrello a parte e crea ordine e intento solo alla conferma.
+class Express {
+    constructor(root) {
+        this.root = root;
+        this.config = JSON.parse(root.dataset.express || '{}');
+        this.labels = this.config.labels || {};
+        this.notice = root.querySelector('[data-express-message]');
+        this.started = null;
+        this.total = null;
+        this.box = root.closest('#rapido');
+        this.unavailable = false;
+        this.invoice = this.box?.closest('form')?.querySelector('[name="invoice"]') || null;
+
+        // Chi vuole la fattura passa dal modulo: il wallet non dà codice fiscale e partita IVA.
+        this.invoice?.addEventListener('change', () => this.toggle());
+        this.toggle();
+
+        loadStripe().then(() => this.mount()).catch(() => this.hide());
+    }
+
+    mount() {
+        const { publishable_key: key, account } = this.config.stripe || {};
+        const types = this.config.types || [];
+        const wallet = (type) => (types.includes(type) ? 'auto' : 'never');
+
+        this.stripe = window.Stripe(key, account ? { stripeAccount: account } : {});
+        this.elements = this.stripe.elements({
+            mode: 'payment',
+            amount: this.config.amount,
+            currency: this.config.currency,
+            appearance: STRIPE_APPEARANCE,
+        });
+        this.element = this.elements.create('expressCheckout', {
+            paymentMethods: {
+                applePay: wallet('apple_pay'),
+                googlePay: wallet('google_pay'),
+                link: wallet('link'),
+                paypal: 'never',
+                amazonPay: 'never',
+                klarna: 'never',
+            },
+        });
+
+        this.element.on('ready', ({ availablePaymentMethods }) => {
+            if (!availablePaymentMethods) {
+                this.hide();
+            }
+        });
+        this.element.on('loaderror', () => this.hide());
+        this.element.on('click', (event) => this.click(event));
+        this.element.on('shippingaddresschange', (event) => this.address(event));
+        this.element.on('shippingratechange', (event) => this.rate(event));
+        this.element.on('confirm', (event) => this.confirm(event));
+        this.element.on('cancel', () => this.cancel());
+        this.element.mount(this.root.querySelector('[data-express-element]'));
+    }
+
+    // Stripe vuole la risposta entro un secondo: il foglio si apre subito, il carrello a parte nasce intanto.
+    click(event) {
+        this.say('');
+        event.resolve({
+            emailRequired: true,
+            phoneNumberRequired: true,
+            shippingAddressRequired: true,
+            billingAddressRequired: true,
+            shippingRates: [{ id: 'pending', displayName: this.labels.pending_rate, amount: 0 }],
+        });
+
+        const data = { source: this.config.source };
+
+        if (this.config.source === 'product') {
+            // Variante e quantità sono quelle scelte nel modulo «Aggiungi».
+            const form = document.querySelector('form[data-ecommerce-add-to-cart]');
+
+            data.product_id = form?.querySelector('[name="product_id"]')?.value || this.config.product_id;
+            data.quantity = form?.querySelector('[name="quantity"]')?.value || '1';
+        }
+
+        this.started = this.post('start', data).then((reply) => {
+            this.total = reply.ok ? reply.data.total : null;
+            this.startError = reply.ok ? '' : reply.data.message || '';
+
+            return reply;
+        });
+    }
+
+    async address(event) {
+        const reply = await this.shipping(event.address, '');
+
+        if (!reply) {
+            // Se il carrello a parte non è nato (prodotto finito, carrello vuoto) si dice perché.
+            this.say(this.startError || this.labels.unavailable);
+            event.reject();
+
+            return;
+        }
+
+        event.resolve({ shippingRates: reply.rates });
+    }
+
+    async rate(event) {
+        const reply = await this.shipping(this.lastAddress, event.shippingRate.id);
+
+        if (!reply) {
+            this.say(this.labels.error);
+            event.reject();
+
+            return;
+        }
+
+        event.resolve();
+    }
+
+    // Tariffe e totale per l'indirizzo (parziale) del foglio; null se lì non si spedisce o il carrello non è partito.
+    async shipping(address, rate) {
+        const started = this.started ? await this.started : null;
+
+        if (!started?.ok) {
+            return null;
+        }
+
+        this.lastAddress = address;
+        const reply = await this.post('shipping', { address: JSON.stringify(address || {}), rate });
+
+        if (!reply.ok) {
+            return null;
+        }
+
+        this.total = reply.data.total;
+        this.elements.update({ amount: reply.data.amount });
+
+        return reply.data;
+    }
+
+    async confirm(event) {
+        const { error: invalid } = await this.elements.submit();
+
+        if (invalid) {
+            event.paymentFailed({ reason: 'fail' });
+            this.say(invalid.message || this.labels.error);
+
+            return;
+        }
+
+        const wallet = {
+            email: event.billingDetails?.email || '',
+            phone: event.billingDetails?.phone || '',
+            shipping: event.shippingAddress || {},
+            billing: { name: event.billingDetails?.name || '', address: event.billingDetails?.address || {} },
+            rate: event.shippingRate?.id || '',
+        };
+        const placed = await this.post('place', {
+            wallet: JSON.stringify(wallet),
+            type: event.expressPaymentType || '',
+            expected_total: this.total ?? '',
+        });
+
+        if (!placed.ok) {
+            event.paymentFailed({ reason: placed.data.error === 'no_shipping' ? 'address_unserviceable' : 'fail' });
+            this.say(placed.data.message || this.labels.error);
+
+            return;
+        }
+
+        paySpinner(true);
+
+        try {
+            const { error } = await this.stripe.confirmPayment({
+                elements: this.elements,
+                clientSecret: placed.data.client_secret,
+                confirmParams: { return_url: new URL(placed.data.return_url, window.location.href).href },
+            });
+
+            // Senza errore Stripe ha già portato il cliente al ritorno.
+            if (error) {
+                this.say(payAlert(error.message || this.labels.error));
+                await this.post('cancel', {});
+            }
+        } catch (error) {
+            this.say(this.labels.error);
+            await this.post('cancel', {});
+        } finally {
+            paySpinner(false);
+        }
+    }
+
+    // Il foglio chiuso senza pagare: l'eventuale ordine rapido si annulla e il carrello a parte si butta.
+    cancel() {
+        if (!this.started) {
+            return;
+        }
+
+        this.started = null;
+        this.total = null;
+        this.post('cancel', {});
+    }
+
+    async post(action, values) {
+        const body = new URLSearchParams({ csrf_token: this.config.csrf || '', ...values });
+
+        try {
+            const response = await fetch(this.config.urls[action], {
+                method: 'POST',
+                body,
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            });
+            const data = await response.json();
+
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            }
+
+            return { ok: response.ok && data.success === true, data };
+        } catch (error) {
+            return { ok: false, data: {} };
+        }
+    }
+
+    hide() {
+        this.unavailable = true;
+        this.root.hidden = true;
+        this.toggle();
+    }
+
+    toggle() {
+        if (this.box) {
+            this.box.hidden = this.unavailable || !!this.invoice?.checked;
+        }
+    }
+
+    say(message) {
+        if (this.notice) {
+            this.notice.textContent = message || '';
+            this.notice.hidden = !message;
+        }
+    }
+}
+
+document.querySelectorAll('[data-express]').forEach((root) => new Express(root));
+
 document.querySelectorAll('[data-checkout-pay]').forEach((root) => new CheckoutPay(root));
 
 window.Checkout = Checkout;

@@ -241,6 +241,13 @@ final class OnlinePayment
         }
 
         unset($_SESSION[self::RECEIPT]);
+        // L'express compra da un carrello a parte: annullato, si butta e basta.
+        if (ExpressCart::owns($id)) {
+            ExpressCart::forget();
+
+            return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => []];
+        }
+
         $method = (string) ($payment['provider_method'] ?? '');
         if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
             $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;

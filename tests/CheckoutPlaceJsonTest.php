@@ -7,44 +7,56 @@ require __DIR__.'/harness.php';
 
 $root = dirname(__DIR__);
 $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+$placement = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
 
-/** Il corpo di un metodo privato del controller, fino al metodo dopo. */
+/** Il corpo di un metodo statico, privato o pubblico, fino al metodo dopo. */
 function corpo(string $sorgente, string $metodo): string
 {
-    $inizio = strpos($sorgente, 'private static function '.$metodo.'(');
-    if ($inizio === false) {
+    if (!preg_match('/(private|public) static function '.preg_quote($metodo, '/').'\\(/', $sorgente, $trovato, PREG_OFFSET_CAPTURE)) {
         return '';
     }
-    $fine = strpos($sorgente, 'private static function ', $inizio + 1);
+    $inizio = $trovato[0][1];
+    $fine = preg_match('/(private|public) static function /', $sorgente, $dopo, PREG_OFFSET_CAPTURE, $inizio + 1) ? $dopo[0][1] : false;
 
     return substr($sorgente, $inizio, $fine === false ? null : $fine - $inizio);
 }
 
 $place = corpo($controller, 'place');
+$placed = corpo($placement, 'place');
+$started = corpo($placement, 'startOnline');
 
 check('place risponde in JSON o con un redirect solo attraverso leave e reject', fn () => $place !== ''
     && str_contains($place, 'self::wantsJson()')
     && !str_contains($place, 'self::redirect(')
     && !str_contains($place, 'self::rememberErrors('));
 
-check('place confronta il totale visto e lascia cadere l\'ordine in sospeso prima di crearne uno', fn () =>
-    str_contains($place, "OnlinePayment::sameTotal(\$_POST['expected_total'] ?? null")
-    && strpos($place, 'OnlinePayment::dropPending()') !== false
-    && strpos($place, 'OnlinePayment::dropPending()') < strpos($place, 'Checkout::place('));
+check('CheckoutPlacement confronta il totale visto e lascia cadere l\'ordine in sospeso prima di crearne uno', fn () =>
+    str_contains($placed, "OnlinePayment::sameTotal(\$options['expected_total'] ?? null")
+    && strpos($placed, 'OnlinePayment::dropPending()') !== false
+    && strpos($placed, 'OnlinePayment::dropPending()') < strpos($placed, 'Checkout::place('));
 
-check('place salva l\'indirizzo di consegna nell\'account del cliente autenticato, dopo l\'ordine e senza fermarlo', function () use ($place) {
-    $salva = strpos($place, 'AccountAddress::remember($customerId,');
+check('place: il totale cambiato è un 409 col riepilogo nuovo, i campi mancanti un rifiuto', fn () =>
+    str_contains($place, 'catch (CheckoutRejected $e)')
+    && str_contains($place, '$e->totalChanged()')
+    && str_contains($place, "'total_changed'")
+    && str_contains($place, "'summary' => \$e->summary()")
+    && str_contains($place, 'self::reject($e->errors(), $post, $json)')
+    && strpos($place, 'catch (CheckoutRejected $e)') < strpos($place, 'catch (RuntimeException $error)'));
+
+check('CheckoutPlacement salva l\'indirizzo di consegna nell\'account del cliente autenticato, dopo l\'ordine e senza fermarlo', function () use ($placed) {
+    $salva = strpos($placed, 'AccountAddress::remember($customerId,');
 
     return $salva !== false
-        && $salva > strpos($place, 'Checkout::place(')
-        && str_contains($place, 'if (!$guest && $customerId > 0)')
-        && str_contains($place, "Errors::internal(\$error, 'ecommerce.checkout.address')");
+        && $salva > strpos($placed, 'Checkout::place(')
+        && str_contains($placed, 'if (!$guest && $customerId > 0)')
+        && str_contains($placed, "Errors::internal(\$error, 'ecommerce.checkout.address')");
 });
 
 check('place avvia il pagamento online e risponde col segreto dell\'intento', fn () =>
-    str_contains($place, 'OnlinePayment::start(')
-    && str_contains($place, "'client_secret' =>")
-    && str_contains($place, "'return_url' => self::route('ecommerce.checkout.return')"));
+    str_contains($place, 'CheckoutPlacement::startOnline($receipt)')
+    && str_contains($started, 'OnlinePayment::start(')
+    && str_contains($started, "'client_secret' =>")
+    && str_contains($started, "'return_url' => self::route('ecommerce.checkout.return')"));
 
 check('leave e reject esistono e terminano la richiesta', fn () =>
     str_contains(corpo($controller, 'leave'), 'self::json(')

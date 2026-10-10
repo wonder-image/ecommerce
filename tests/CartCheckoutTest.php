@@ -107,7 +107,8 @@ check('il checkout ospite si sceglie dal backend, non dalla configurazione, e us
 });
 
 check('il checkout non finge il completamento dei provider online non collegati', function () use ($root) {
-    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php')
+        .(string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
 
     return str_contains($controller, 'CheckoutForm::isManual($method)')
         && str_contains($controller, 'ecommerce.checkout.errors.online_javascript')
@@ -125,7 +126,7 @@ check('summary e coupon hanno le guardie in JSON e place usa CheckoutForm', func
         && str_contains($c, "'error' => (string) __t('ecommerce.checkout.summary_error')], 419)")
         && str_contains($c, "'redirect' => self::loginUrl()], 401)")
         && str_contains($c, "'redirect' => self::route('ecommerce.cart.index')], 409)")
-        && str_contains($c, 'CheckoutForm::data(')
+        && str_contains((string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php'), 'CheckoutForm::data(')
         && !str_contains($c, "'shipping_method_id' => 0");
 });
 
@@ -294,6 +295,17 @@ check('il check-out rapido non ha ancora bottoni (arrivano coi pagamenti online)
     \Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout::buttons(['total' => '10.00']) === []
 );
 
+check('il check-out rapido ha le sue quattro rotte POST', function (): bool {
+    $rotte = (string) file_get_contents(dirname(__DIR__).'/config/routes/route.frontend.php');
+    foreach (['start', 'shipping', 'place', 'cancel'] as $azione) {
+        if (!str_contains($rotte, "Route::post('/express/{$azione}/', \$express, ['express_action' => '{$azione}'])->name('express.{$azione}')")) {
+            return false;
+        }
+    }
+
+    return str_contains($rotte, "Ecommerce::handlerPath('frontend/express.php')");
+});
+
 check('accesso, account e checkout stampano il loro font', function (): bool {
     $root = dirname(__DIR__);
     $sources = [
@@ -404,7 +416,8 @@ check('il checkout è una pagina sola: niente rotte dei passi', function (): boo
 
 check('place passa dalle regole: POST pulito, errori insieme, solo i metodi offerti', function (): bool {
     $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
-    $place = substr($c, (int) strpos($c, 'private static function place('));
+    $place = substr($c, (int) strpos($c, 'private static function place('))
+        .(string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutPlacement.php');
 
     return str_contains($place, 'CheckoutRules::post($_POST, CartSession::user())')
         && str_contains($place, 'CheckoutRules::deliveryErrors(')
@@ -623,7 +636,8 @@ check('il codice fiscale è obbligatorio solo per il privato, e il JS lo cambia 
 });
 
 check('l\'ospite ottiene account e link prima dell\'ordine, e la conferma non mostra l\'account', function () use ($root) {
-    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php')
+        .(string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
     $completed = (string) file_get_contents($root.'/view/pages/checkout/completed.php');
     $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
     $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
