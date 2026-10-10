@@ -57,6 +57,8 @@ final class ExpressCheckout
                 'amount' => $amount,
                 'currency' => strtolower((string) ($order['currency'] ?? 'EUR')),
                 'types' => $method['types'],
+                // Sul prodotto tutti i bottoni in fila, senza «Vedi tutte».
+                'layout' => $source === 'product' ? ['overflow' => 'never'] : null,
                 'labels' => [
                     'pending_rate' => (string) __t('ecommerce.checkout.express_pending_rate'),
                     'error' => (string) __t('ecommerce.checkout.express_error'),

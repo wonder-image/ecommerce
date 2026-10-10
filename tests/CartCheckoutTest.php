@@ -729,4 +729,55 @@ check('con un solo articolo il titolo del carrello dice «1 articolo»', functio
         && str_contains($v, "'ecommerce.cart.count_one'");
 });
 
+check('i titoli del check-out rapido: «Check-out rapido con» e sul prodotto «Oppure acquista ora con»', function () use ($root): bool {
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return ($it['checkout']['express'] ?? '') === 'Check-out rapido con'
+        && ($it['checkout']['express_product'] ?? '') === 'Oppure acquista ora con'
+        && ($en['checkout']['express'] ?? '') === 'Express checkout with'
+        && ($en['checkout']['express_product'] ?? '') === 'Or buy now with';
+});
+
+check('nel carrello i bottoni rapidi stanno nel riepilogo, sopra «Procedi»', function () use ($root): bool {
+    $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $aside = (string) file_get_contents($root.'/view/components/checkout/aside.php');
+    $express = strpos($aside, '<?=$express');
+    $button = strpos($aside, '<?=$button');
+
+    return str_contains($cart, "'express' => ExpressCheckout::render('cart', \$order)")
+        && !str_contains($cart, 'id="rapido"')
+        && $express !== false && $button !== false && $express < $button;
+});
+
+check('la scelta della sede di ritiro sta sotto il cellulare', function () use ($root): bool {
+    $v = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $phone = strpos($v, "FormField::key('shipping_phone')");
+    $pickup = strpos($v, 'data-checkout-pickup<');
+
+    return $phone !== false && $pickup !== false && $phone < $pickup;
+});
+
+check('il riquadro rapido non fa galleggiare i suoi div e si mostra solo a Stripe pronto', function () use ($root): bool {
+    $css = (string) @file_get_contents($root.'/resources/assets/css/express.css');
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $component = (string) file_get_contents($root.'/view/components/checkout/express.php');
+
+    return str_contains($css, '.wi-express > div')
+        && str_contains($css, 'float: none')
+        && str_contains($css, '.wi-express__or')
+        && str_contains($css, '[data-express-loading]')
+        && str_contains($component, "module_asset('ecommerce', 'css/express.css')")
+        && str_contains($js, 'this.ready')
+        && !str_contains($js, "closest('#rapido')");
+});
+
+check('il riquadro rapido ha le sue misure anche dove store.css non c\'è (scheda prodotto)', function () use ($root): bool {
+    $css = (string) @file_get_contents($root.'/resources/assets/css/express.css');
+
+    return str_contains($css, '.wi-express > h2')
+        && str_contains($css, '.wi-express > .text-xsmall')
+        && str_contains($css, 'font-size: 14px')
+        && str_contains($css, 'font-size: 12px');
+});
 summary();

@@ -88,14 +88,13 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
             <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), [
                 'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency, 'csrf_token' => $csrf_token,
                 'coupons' => false, 'couponCode' => '', 'notices' => [],
+                // I bottoni rapidi stanno sopra «Procedi».
+                'express' => ExpressCheckout::render('cart', $order),
                 'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 mt-5'),
             ])?>
-            <?php if (($expressBox = ExpressCheckout::render('cart', $order)) !== ''): ?>
-                <div id="rapido" class="w-100"><?=$expressBox?></div>
-                <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
-                    View::head('<script src="'.e($checkoutJs).'" defer></script>');
-                } ?>
-            <?php endif; ?>
+            <?php if (ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+                View::head('<script src="'.e($checkoutJs).'" defer></script>');
+            } ?>
             <?php if ($coupons): ?>
                 <?php
                 $couponCode = (string) ($order['coupon_code'] ?? '');

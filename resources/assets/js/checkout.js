@@ -1209,9 +1209,9 @@ class Express {
         this.notice = root.querySelector('[data-express-message]');
         this.started = null;
         this.total = null;
-        this.box = root.closest('#rapido');
+        this.ready = false;
         this.unavailable = false;
-        this.invoice = this.box?.closest('form')?.querySelector('[name="invoice"]') || null;
+        this.invoice = root.closest('form')?.querySelector('[name="invoice"]') || null;
 
         // Chi vuole la fattura passa dal modulo: il wallet non dà codice fiscale e partita IVA.
         this.invoice?.addEventListener('change', () => this.toggle());
@@ -1241,12 +1241,17 @@ class Express {
                 amazonPay: 'never',
                 klarna: 'never',
             },
+            ...(this.config.layout ? { layout: this.config.layout } : {}),
         });
 
         this.element.on('ready', ({ availablePaymentMethods }) => {
             if (!availablePaymentMethods) {
                 this.hide();
+                return;
             }
+            // Titolo, condizioni e «OPPURE» compaiono solo coi bottoni.
+            this.ready = true;
+            this.toggle();
         });
         this.element.on('loaderror', () => this.hide());
         this.element.on('click', (event) => this.click(event));
@@ -1421,14 +1426,12 @@ class Express {
 
     hide() {
         this.unavailable = true;
-        this.root.hidden = true;
         this.toggle();
     }
 
     toggle() {
-        if (this.box) {
-            this.box.hidden = this.unavailable || !!this.invoice?.checked;
-        }
+        this.root.toggleAttribute('data-express-loading', !this.ready && !this.unavailable);
+        this.root.hidden = this.unavailable || !!this.invoice?.checked;
     }
 
     say(message) {

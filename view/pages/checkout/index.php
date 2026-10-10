@@ -99,13 +99,7 @@ View::head(DataLayer::script([
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
-        <?php if ($express !== []): ?>
-            <div id="rapido" class="w-100">
-                <h2 class="text-small a-c mb-3"><?=e(__t('ecommerce.checkout.express'))?></h2>
-                <?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?>
-                <p class="wi-checkout__or mt-5"><?=e(__t('ecommerce.checkout.or'))?></p>
-            </div>
-        <?php endif; ?>
+        <?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?>
         <div id="contatti" class="w-100">
             <div class="w-100 d-flex gap-3 mb-3">
                 <h2 class="subtitle"><?=e(__t('ecommerce.checkout.contact'))?></h2>
@@ -141,8 +135,12 @@ View::head(DataLayer::script([
                     <?php foreach ($shipping_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
                 </div>
             </div>
+            <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
+                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
+            </div>
             <?php if ($shipping): ?>
-                <div class="w-100 mt-4" data-checkout-pickup<?=$pickup ? '' : ' hidden'?>>
+                <div class="w-100 mt-5" data-checkout-pickup<?=$pickup ? '' : ' hidden'?>>
                     <h3 class="text fw-600 mb-3"><?=e(__t('ecommerce.checkout.pickup_locations'))?></h3>
                     <div class="w-100" data-checkout-pickup-locations>
                         <?=ChoiceGroup::make()->variant('list')->choices(...array_map(static fn (array $o): Choice => Choice::make('location_id', (int) $o['id'])
@@ -151,10 +149,6 @@ View::head(DataLayer::script([
                     </div>
                 </div>
             <?php endif; ?>
-            <div class="w-100 d-grid col-4 gap-4 gap-p-3 mt-4 mt-p-3">
-                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
-                <div class="w-100 col-<?=CheckoutFields::span('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
-            </div>
             <?php if ($shipping): ?>
                 <div class="w-100 mt-5" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
                     <h3 class="text fw-600 mb-3"><?=e(__t('ecommerce.checkout.shipping_methods'))?></h3>

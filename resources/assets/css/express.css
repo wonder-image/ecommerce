@@ -1,0 +1,37 @@
+/* Il check-out rapido: titolo, bottoni di Stripe, condizioni e «OPPURE». */
+/* Le section del sito fanno galleggiare ogni div: qui le righe restano una sotto l'altra. */
+.wi-express > div {
+    float: none;
+}
+/* Finché Stripe non mostra i bottoni il riquadro non si vede, ma resta largo quanto serve all'elemento. */
+.wi-express[data-express-loading] {
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+    visibility: hidden;
+}
+.wi-express[hidden] {
+    display: none;
+}
+/* Misure fisse: sulla scheda prodotto store.css non c'è e il .text-small del tema (con !important) darebbe il titolo più piccolo delle condizioni. */
+.wi-express > h2 {
+    font-size: 14px !important;
+    line-height: 20px !important;
+}
+.wi-express > .text-xsmall {
+    font-size: 12px !important;
+    line-height: 16px !important;
+}
+.wi-express__or {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacer) * 3);
+    font-size: var(--text-small-font-size);
+    opacity: 0.7;
+}
+.wi-express__or::before,
+.wi-express__or::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--dropdown-border-color);
+}

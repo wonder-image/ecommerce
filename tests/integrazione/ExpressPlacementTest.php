@@ -255,4 +255,46 @@ check('riquadro: la scritta dice che si accettano condizioni e privacy', fn () =
         && !str_contains($html, 'ecommerce.checkout.express_privacy');
 }));
 
+/** Il riquadro di una fonte, con Stripe e un metodo rapido accesi. */
+function riquadro(string $fonte): string
+{
+    stripeConTipi(['card', 'apple_pay']);
+    metodoStripe();
+    Setting::update(['checkout_guest' => 'true'], (int) Setting::current()['id']);
+
+    return ExpressCheckout::render($fonte, ['total' => '10.00', 'currency' => 'EUR'], $fonte === 'product' ? articolo(1.0, 10.0) : 0);
+}
+
+$tradotto = static fn (string $chiave): string => htmlspecialchars((string) __t('ecommerce.checkout.'.$chiave), ENT_QUOTES);
+
+check('riquadro: resta invisibile finché Stripe non mostra i bottoni', fn () => prova(static function (): bool {
+    $html = riquadro('checkout');
+
+    return preg_match('~<div[^>]*data-express=[^>]*data-express-loading~', $html) === 1;
+}));
+
+check('riquadro: titolo, bottoni, condizioni piccole e staccate, poi «OPPURE» nel checkout e nel carrello', fn () => prova(static function () use ($tradotto): bool {
+    foreach (['checkout', 'cart'] as $fonte) {
+        $html = riquadro($fonte);
+        $titolo = strpos($html, '>'.$tradotto('express').'<');
+        $bottoni = strpos($html, 'data-express-element');
+        $condizioni = strpos($html, '<p class="text-xsmall a-c mt-3">'.$tradotto('express_terms'));
+        $oppure = strpos($html, '<p class="wi-express__or mt-5">'.$tradotto('or').'</p>');
+        if ($titolo === false || $bottoni === false || $condizioni === false || $oppure === false
+            || !($titolo < $bottoni && $bottoni < $condizioni && $condizioni < $oppure)) {
+            return false;
+        }
+    }
+
+    return true;
+}));
+
+check('riquadro del prodotto: «Oppure acquista ora con», bottoni tutti in fila, niente «OPPURE»', fn () => prova(static function () use ($tradotto): bool {
+    $html = riquadro('product');
+
+    return str_contains($html, '>'.$tradotto('express_product').'<')
+        && !str_contains($html, 'wi-express__or')
+        && str_contains(html_entity_decode($html, ENT_QUOTES), '"layout":{"overflow":"never"}');
+}));
+
 summary();
