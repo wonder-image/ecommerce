@@ -233,7 +233,11 @@ check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che res
 });
 
 check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box del pagamento', function () use ($js): bool {
-    return !str_contains($js, 'this.say(payAlert(')
+    // I bottoni rapidi stanno anche in pagine senza il template dell'alert: lì il testo resta sotto i bottoni
+    [$pay, $express] = explode('class Express', $js, 2) + ['', ''];
+
+    return !str_contains($pay, 'this.say(payAlert(')
+        && str_contains($express, 'this.say(payAlert(error.message || this.labels.error));')
         && !str_contains($js, 'this.say([message])')
         && !str_contains($js, 'this.reopen([message])')
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed);')
