@@ -21,6 +21,11 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRejected;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCart;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
+use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Support\Orders\Cart;
+use Wonder\Plugin\Gestionale\Support\Payments\Ledger;
 use Wonder\Plugin\Gestionale\Models\Payments\Payment;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
@@ -164,6 +169,28 @@ check('express: apple_pay crea l\'ordine online con provider_method, senza chiam
         && $esito['receipt']['order_id'] > 0
         && providerMethodDi($esito['receipt']['order_id']) === 'apple_pay'
         && $http->requests === [];
+}));
+
+check('express: l\'ordine in sospeso del checkout normale torna nel carrello vero', fn () => prova(static function (): bool {
+    $_SESSION = [];
+    $_COOKIE[CartSession::COOKIE] = bin2hex(random_bytes(32));
+    stripeConTipi(['card', 'apple_pay']);
+    $vecchio = articolo(1.0, 20.0);
+    $normale = carrello([[$vecchio, 1]]);
+    Order::update(['stage' => 'order', 'status' => 'pending', 'email' => 'cliente@example.com', 'total' => '20.00'], $normale);
+    Ledger::open(['order_id' => $normale, 'amount' => 20.0, 'provider' => 'stripe']);
+    // Il pagamento non è mai partito: niente da chiedere a Stripe, l'ordine si annulla.
+    Payment::update(['provider_reference' => ''], (int) Payment::find(['order_id' => $normale], 1)['id']);
+    OnlinePayment::remember($normale);
+    [$cartId, $post] = postExpress(metodoStripe(), 'apple_pay');
+    $_SESSION[ExpressCart::SESSION] = ['id' => $cartId, 'source_cart' => 0, 'source_items' => []];
+    $totale = CheckoutSummary::payload($cartId, $post, utenteProva())['order']['total'];
+    CheckoutPlacement::place($cartId, $post, utenteProva(), ['json' => true, 'expected_total' => $totale, 'express' => true]);
+    $vero = (int) (CartSession::current(false)['order']['id'] ?? 0);
+    $righe = $vero > 0 ? array_map(static fn (array $riga): array => [(int) $riga['product_id'], (float) $riga['quantity']], Cart::contents($vero)['items']) : [];
+    $_SESSION = [];
+
+    return (string) Order::findById($normale)['status'] === 'cancelled' && $righe === [[$vecchio, 1.0]];
 }));
 
 check('senza express apple_pay si rifiuta', fn () => prova(static function (): bool {

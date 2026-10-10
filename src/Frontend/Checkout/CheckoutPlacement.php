@@ -77,9 +77,14 @@ final class CheckoutPlacement
             }
         }
 
-        // Un ordine online lasciato a metà non resta a tenere la merce.
+        // Un ordine online lasciato a metà non resta a tenere la merce. Se lo
+        // lascia la barra rapida e veniva dal checkout normale, le sue righe
+        // tornano nel carrello: l'express compra da un carrello a parte.
         try {
-            OnlinePayment::dropPending();
+            $pending = OnlinePayment::sessionOrder();
+            !empty($options['express']) && $pending > 0 && !ExpressCart::owns($pending)
+                ? OnlinePayment::reopen()
+                : OnlinePayment::dropPending();
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.drop');
         }
