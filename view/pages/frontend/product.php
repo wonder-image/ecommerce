@@ -7,6 +7,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\View\View;
 
@@ -71,6 +72,12 @@ if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (st
 
 $productStyle = module_asset('ecommerce', 'css/product.css');
 if ($productStyle !== '') View::head('<link rel="stylesheet" href="'.e($productStyle).'">');
+if (ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+    View::head('<script src="'.e($checkoutJs).'" defer></script>');
+}
+
+// Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
+$expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
 
 Dependencies::swiper();
 Dependencies::fancyapps();
@@ -181,6 +188,10 @@ Ecommerce::layout('shop');
             <?php endif; ?>
         </div>
 
+        <div data-express-product<?=$data['available'] ? '' : ' hidden'?>>
+            <?=ExpressCheckout::render('product', ['total' => $expressOffer['price'] ?? 0, 'currency' => $data['currency']], (int) $data['selected_product_id'])?>
+        </div>
+
         <?php if ($data['description_html'] !== ''): ?>
             <section class="wi-dropdown-box wi-show mt-6">
                 <h2 class="wi-dropdown-title wi-switcher text fw-600"><?=e(__t('ecommerce.catalog.description'))?> <i class="bi bi-dash" aria-hidden="true"></i></h2>
@@ -287,6 +298,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const availability = document.querySelector('[data-product-availability]');
         if (product) product.value = offer ? offer.product_id : '';
         if (submit) submit.disabled = !offer || !offer.available;
+        const expressBox = document.querySelector('[data-express-product]');
+        if (expressBox) expressBox.hidden = !offer || !offer.available;
         if (price && offer) price.textContent = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> }).format(offer.price);
         if (availability && offer) availability.innerHTML = offer.available
             ? '<i class="bi bi-circle-fill tx-success"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.in_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>

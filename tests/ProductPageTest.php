@@ -163,4 +163,13 @@ check('il cambio d\'opzione riscrive la query senza aggiungere cronologia', func
         && str_contains($view, 'remember()');
 });
 
+check('i bottoni rapidi stanno sotto «Aggiungi» e seguono la disponibilità dell\'offerta', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+
+    return str_contains($view, 'data-express-product')
+        && str_contains($view, "ExpressCheckout::render('product', ")
+        && str_contains($view, 'ExpressCheckout::available()')
+        && str_contains($view, 'expressBox.hidden = !offer || !offer.available;');
+});
+
 summary();
