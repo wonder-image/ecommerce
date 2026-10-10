@@ -20,6 +20,7 @@ final class ExpressCart
     /** Un carrello nuovo con il solo prodotto dato; niente sessione se non si compra. */
     public static function start(int $productId, float $quantity): int
     {
+        self::discard();
         $id = Transaction::run(static function () use ($productId, $quantity): int {
             $id = self::open();
             Cart::add($id, ['product_id' => $productId, 'quantity' => $quantity]);
@@ -38,6 +39,7 @@ final class ExpressCart
      */
     public static function fromCart(int $realId): int
     {
+        self::discard();
         $real = Cart::contents($realId)['items'];
         $id = Transaction::run(static function () use ($realId, $real): int {
             $id = self::open();
@@ -61,6 +63,14 @@ final class ExpressCart
         return (int) ($_SESSION[self::SESSION]['id'] ?? 0);
     }
 
+    /** Il carrello a parte finché è ancora un carrello; 0 se manca o se è già diventato un ordine. */
+    public static function current(): int
+    {
+        $id = self::id();
+
+        return $id > 0 && (string) (Order::findById($id)['stage'] ?? '') === 'cart' ? $id : 0;
+    }
+
     public static function owns(int $orderId): bool
     {
         return $orderId > 0 && self::id() === $orderId;
@@ -70,6 +80,17 @@ final class ExpressCart
     public static function forget(): void
     {
         unset($_SESSION[self::SESSION]);
+    }
+
+    /** Dimentica il carrello a parte e lo butta, se non è già diventato un ordine. */
+    public static function discard(): void
+    {
+        $id = self::current();
+        self::forget();
+
+        if ($id > 0) {
+            sqlModify(Order::$table, ['deleted' => 'true'], 'id', $id);
+        }
     }
 
     /**
@@ -85,6 +106,7 @@ final class ExpressCart
         $source = (int) ($_SESSION[self::SESSION]['source_cart'] ?? 0);
         $remembered = (array) ($_SESSION[self::SESSION]['source_items'] ?? []);
         self::forget();
+        unset($_SESSION[ExpressAddress::SESSION]);
 
         if ($source <= 0 || (string) (Order::findById($source)['stage'] ?? '') !== 'cart') {
             return;

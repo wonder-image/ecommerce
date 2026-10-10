@@ -42,18 +42,7 @@ final class ExpressController
     {
         try {
             self::dropPending();
-            $source = (string) ($_POST['source'] ?? '');
-            if ($source === 'product') {
-                $quantity = (float) str_replace(',', '.', trim((string) ($_POST['quantity'] ?? '1')));
-                $cartId = ExpressCart::start((int) ($_POST['product_id'] ?? 0), $quantity > 0 ? $quantity : 1.0);
-            } else {
-                $cart = CartSession::current(false);
-                if ((array) ($cart['items'] ?? []) === []) {
-                    throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
-                }
-                $cartId = ExpressCart::fromCart((int) $cart['order']['id']);
-            }
-
+            $cartId = self::begin($_POST);
             $order = CheckoutSummary::payload($cartId, ['fulfillment_type' => 'shipping'], CartSession::user())['order'];
         } catch (UserError|RuntimeException $error) {
             self::json(['success' => false, 'message' => $error->getMessage()], 422);
@@ -63,6 +52,32 @@ final class ExpressController
         }
 
         self::json(['success' => true] + self::amounts($order));
+    }
+
+    /**
+     * Il carrello a parte del foglio, dalla scheda prodotto o dal carrello;
+     * senza un metodo rapido non se ne crea nessuno.
+     *
+     * @param array<string, mixed> $post
+     */
+    public static function begin(array $post): int
+    {
+        if (!ExpressCheckout::available()) {
+            throw new RuntimeException((string) __t('ecommerce.checkout.express_error'));
+        }
+
+        if ((string) ($post['source'] ?? '') === 'product') {
+            $quantity = (float) str_replace(',', '.', trim((string) ($post['quantity'] ?? '1')));
+
+            return ExpressCart::start((int) ($post['product_id'] ?? 0), $quantity > 0 ? $quantity : 1.0);
+        }
+
+        $cart = CartSession::current(false);
+        if ((array) ($cart['items'] ?? []) === []) {
+            throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
+        }
+
+        return ExpressCart::fromCart((int) $cart['order']['id']);
     }
 
     /** Indirizzo parziale e tariffa del foglio: le tariffe della zona e il nuovo totale. */
@@ -155,10 +170,11 @@ final class ExpressController
     {
         try {
             self::dropPending();
+            ExpressCart::discard();
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.express.cancel');
+            ExpressCart::forget();
         }
-        ExpressCart::forget();
 
         self::json(['success' => true]);
     }
@@ -195,7 +211,7 @@ final class ExpressController
 
     private static function expressCart(): int
     {
-        $cartId = ExpressCart::id();
+        $cartId = ExpressCart::current();
 
         return $cartId > 0 ? $cartId : self::json(['success' => false, 'error' => 'no_cart'], 409);
     }

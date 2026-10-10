@@ -18,6 +18,7 @@ require $supporto.'/FakePaymentProvider.php';
 require $supporto.'/posta.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressAddress;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCart;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -193,6 +194,40 @@ check('reopen: ordine express annullato non torna nel carrello vero', fn () => p
         && righe($vero) === [[$a, 1.0]]
         && ExpressCart::id() === 0
         && OnlinePayment::sessionOrder() === 0;
+}));
+
+check('current: il carrello rapido finché è un carrello, poi 0', fn () => prova(static function (): bool {
+    $express = ExpressCart::start(articolo(1.0), 1);
+    $prima = ExpressCart::current();
+    Order::update(['stage' => 'order', 'status' => 'pending'], $express);
+
+    return $prima === $express && ExpressCart::current() === 0 && ExpressCart::id() === $express;
+}));
+
+check('start: il carrello rapido di prima si butta, non resta abbandonato', fn () => prova(static function (): bool {
+    $a = articolo(1.0);
+    $primo = ExpressCart::start($a, 1);
+    $secondo = ExpressCart::fromCart(carrello([[$a, 1]]));
+    $buttato = Order::find(['id' => $primo, 'deleted' => 'true'], 1);
+
+    return $secondo !== $primo && ExpressCart::id() === $secondo
+        && is_array($buttato) && (int) ($buttato['id'] ?? 0) === $primo && (string) ($buttato['deleted'] ?? '') === 'true';
+}));
+
+check('discard: un ordine già piazzato non si butta', fn () => prova(static function (): bool {
+    $express = ExpressCart::start(articolo(1.0), 1);
+    Order::update(['stage' => 'order', 'status' => 'pending'], $express);
+    ExpressCart::discard();
+
+    return ExpressCart::id() === 0 && (string) (Order::findById($express)['stage'] ?? '') === 'order';
+}));
+
+check('settled: si dimentica anche la fatturazione del wallet', fn () => prova(static function (): bool {
+    $express = ExpressCart::start(articolo(1.0), 1);
+    $_SESSION[ExpressAddress::SESSION] = ['billing_name' => 'Maria', 'billing_country' => 'IT'];
+    ExpressCart::settled($express);
+
+    return !isset($_SESSION[ExpressAddress::SESSION]) && ExpressAddress::knownBilling(null) === null;
 }));
 
 PaymentProviders::reset();

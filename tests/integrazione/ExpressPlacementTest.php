@@ -22,6 +22,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRejected;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCart;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressController;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
@@ -217,6 +218,23 @@ check('online senza JavaScript si rifiuta prima di creare l\'ordine', fn () => p
         return false;
     } catch (RuntimeException $e) {
         return $e->getMessage() === (string) __t('ecommerce.checkout.errors.online_javascript');
+    }
+
+    return false;
+}));
+
+check('start: senza metodi rapidi non nasce nessun carrello', fn () => prova(static function (): bool {
+    stripeConTipi([]);
+    metodoStripe();
+    $_SESSION = [];
+    $prodotto = articolo(1.0, 10.0);
+    $ultimo = static fn (): int => (int) (Order::find(null, 1, 'id', 'DESC')['id'] ?? 0);
+    $prima = $ultimo();
+
+    try {
+        ExpressController::begin(['source' => 'product', 'product_id' => (string) $prodotto, 'quantity' => '1']);
+    } catch (RuntimeException) {
+        return ExpressCart::id() === 0 && $ultimo() === $prima;
     }
 
     return false;
