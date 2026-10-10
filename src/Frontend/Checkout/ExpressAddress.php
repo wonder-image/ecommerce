@@ -14,6 +14,9 @@ final class ExpressAddress
     /** La fatturazione del wallet dell'ultimo totale cambiato: l'anteprima del foglio dopo ne conta l'imposta. */
     public const SESSION = 'ecommerce_express_billing';
 
+    private const PARTICLES = ['da', 'dal', 'dalla', 'dalle', 'de', 'dei', 'degli', 'del', 'della', 'delle', 'dello', 'di',
+        'la', 'le', 'lo', 'van', 'von', 'der', 'den', 'du', 'des', 'dos', 'das', 'do'];
+
     private const PLACE = ['country', 'province', 'city', 'cap'];
 
     /** La sigla della provincia da sigla o nome; maiuscole, accenti e trattini indifferenti. */
@@ -127,15 +130,34 @@ final class ExpressAddress
      * @param array<string, mixed> $person {name, address}
      * @return array<string, string>
      */
+    /**
+     * Il wallet dà il nome intero: il cognome è l'ultima parola con le particelle che la precedono
+     * («Maria De Rossi» → Maria / De Rossi), lasciando sempre almeno una parola al nome.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function split(string $full): array
+    {
+        $words = preg_split('/\s+/u', trim($full), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($words) < 2) {
+            return [$words[0] ?? '', $words[0] ?? ''];
+        }
+        $cut = count($words) - 1;
+        while ($cut > 1 && in_array(mb_strtolower($words[$cut - 1]), self::PARTICLES, true)) {
+            $cut--;
+        }
+
+        return [implode(' ', array_slice($words, 0, $cut)), implode(' ', array_slice($words, $cut))];
+    }
+
     private static function person(string $group, array $person): array
     {
-        $full = preg_replace('/\s+/u', ' ', self::text($person['name'] ?? '')) ?? '';
-        $cut = strrpos($full, ' ');
+        [$name, $surname] = self::split(self::text($person['name'] ?? ''));
         $address = (array) ($person['address'] ?? []);
 
         return [
-            $group.'_name' => $cut === false ? $full : substr($full, 0, $cut),
-            $group.'_surname' => $cut === false ? $full : substr($full, $cut + 1),
+            $group.'_name' => $name,
+            $group.'_surname' => $surname,
             $group.'_street' => trim(self::text($address['line1'] ?? '').' '.self::text($address['line2'] ?? '')),
             $group.'_number' => '',
             $group.'_more' => '',

@@ -72,6 +72,18 @@ check('post: nome, via, pagamento e consensi', function (): bool {
         && $p['billing_name'] === 'Maria Luisa' && $p['billing_surname'] === 'Rossi' && $p['billing_province'] === 'TO'
         && $p['email'] === 'cliente@example.com' && $p['shipping_phone'] === '+39 333 1234567';
 });
+check('post: le particelle restano nel cognome', function (): bool {
+    $nome = fn (string $n): array => array_intersect_key(
+        ExpressAddress::post(['shipping' => ['name' => $n] + walletProva()['shipping']] + walletProva(), null, 1, 'link', []),
+        ['shipping_name' => 1, 'shipping_surname' => 1]
+    );
+
+    return $nome('Maria De Rossi') === ['shipping_name' => 'Maria', 'shipping_surname' => 'De Rossi']
+        && $nome('Anna Maria Rossi') === ['shipping_name' => 'Anna Maria', 'shipping_surname' => 'Rossi']
+        && $nome('Jan van der Berg') === ['shipping_name' => 'Jan', 'shipping_surname' => 'van der Berg']
+        && $nome('Luca Della Valle') === ['shipping_name' => 'Luca', 'shipping_surname' => 'Della Valle']
+        && $nome('De Luca') === ['shipping_name' => 'De', 'shipping_surname' => 'Luca'];
+});
 check('post: un nome solo vale anche da cognome', fn () => ExpressAddress::post(['shipping' => ['name' => 'Cher'] + walletProva()['shipping']] + walletProva(), null, 1, 'link', [])['shipping_surname'] === 'Cher');
 check('post: la fatturazione salvata della scheda vince sul wallet', function (): bool {
     $c = ['name' => 'Ditta', 'surname' => 'Bianchi', 'country' => 'IT', 'province' => 'BO', 'city' => 'Bologna', 'cap' => '40100', 'street' => 'Via Emilia', 'number' => '3'];
