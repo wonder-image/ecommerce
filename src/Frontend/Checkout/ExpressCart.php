@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
+use RuntimeException;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Sql\Transaction;
@@ -30,16 +31,25 @@ final class ExpressCart
         return $id;
     }
 
-    /** Un carrello nuovo con righe, scelte e coupon del carrello vero, di cui ricorda le righe. */
+    /**
+     * Un carrello nuovo con righe, scelte e coupon del carrello vero, di cui
+     * ricorda righe e quantità. Se un articolo non c'è più o non basta, niente
+     * copia: si paga solo ciò che il cliente vede nel carrello.
+     */
     public static function fromCart(int $realId): int
     {
-        $id = Transaction::run(static function () use ($realId): int {
+        $real = Cart::contents($realId)['items'];
+        $id = Transaction::run(static function () use ($realId, $real): int {
             $id = self::open();
-            Cart::restore($realId, $id);
+            $restored = Cart::restore($realId, $id);
+
+            if ((array) ($restored['removed'] ?? []) !== [] || self::quantities($real) !== self::quantities(Cart::contents($id)['items'])) {
+                throw new RuntimeException((string) __t('ecommerce.checkout.express_changed'));
+            }
 
             return $id;
         });
-        $items = array_map(static fn (array $item): int => (int) $item['id'], Cart::contents($realId)['items']);
+        $items = array_column(array_map(static fn (array $item): array => [(int) $item['id'], (float) $item['quantity']], $real), 1, 0);
         $_SESSION[self::SESSION] = ['id' => $id, 'source_cart' => $realId, 'source_items' => $items];
 
         return $id;
@@ -61,7 +71,10 @@ final class ExpressCart
         unset($_SESSION[self::SESSION]);
     }
 
-    /** Pagamento riuscito: dal carrello vero vanno via le righe copiate ancora presenti. */
+    /**
+     * Pagamento riuscito: dal carrello vero va via quanto copiato delle righe
+     * ancora presenti; se intanto una riga è cresciuta, resta la differenza.
+     */
     public static function settled(int $orderId): void
     {
         if (!self::owns($orderId)) {
@@ -69,7 +82,7 @@ final class ExpressCart
         }
 
         $source = (int) ($_SESSION[self::SESSION]['source_cart'] ?? 0);
-        $remembered = array_map('intval', (array) ($_SESSION[self::SESSION]['source_items'] ?? []));
+        $remembered = (array) ($_SESSION[self::SESSION]['source_items'] ?? []);
         self::forget();
 
         if ($source <= 0 || (string) (Order::findById($source)['stage'] ?? '') !== 'cart') {
@@ -77,10 +90,30 @@ final class ExpressCart
         }
 
         foreach (Cart::contents($source)['items'] as $item) {
-            if (in_array((int) $item['id'], $remembered, true)) {
-                Cart::remove($source, (int) $item['id']);
+            $id = (int) $item['id'];
+            if (!isset($remembered[$id])) {
+                continue;
             }
+
+            $left = round((float) $item['quantity'] - (float) $remembered[$id], 3);
+            $left > 0 ? Cart::setQuantity($source, $id, $left) : Cart::remove($source, $id);
         }
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     * @return array<int, float> Quantità per prodotto, in ordine di prodotto.
+     */
+    private static function quantities(array $items): array
+    {
+        $totals = [];
+        foreach ($items as $item) {
+            $product = (int) ($item['product_id'] ?? 0);
+            $totals[$product] = round(($totals[$product] ?? 0.0) + (float) $item['quantity'], 3);
+        }
+        ksort($totals);
+
+        return $totals;
     }
 
     private static function open(): int

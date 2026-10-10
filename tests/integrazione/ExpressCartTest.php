@@ -105,7 +105,7 @@ check('fromCart: copia righe e coupon, ricorda le righe', fn () => prova(static 
     ]);
     Coupons::apply($vero, $codice);
     $express = ExpressCart::fromCart($vero);
-    $ricordate = array_map(static fn (array $riga): int => (int) $riga['id'], Cart::contents($vero)['items']);
+    $ricordate = array_column(array_map(static fn (array $riga): array => [(int) $riga['id'], (float) $riga['quantity']], Cart::contents($vero)['items']), 1, 0);
 
     return $express !== $vero
         && righe($express) === [[$a, 1.0], [$b, 3.0]]
@@ -124,6 +124,31 @@ check('settled: toglie dal vero solo le righe ricordate', fn () => prova(static 
     ExpressCart::settled($express);
 
     return righe($vero) === [[$nuovo, 1.0]] && ExpressCart::id() === 0;
+}));
+
+check('fromCart: un articolo non più acquistabile → errore e niente carrello rapido', fn () => prova(static function (): bool {
+    $a = articolo(1.0);
+    $b = articolo(1.0);
+    $vero = carrello([[$a, 1], [$b, 2]]);
+    Product::update(['active' => 'false'], $b);
+
+    try {
+        ExpressCart::fromCart($vero);
+
+        return false;
+    } catch (RuntimeException $errore) {
+        return $errore->getMessage() !== '' && ExpressCart::id() === 0 && righe($vero) === [[$a, 1.0], [$b, 2.0]];
+    }
+}));
+
+check('settled: se nel vero la quantità è cresciuta, toglie solo quella copiata', fn () => prova(static function (): bool {
+    $a = articolo(1.0);
+    $vero = carrello([[$a, 2]]);
+    $express = ExpressCart::fromCart($vero);
+    Cart::setQuantity($vero, (int) Cart::contents($vero)['items'][0]['id'], 5);
+    ExpressCart::settled($express);
+
+    return righe($vero) === [[$a, 3.0]];
 }));
 
 check('settled: ordine estraneo non tocca niente', fn () => prova(static function (): bool {
