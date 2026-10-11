@@ -72,9 +72,13 @@ if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (st
 
 $productStyle = module_asset('ecommerce', 'css/product.css');
 if ($productStyle !== '') View::head('<link rel="stylesheet" href="'.e($productStyle).'">');
-if (ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+if ((bool) Ecommerce::config('express.product', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
     View::head('<script src="'.e($checkoutJs).'" defer></script>');
 }
+
+// Il sito decide se la scheda ha la quantità con −/+ e se mostra i bottoni rapidi.
+$stepper = (bool) Ecommerce::config('catalog.product_quantity', false);
+$expressHere = (bool) Ecommerce::config('express.product', true);
 
 // Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
 $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
@@ -147,6 +151,7 @@ Ecommerce::layout('shop');
                         'product_id' => $data['selected_product_id'],
                         'csrf_token' => AuthSession::csrfToken(),
                         'label' => __t('ecommerce.cart.add'),
+                        'stepper' => $stepper,
                     ])?>
                 <?php else: ?>
                     <button class="btn btn-primary w-100" type="button" disabled><?=e(__t('ecommerce.catalog.availability.out_of_stock'))?></button>
@@ -154,7 +159,7 @@ Ecommerce::layout('shop');
             <?php elseif ($data['offers'] !== []): ?>
                 <form id="add_to_cart_product" method="post" action="<?=e(__r('ecommerce.cart.add'))?>" data-ecommerce-add-to-cart>
                     <?=FormField::key('csrf_token')->hidden()->value(AuthSession::csrfToken())?>
-                    <?=FormField::key('quantity')->hidden()->value('1')?>
+                    <?php if (!$stepper): ?><?=FormField::key('quantity')->hidden()->value('1')?><?php endif; ?>
                     <?=FormField::key('continue')->hidden()->value((string) ($_SERVER['REQUEST_URI'] ?? $data['url']))?>
                     <?php if ($data['option_groups'] === []): ?>
                         <?php $fallbackOptions = array_column($data['offers'], 'option_name', 'product_id'); ?>
@@ -183,14 +188,19 @@ Ecommerce::layout('shop');
                         <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
-                    <button class="btn btn-primary w-100 mt-3" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
+                    <div class="w-100 d-flex gap-3 mt-3">
+                        <?php if ($stepper): ?><?=View::component(Ecommerce::viewPath('components/cart/quantity.php'))?><?php endif; ?>
+                        <button class="btn btn-primary w-100" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
+                    </div>
                 </form>
             <?php endif; ?>
         </div>
 
-        <div data-express-product<?=$data['available'] ? '' : ' hidden'?>>
-            <?=ExpressCheckout::render('product', ['total' => $expressOffer['price'] ?? 0, 'currency' => $data['currency']], (int) $data['selected_product_id'])?>
-        </div>
+        <?php if ($expressHere): ?>
+            <div data-express-product<?=$data['available'] ? '' : ' hidden'?>>
+                <?=ExpressCheckout::render('product', ['total' => $expressOffer['price'] ?? 0, 'currency' => $data['currency']], (int) $data['selected_product_id'])?>
+            </div>
+        <?php endif; ?>
 
         <?php if ($data['description_html'] !== ''): ?>
             <section class="wi-dropdown-box wi-show mt-6">
@@ -300,6 +310,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (submit) submit.disabled = !offer || !offer.available;
         const expressBox = document.querySelector('[data-express-product]');
         if (expressBox) expressBox.hidden = !offer || !offer.available;
+        // Il foglio rapido si apre col prezzo della variante scelta.
+        const expressRoot = expressBox?.querySelector('[data-express]');
+        if (expressRoot && offer) {
+            expressRoot.dataset.expressUnit = Math.round(offer.price * 100);
+            expressRoot.dispatchEvent(new Event('express:amount'));
+        }
         if (price && offer) price.textContent = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> }).format(offer.price);
         if (availability && offer) availability.innerHTML = offer.available
             ? '<i class="bi bi-circle-fill tx-success"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.in_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>

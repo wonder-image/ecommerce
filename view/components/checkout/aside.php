@@ -6,6 +6,7 @@ use Wonder\View\View;
 
 $step = (string) ($step ?? 'checkout');
 $withLines = $step !== 'cart';
+$express = (string) ($express ?? '');
 
 ?>
 <aside class="<?=$withLines ? 'w-100 col-2 col-t-1 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
@@ -24,6 +25,8 @@ $withLines = $step !== 'cart';
 
     <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup'])?>
     
+    <?=$express?>
+
     <?=$button?>
 
 </aside>

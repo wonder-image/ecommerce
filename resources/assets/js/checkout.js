@@ -1154,6 +1154,14 @@ class CheckoutPay {
         loadStripe().then(() => this.mount()).catch(() => this.say(this.labels.error));
     }
 
+    // Centesimi di un pezzo (della variante scelta, se la scheda l'ha cambiata) per la quantità della form.
+    productAmount() {
+        const unit = Number(this.root.dataset.expressUnit) || this.config.amount;
+        const quantity = parseFloat(String(this.productForm?.querySelector('[name="quantity"]')?.value || '').replace(',', '.'));
+
+        return Math.max(1, Math.round(unit * (quantity > 0 ? quantity : 1)));
+    }
+
     mount() {
         const account = this.root.dataset.account;
 
@@ -1198,6 +1206,25 @@ class CheckoutPay {
     }
 }
 
+// Carrello e checkout restano sotto lo spinner finché i bottoni rapidi non sono pronti, al massimo EXPRESS_WAIT_MAX ms:
+// meglio la pagina un attimo dopo che i bottoni che compaiono e spingono giù il resto. Se in questa sessione
+// il browser non aveva wallet, non si aspetta più.
+const EXPRESS_WAIT_MAX = 2000;
+const EXPRESS_NO_WALLET = 'wi-express-no-wallet';
+
+function expressNoWallet(value) {
+    try {
+        if (value === undefined) {
+            return sessionStorage.getItem(EXPRESS_NO_WALLET) === '1';
+        }
+        value ? sessionStorage.setItem(EXPRESS_NO_WALLET, '1') : sessionStorage.removeItem(EXPRESS_NO_WALLET);
+    } catch (error) {
+        // Senza sessionStorage (navigazione privata, dati bloccati) si aspetta ogni volta, sempre col tetto.
+    }
+
+    return false;
+}
+
 // Il check-out rapido: l'Express Checkout Element di Stripe (Apple Pay, Google Pay, Link) nel checkout,
 // nel carrello e nella scheda prodotto. Il foglio del wallet chiede indirizzo e tariffa; il server compra
 // da un carrello a parte e crea ordine e intento solo alla conferma.
@@ -1209,15 +1236,40 @@ class Express {
         this.notice = root.querySelector('[data-express-message]');
         this.started = null;
         this.total = null;
-        this.box = root.closest('#rapido');
+        this.ready = false;
         this.unavailable = false;
-        this.invoice = this.box?.closest('form')?.querySelector('[name="invoice"]') || null;
+        this.invoice = root.closest('form')?.querySelector('[name="invoice"]') || null;
 
         // Chi vuole la fattura passa dal modulo: il wallet non dà codice fiscale e partita IVA.
         this.invoice?.addEventListener('change', () => this.toggle());
         this.toggle();
 
+        // Sulla scheda il foglio si apre col totale di quantità e variante scelte: Stripe mostra l'importo prima di ogni evento.
+        this.productForm = this.config.source === 'product' ? document.querySelector('form[data-ecommerce-add-to-cart]') : null;
+        if (this.productForm) {
+            const refresh = () => this.elements?.update({ amount: this.productAmount() });
+            this.productForm.addEventListener('input', refresh);
+            this.productForm.addEventListener('change', refresh);
+            root.addEventListener('express:amount', refresh);
+        }
+
+        this.waiting = Boolean(root.dataset.expressWait) && !expressNoWallet();
+        if (this.waiting) {
+            paySpinner(true, root.dataset.expressWait);
+            this.timer = setTimeout(() => this.done(), EXPRESS_WAIT_MAX);
+        }
+
         loadStripe().then(() => this.mount()).catch(() => this.hide());
+    }
+
+    // Fine dell'attesa: bottoni pronti, nessun wallet, errore o tetto raggiunto.
+    done() {
+        if (!this.waiting) {
+            return;
+        }
+        this.waiting = false;
+        clearTimeout(this.timer);
+        paySpinner(false);
     }
 
     mount() {
@@ -1228,7 +1280,7 @@ class Express {
         this.stripe = window.Stripe(key, account ? { stripeAccount: account } : {});
         this.elements = this.stripe.elements({
             mode: 'payment',
-            amount: this.config.amount,
+            amount: this.productForm ? this.productAmount() : this.config.amount,
             currency: this.config.currency,
             appearance: STRIPE_APPEARANCE,
         });
@@ -1241,12 +1293,20 @@ class Express {
                 amazonPay: 'never',
                 klarna: 'never',
             },
+            ...(this.config.layout ? { layout: this.config.layout } : {}),
+            ...(this.config.buttonType ? { buttonType: this.config.buttonType } : {}),
         });
 
         this.element.on('ready', ({ availablePaymentMethods }) => {
+            expressNoWallet(!availablePaymentMethods);
             if (!availablePaymentMethods) {
                 this.hide();
+                return;
             }
+            // Titolo, condizioni e «OPPURE» compaiono solo coi bottoni.
+            this.ready = true;
+            this.toggle();
+            this.done();
         });
         this.element.on('loaderror', () => this.hide());
         this.element.on('click', (event) => this.click(event));
@@ -1421,14 +1481,13 @@ class Express {
 
     hide() {
         this.unavailable = true;
-        this.root.hidden = true;
         this.toggle();
+        this.done();
     }
 
     toggle() {
-        if (this.box) {
-            this.box.hidden = this.unavailable || !!this.invoice?.checked;
-        }
+        this.root.toggleAttribute('data-express-loading', !this.ready && !this.unavailable);
+        this.root.hidden = this.unavailable || !!this.invoice?.checked;
     }
 
     say(message) {

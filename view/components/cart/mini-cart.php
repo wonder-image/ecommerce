@@ -24,10 +24,14 @@
                     </div>
                 </div>
             </div>
-            <div class="w-100 d-grid gap-2 mt-5">
-                <button class="btn btn-secondary w-100 a-c" type="button" data-cart-close><?=e(__t('ecommerce.cart.mini.continue_shopping'))?></button>
-                <a class="btn btn-primary btn-lg w-100 a-c" href="<?=e(__r('ecommerce.cart.index'))?>">
-                    <span class="subtitle"><?=e(__t('ecommerce.cart.mini.view_cart'))?></span>
+            <div class="w-100 d-grid col-1 gap-2 mt-5">
+                <div class="w-100 d-grid col-2 gap-2">
+                    <button class="btn btn-secondary w-100 a-c" type="button" data-cart-close><?=e(__t('ecommerce.cart.mini.continue_shopping'))?></button>
+                    <a class="btn btn-secondary w-100 a-c" href="<?=e(__r('ecommerce.cart.index'))?>"><?=e(__t('ecommerce.cart.mini.view_cart'))?></a>
+                </div>
+                <?php // Col carrello vuoto il checkout non serve: lo nasconde mini-cart.js. ?>
+                <a class="btn btn-primary btn-lg w-100 a-c" href="<?=e(__r('ecommerce.checkout.index'))?>" data-cart-checkout>
+                    <span class="subtitle"><?=e(__t('ecommerce.cart.mini.checkout'))?></span>
                 </a>
             </div>
         </div>
