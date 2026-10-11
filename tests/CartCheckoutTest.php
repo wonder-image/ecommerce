@@ -584,9 +584,10 @@ check('senza JS il checkout apre tutte le parti che il JS nasconde', function ()
 });
 
 check('indirizzi e fattura stanno su 4 colonne con la larghezza di ogni campo', function (): bool {
-    $spans = ['shipping_name' => 2, 'billing_surname' => 2, 'shipping_country' => 2, 'billing_province' => 2,
+    // Indirizzo e civico sopra, provincia, città e CAP sulla stessa riga.
+    $spans = ['shipping_name' => 2, 'billing_surname' => 2, 'shipping_country' => 4, 'billing_province' => 1,
         'shipping_cap' => 1, 'billing_number' => 1, 'billing_sdi' => 1, 'shipping_phone_prefix' => 1,
-        'billing_city' => 3, 'shipping_street' => 3, 'shipping_phone' => 3, 'billing_business_name' => 3,
+        'billing_city' => 2, 'shipping_street' => 3, 'shipping_phone' => 3, 'billing_business_name' => 3,
         'shipping_more' => 4, 'billing_cf' => 4, 'billing_pi' => 4, 'billing_pec' => 4, 'billing_altro' => 4];
     foreach ($spans as $key => $span) {
         if (CheckoutFields::span($key) !== $span) {

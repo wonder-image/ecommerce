@@ -9,9 +9,9 @@ final class CheckoutFields
     public const INVOICE = ['billing_business_name', 'billing_sdi', 'billing_pi', 'billing_cf', 'billing_pec'];
 
     private const SPANS = [
-        'name' => 2, 'surname' => 2, 'country' => 2, 'province' => 2,
-        'cap' => 1, 'number' => 1, 'sdi' => 1, 'phone_prefix' => 1,
-        'city' => 3, 'street' => 3, 'phone' => 3, 'business_name' => 3,
+        'name' => 2, 'surname' => 2, 'city' => 2,
+        'province' => 1, 'cap' => 1, 'number' => 1, 'sdi' => 1, 'phone_prefix' => 1,
+        'street' => 3, 'phone' => 3, 'business_name' => 3,
     ];
 
     /** Le colonne occupate dal campo; quelli non elencati prendono la riga intera. */
