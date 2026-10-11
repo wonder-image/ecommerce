@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
+use Wonder\App\Support\GoogleMaps;
 use Wonder\Consent\ConsentDictionary;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
@@ -70,7 +71,7 @@ final class CheckoutRules
     /**
      * Il POST della pagina come va sul carrello: il cellulare del contatto
      * (prefisso e numero) è anche quello del corriere, col ritiro non resta
-     * un indirizzo vecchio, con l'accesso fatto l'email è quella dell'utente.
+     * un indirizzo vecchio (né il suo place ID), con l'accesso fatto l'email è quella dell'utente.
      * La fatturazione arriva già decisa: le tasse si calcolano su quella.
      *
      * @param array<string, mixed> $post
@@ -84,12 +85,19 @@ final class CheckoutRules
         $post['shipping_phone'] = $number;
         $post['phone'] = $number === '' ? '' : trim($prefix.' '.$number);
 
-        if ((string) ($post['fulfillment_type'] ?? '') === 'pickup') {
+        $pickup = (string) ($post['fulfillment_type'] ?? '') === 'pickup';
+        if ($pickup) {
             foreach (Order::shippingAddress()->keys() as $key) {
                 if (!in_array($key, self::KEEP, true)) {
                     $post[$key] = '';
                 }
             }
+        }
+
+        // Place ID e coordinate dell'aiuto di Google: se mancano o non valgono
+        // si scrivono vuoti, così non resta quello di un indirizzo vecchio.
+        foreach (GoogleMaps::cleanGeo($pickup ? [] : $post, 'shipping_') as $key => $value) {
+            $post[$key] = $value === null ? '' : (string) $value;
         }
 
         $email = trim((string) ($user->email ?? ''));

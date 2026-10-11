@@ -584,9 +584,10 @@ check('senza JS il checkout apre tutte le parti che il JS nasconde', function ()
 });
 
 check('indirizzi e fattura stanno su 4 colonne con la larghezza di ogni campo', function (): bool {
-    $spans = ['shipping_name' => 2, 'billing_surname' => 2, 'shipping_country' => 2, 'billing_province' => 2,
+    // Indirizzo e civico sopra, provincia, città e CAP sulla stessa riga.
+    $spans = ['shipping_name' => 2, 'billing_surname' => 2, 'shipping_country' => 4, 'billing_province' => 1,
         'shipping_cap' => 1, 'billing_number' => 1, 'billing_sdi' => 1, 'shipping_phone_prefix' => 1,
-        'billing_city' => 3, 'shipping_street' => 3, 'shipping_phone' => 3, 'billing_business_name' => 3,
+        'billing_city' => 2, 'shipping_street' => 3, 'shipping_phone' => 3, 'billing_business_name' => 3,
         'shipping_more' => 4, 'billing_cf' => 4, 'billing_pi' => 4, 'billing_pec' => 4, 'billing_altro' => 4];
     foreach ($spans as $key => $span) {
         if (CheckoutFields::span($key) !== $span) {
@@ -841,6 +842,53 @@ check('carrello e checkout restano sotto lo spinner finché i bottoni rapidi non
         && str_contains($js, 'EXPRESS_WAIT_MAX')
         && str_contains($js, 'sessionStorage')
         && str_contains($js, 'this.done()');
+});
+
+// Col ritiro post() legge le chiavi dell'indirizzo, che passano dalle etichette.
+if (!function_exists('__t')) {
+    function __t(string $key): string
+    {
+        return $key;
+    }
+}
+
+check('place ID e coordinate della consegna: puliti, vuoti col ritiro e se mancano', function (): bool {
+    $rules = \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::class;
+    $ok = $rules::post(['shipping_place_id' => ' ChIJabc_def-123 ', 'shipping_lat' => '45.4642035', 'shipping_lng' => '9.189982']);
+    $bad = $rules::post(['shipping_place_id' => 'x', 'shipping_lat' => '45.46', 'shipping_lng' => 'abc']);
+    $pickup = $rules::post(['fulfillment_type' => 'pickup', 'shipping_place_id' => 'ChIJabc_def-123', 'shipping_lat' => '45.46', 'shipping_lng' => '9.18']);
+    $none = $rules::post([]);
+
+    return $ok['shipping_place_id'] === 'ChIJabc_def-123' && $ok['shipping_lat'] === '45.4642035' && $ok['shipping_lng'] === '9.189982'
+        && $bad['shipping_place_id'] === '' && $bad['shipping_lat'] === '' && $bad['shipping_lng'] === ''
+        && $pickup['shipping_place_id'] === '' && $pickup['shipping_lat'] === '' && $pickup['shipping_lng'] === ''
+        && $none['shipping_place_id'] === '' && $none['shipping_lat'] === '' && $none['shipping_lng'] === ''
+        && !isset($ok['billing_place_id']);
+});
+
+check('i tre campi nascosti della consegna stanno fuori dalla griglia, solo nella spedizione', function () use ($root): bool {
+    $view = checkoutViews($root);
+
+    return CheckoutFields::hidden('shipping_place_id') && CheckoutFields::hidden('shipping_lat') && CheckoutFields::hidden('shipping_lng')
+        && !CheckoutFields::hidden('shipping_street') && !CheckoutFields::hidden('billing_street')
+        && str_contains($view, '<?php if (CheckoutFields::hidden($key)): ?><?=$field?><?php else: ?>');
+});
+
+check('l\'indirizzo salvato porta al checkout place ID e coordinate', function () use ($root): bool {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($controller, "GoogleMaps::cleanGeo(\$shipping)");
+});
+
+check('l\'indirizzo che va in rubrica si porta dietro place ID e coordinate valide', function (): bool {
+    $order = ['shipping_name' => 'Ada', 'shipping_street' => 'Via Roma', 'shipping_place_id' => 'ChIJabc_def-123', 'shipping_lat' => '45.4642035', 'shipping_lng' => '9.189982'];
+    $address = \Wonder\Plugin\Ecommerce\Frontend\Checkout\AccountAddress::address($order);
+    $bad = \Wonder\Plugin\Ecommerce\Frontend\Checkout\AccountAddress::address(['shipping_street' => 'Via Roma', 'shipping_lat' => '95', 'shipping_lng' => '9']);
+
+    return $address['street'] === 'Via Roma' && $address['name'] === 'Ada'
+        && $address['place_id'] === 'ChIJabc_def-123' && $address['lat'] === 45.4642035 && $address['lng'] === 9.189982
+        && $bad['place_id'] === null && $bad['lat'] === null && $bad['lng'] === null
+        && !isset($address['shipping_street']);
 });
 
 summary();
