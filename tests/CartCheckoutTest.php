@@ -103,7 +103,7 @@ check('il checkout ospite si sceglie dal backend, non dalla configurazione, e us
         && str_contains($controller, 'GuestCheckout::enabled()')
         && !str_contains($controller, "Ecommerce::config('checkout.guest_enabled'")
         && str_contains($controller, "RecaptchaGuard::for('ecommerce_checkout')")
-        && str_contains($view, "->recaptcha('ecommerce_checkout')");
+        && str_contains($view, "<div class=\"wi-recaptcha-cell w-100\"><?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?></div>");
 });
 
 check('il checkout non finge il completamento dei provider online non collegati', function () use ($root) {

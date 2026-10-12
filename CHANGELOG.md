@@ -86,7 +86,8 @@ versionamento semantico.
   compare. Richiede `wonder-image/app` `>= 2.4.0-beta.2` (`RecaptchaGuard::configured()`
   e `RecaptchaChallenge`; `composer.json` e `module.json` alzati a `^2.4.0-beta.2`) e
   `wonder-image/lib` `>= 2.1.2-alpha.27`; con l'app vecchia l'express dell'ospite non
-  compare.
+  compare. Le celle del riquadro nel check-out e nell'express hanno la classe
+  `wi-recaptcha-cell`: con la sola v3 restano nascoste finché sono vuote, senza spazio vuoto.
 
 ### Modificato
 
