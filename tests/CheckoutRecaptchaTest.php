@@ -34,4 +34,10 @@ check('place: in JSON la sfida risponde 422 con status 618', fn () =>
 check('rememberErrors non ricorda il tipo del token', fn () =>
     str_contains($metodo($file, 'rememberErrors'), "\$values['g-recaptcha-type']"));
 
+$js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+check('place: sul 618 si apre la casella, altrimenti si rinnova il widget', fn () =>
+    (bool) preg_match('/if \(payload\.status === 618 && typeof window\.wiRecaptchaChallenge === \'function\'\) \{\s*window\.wiRecaptchaChallenge\(this\.form\);\s*\} else \{\s*this\.resetRecaptcha\(\);\s*\}/', $js));
+check('resetRecaptcha passa alla lib quando c\'è', fn () =>
+    (bool) preg_match('/resetRecaptcha\(\) \{\s*if \(typeof window\.wiRecaptchaReset === \'function\'\) \{\s*window\.wiRecaptchaReset\(this\.form\);\s*return;\s*\}/', $js));
+
 summary();

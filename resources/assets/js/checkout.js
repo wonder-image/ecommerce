@@ -837,15 +837,26 @@ class Checkout {
             this.say(payload.errors || [payload.message || payload.error || this.labels.summary_error]);
         }
 
-        this.resetRecaptcha();
+        // Punteggio basso: la lib apre la casella nel riquadro del modulo; altrimenti il token usato si butta.
+        if (payload.status === 618 && typeof window.wiRecaptchaChallenge === 'function') {
+            window.wiRecaptchaChallenge(this.form);
+        } else {
+            this.resetRecaptcha();
+        }
 
         return null;
     }
 
-    // Il token del reCAPTCHA vale una volta sola: il widget è Enterprise (lo monta la lib) e scrive il
-    // token in due campi nascosti. Si rinnova il widget e si svuotano i campi, così l'ospite lo rifà
-    // prima del prossimo «Paga» invece di rimandare un token già usato.
+    // Il token del reCAPTCHA vale una volta sola. Con la lib nuova se ne occupa `wiRecaptchaReset`, che sa
+    // se il riquadro è a casella o v3 e scrive anche il tipo. Altrimenti il widget è Enterprise (lo monta la
+    // lib) e scrive il token in due campi nascosti: si rinnova il widget e si svuotano i campi, così
+    // l'ospite lo rifà prima del prossimo «Paga» invece di rimandare un token già usato.
     resetRecaptcha() {
+        if (typeof window.wiRecaptchaReset === 'function') {
+            window.wiRecaptchaReset(this.form);
+            return;
+        }
+
         try {
             if (typeof window.grecaptcha?.enterprise?.reset === 'function') {
                 window.grecaptcha.enterprise.reset();
