@@ -5,6 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use OutOfBoundsException;
 use RuntimeException;
 use Throwable;
+use Wonder\App\Security\RecaptchaChallenge;
 use Wonder\App\Security\RecaptchaGuard;
 use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
@@ -175,6 +176,13 @@ final class CheckoutController
             }
 
             self::reject($e->errors(), $post, $json);
+        } catch (RecaptchaChallenge $e) {
+            // Punteggio basso: il JavaScript apre la casella; senza JSON il modulo torna con la casella aperta (segno in sessione).
+            if ($json) {
+                self::json(['success' => false, 'status' => RecaptchaChallenge::CHALLENGE_CODE, 'errors' => [$e->getMessage()]], 422);
+            }
+
+            self::reject([$e->getMessage()], $post, $json);
         } catch (UserError $error) {
             self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
@@ -588,7 +596,8 @@ final class CheckoutController
         unset(
             $values['csrf_token'],
             $values['g-recaptcha-token'],
-            $values['g-recaptcha-action']
+            $values['g-recaptcha-action'],
+            $values['g-recaptcha-type']
         );
         $errors = array_values(array_filter(array_map('strval', $errors)));
         if ($errors !== []) {
