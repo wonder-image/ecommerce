@@ -83,9 +83,10 @@ versionamento semantico.
   `ecommerce_express`): il token si chiede a `start`, il segno in sessione lega la
   verifica al carrello rapido (`ExpressVerification`) e `place` rifiuta senza di esso;
   senza chiavi reCAPTCHA (`RecaptchaGuard::configured()`) l'express dell'ospite non
-  compare. Richiede `wonder-image/app` con `RecaptchaGuard::configured()` e
-  `RecaptchaChallenge` (la versione successiva a 2.4.0-beta.1) e `wonder-image/lib`
-  `>= 2.1.2-alpha.27`; con l'app vecchia l'express dell'ospite non compare.
+  compare. Richiede `wonder-image/app` `>= 2.4.0-beta.2` (`RecaptchaGuard::configured()`
+  e `RecaptchaChallenge`; `composer.json` e `module.json` alzati a `^2.4.0-beta.2`) e
+  `wonder-image/lib` `>= 2.1.2-alpha.27`; con l'app vecchia l'express dell'ospite non
+  compare.
 
 ### Modificato
 

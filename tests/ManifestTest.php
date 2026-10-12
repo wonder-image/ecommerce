@@ -29,8 +29,8 @@ check('slug, namespace ed entrypoint', fn () =>
     && $manifest->entrypoint() === 'Wonder\\Plugin\\Ecommerce\\Ecommerce'
 );
 
-check('richiede il core 2.4.0-beta.1 e PHP 8.2', fn () =>
-    ($manifest->frameworkCompatibility()['wonder-app'] ?? '') === '^2.4.0-beta.1'
+check('richiede il core 2.4.0-beta.2 e PHP 8.2', fn () =>
+    ($manifest->frameworkCompatibility()['wonder-app'] ?? '') === '^2.4.0-beta.2'
     && ($manifest->frameworkCompatibility()['php'] ?? '') === '^8.2'
 );
 
