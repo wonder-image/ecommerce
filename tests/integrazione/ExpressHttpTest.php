@@ -10,6 +10,7 @@ require SITE.'/vendor/autoload.php';
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressVerification;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Gestionale\Gestionale;
 
@@ -69,6 +70,9 @@ $csrf = $token[1] ?? '';
 // L'ospite passa solo se il negozio accetta gli ordini senza account.
 $ospite = GuestCheckout::enabled();
 
+// Con la verifica dell'ospite l'avvio vuole un token reCAPTCHA, che da qui non si può avere.
+$verifica = class_exists(ExpressVerification::class);
+
 foreach (['shipping', 'place'] as $azione) {
     [$status, $risposta] = $request("/checkout/express/{$azione}/", ['csrf_token' => $csrf]);
     check("{$azione} senza carrello rapido: ".($ospite ? '409' : '401 per l\'ospite'), fn () =>
@@ -84,7 +88,14 @@ check('start dal carrello vuoto: '.($ospite ? '422 con un messaggio' : '401 per 
 check('cancel senza niente in corso: '.($ospite ? 'va bene' : '401 per l\'ospite'), fn () =>
     $status === ($ospite ? 200 : 401) && is_array($risposta) && ($risposta['success'] ?? null) === $ospite);
 
-if ($ospite) {
+if ($ospite && $verifica) {
+    $primo = ((array) sqlSelect('gst_products', ['active' => 'true'], 20, 'id', 'ASC')->row)[0] ?? [];
+    [$status, $risposta] = $request('/checkout/express/start/', ['csrf_token' => $csrf, 'source' => 'product', 'product_id' => $primo['id'] ?? 0, 'quantity' => '1']);
+    check('start da un prodotto senza token reCAPTCHA: 422 con un messaggio', fn () =>
+        $status === 422 && is_array($risposta) && ($risposta['success'] ?? null) === false && ($risposta['message'] ?? '') !== '');
+}
+
+if ($ospite && !$verifica) {
     // Il primo articolo acquistabile del sito: il carrello a parte nasce davvero.
     $avviato = null;
     foreach ((array) sqlSelect('gst_products', ['active' => 'true'], 20, 'id', 'ASC')->row as $riga) {
