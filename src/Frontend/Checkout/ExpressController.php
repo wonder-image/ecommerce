@@ -4,6 +4,8 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
+use Wonder\App\Security\RecaptchaChallenge;
+use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -17,7 +19,8 @@ use Wonder\Plugin\Gestionale\Support\Shipping\ShippingZones;
  * Le rotte JSON del check-out rapido, chiamate dall'elemento di Stripe: il
  * carrello a parte (`start`), indirizzo e tariffa scelti nel foglio del wallet
  * (`shipping`), l'ordine e l'intento (`place`) e il foglio chiuso (`cancel`).
- * Niente reCAPTCHA: il wallet ha già riconosciuto il cliente.
+ * L'ospite passa dal reCAPTCHA a `start` (azione `ecommerce_express`): il
+ * segno in sessione lega la verifica al carrello rapido e `place` lo vuole.
  */
 final class ExpressController
 {
@@ -41,9 +44,25 @@ final class ExpressController
     private static function start(): never
     {
         try {
+            // Ogni avvio rifà la verifica: il segno vecchio non vale per il carrello nuovo.
+            ExpressVerification::clear();
+            $guest = !CartSession::authenticated();
+            if ($guest) {
+                RecaptchaGuard::for('ecommerce_express')
+                    ->withService('ecommerce-express')
+                    ->withLogAction('start')
+                    ->verify();
+            }
+
             self::dropPending();
             $cartId = self::begin($_POST);
+            if ($guest) {
+                ExpressVerification::mark($cartId);
+            }
             $order = CheckoutSummary::payload($cartId, ['fulfillment_type' => 'shipping'], CartSession::user())['order'];
+        } catch (RecaptchaChallenge $e) {
+            // Punteggio basso: il JavaScript apre la casella sotto i bottoni.
+            self::json(['success' => false, 'status' => RecaptchaChallenge::CHALLENGE_CODE, 'message' => $e->getMessage()], 422);
         } catch (UserError|RuntimeException $error) {
             self::json(['success' => false, 'message' => $error->getMessage()], 422);
         } catch (Throwable $error) {
@@ -129,6 +148,10 @@ final class ExpressController
     private static function place(): never
     {
         $cartId = self::expressCart();
+        // L'ospite paga solo il carrello rapido nato da un avvio verificato.
+        if (!CartSession::authenticated() && !ExpressVerification::verified($cartId)) {
+            self::json(['success' => false, 'error' => 'unverified', 'message' => (string) __t('ecommerce.checkout.express_unverified')], 403);
+        }
         $method = Checkout::expressMethod();
         $type = (string) ($_POST['type'] ?? '');
         $wallet = json_decode((string) ($_POST['wallet'] ?? ''), true, 8);
@@ -168,6 +191,8 @@ final class ExpressController
     /** Il foglio si è chiuso o il pagamento non è partito: l'ordine rapido si annulla e il carrello a parte si butta. */
     private static function cancel(): never
     {
+        ExpressVerification::clear();
+
         try {
             self::dropPending();
             ExpressCart::discard();

@@ -39,4 +39,37 @@ $settled = $metodo($root.'/src/Frontend/Checkout/ExpressCart.php', 'settled');
 check('settled toglie il segno insieme al carrello rapido', fn () =>
     (bool) preg_match('/self::forget\(\);\s*ExpressVerification::clear\(\);/', $settled));
 
+$controller = $root.'/src/Frontend/Checkout/ExpressController.php';
+$codiceController = (string) file_get_contents($controller);
+$start = $metodo($controller, 'start');
+$place = $metodo($controller, 'place');
+$cancel = $metodo($controller, 'cancel');
+$guardia = "RecaptchaGuard::for('ecommerce_express')";
+
+check('use della guardia e della sfida', fn () =>
+    str_contains($codiceController, 'use Wonder\App\Security\RecaptchaChallenge;')
+    && str_contains($codiceController, 'use Wonder\App\Security\RecaptchaGuard;'));
+check('il docblock non dice più «Niente reCAPTCHA»', fn () => !str_contains($codiceController, 'Niente reCAPTCHA'));
+check('start: il segno vecchio si toglie prima della guardia', fn () =>
+    str_contains($start, 'ExpressVerification::clear();')
+    && strpos($start, 'ExpressVerification::clear();') < (int) strpos($start, $guardia));
+check('start: la guardia solo per l\'ospite, con servizio e azione di log', fn () =>
+    str_contains($start, '$guest = !CartSession::authenticated();')
+    && (bool) preg_match('/if \(\$guest\) \{\s*RecaptchaGuard::for\(\'ecommerce_express\'\)\s*->withService\(\'ecommerce-express\'\)\s*->withLogAction\(\'start\'\)\s*->verify\(\);/', $start));
+check('start: la guardia prima del carrello, il segno subito dopo', fn () =>
+    strpos($start, $guardia) < (int) strpos($start, 'self::begin(')
+    && (bool) preg_match('/\$cartId = self::begin\(\$_POST\);\s*if \(\$guest\) \{\s*ExpressVerification::mark\(\$cartId\);/', $start));
+check('start: la sfida 618 si prende prima dei 422 generici', fn () =>
+    str_contains($start, 'catch (RecaptchaChallenge $e)')
+    && strpos($start, 'catch (RecaptchaChallenge $e)') < (int) strpos($start, 'catch (UserError|RuntimeException $error)')
+    && str_contains($start, "self::json(['success' => false, 'status' => RecaptchaChallenge::CHALLENGE_CODE, 'message' => \$e->getMessage()], 422);"));
+check('place: l\'ospite senza segno riceve 403 unverified, dopo il controllo del carrello', fn () =>
+    (bool) preg_match('/\$cartId = self::expressCart\(\);\s*(?:\/\/[^\n]*\s*)?if \(!CartSession::authenticated\(\) && !ExpressVerification::verified\(\$cartId\)\) \{\s*self::json\(\[\'success\' => false, \'error\' => \'unverified\', \'message\' => \(string\) __t\(\'ecommerce\.checkout\.express_unverified\'\)\], 403\);/', $place));
+check('cancel toglie il segno', fn () => str_contains($cancel, 'ExpressVerification::clear();'));
+
+foreach (['it', 'en'] as $lingua) {
+    $testi = json_decode((string) file_get_contents($root."/lang/{$lingua}/ecommerce.json"), true);
+    check("lang {$lingua}: express_unverified", fn () => ($testi['checkout']['express_unverified'] ?? '') !== '');
+}
+
 summary();

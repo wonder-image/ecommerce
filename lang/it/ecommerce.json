@@ -153,6 +153,7 @@
         "express_privacy_link": "informativa sulla privacy",
         "express_error": "Il pagamento rapido non è riuscito. Riprova o usa il modulo qui sotto.",
         "express_changed": "Qualche articolo del carrello non è più disponibile nella quantità scelta: controlla il carrello e riprova.",
+        "express_unverified": "Conferma di non essere un robot prima di pagare.",
         "secure": "Tutte le transazioni sono sicure e crittografate",
         "logout": "Esci",
         "billing_different": "Utilizza un indirizzo diverso",
