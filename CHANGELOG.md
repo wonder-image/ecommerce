@@ -91,6 +91,14 @@ versionamento semantico.
 
 ### Modificato
 
+- Vetrina: un'opzione è disponibile se ha pezzi nella sede da cui escono gli
+  ordini, senza i lotti scaduti (`Levels::forSale()` del gestionale, G3). Con
+  più sedi la merce dei negozi non rende disponibile un'opzione online. Con un
+  gestionale che non ha ancora `Levels::forSale()` si sommano tutte le righe
+  di giacenza, come prima. Disponibilità visibile e `offers.availability` del
+  JSON-LD leggono lo stesso dato e restano allineate; breadcrumb e dataLayer
+  non cambiano.
+
 - Checkout in una pagina sola (via i passi Spedizione e Pagamento); carrello nel
   layout del negozio.
 - Il default di `account.panel` è `\Wonder\Auth\Frontend\AccountPanel` (era
