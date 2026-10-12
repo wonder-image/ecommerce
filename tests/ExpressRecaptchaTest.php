@@ -84,7 +84,7 @@ check('la vista riceve captcha per l\'ospite, il JS l\'etichetta della casella',
 $vista = (string) file_get_contents($root.'/view/components/checkout/express.php');
 check('la vista mette il riquadro autonomo sotto i bottoni', fn () =>
     str_contains($vista, 'use Wonder\App\ResourceSchema\FormField;')
-    && (bool) preg_match('/data-express-element><\/div>\s*<\?php if \(!empty\(\$captcha\)\): \?><div class="w-100 mt-3" data-wi-recaptcha-standalone><\?=FormField::key\(\'recaptcha\'\)->recaptcha\(\'ecommerce_express\'\)\?><\/div><\?php endif; \?>/', $vista));
+    && (bool) preg_match('/data-express-element><\/div>\s*<\?php if \(!empty\(\$captcha\)\): \?><div class="wi-recaptcha-cell w-100 mt-3" data-wi-recaptcha-standalone><\?=FormField::key\(\'recaptcha\'\)->recaptcha\(\'ecommerce_express\'\)\?><\/div><\?php endif; \?>/', $vista));
 
 /** Un metodo della classe Express in checkout.js: dalla firma alla prima graffa chiusa a quattro spazi. */
 $metodoJs = static function (string $classe, string $firma): string {

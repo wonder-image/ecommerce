@@ -220,7 +220,7 @@ View::head(DataLayer::script([
                 <?=FormField::key('accept_'.$type)->acceptDocument($type)->required()->value($values['accept_'.$type] ?? '')?>
             <?php endforeach; ?>
             <?php if ($guest): ?>
-                <?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?>
+                <div class="wi-recaptcha-cell w-100"><?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?></div>
             <?php endif; ?>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
