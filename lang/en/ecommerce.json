@@ -138,6 +138,8 @@
         "express_privacy_link": "privacy policy",
         "express_error": "The express payment failed. Try again or use the form below.",
         "express_changed": "Some items in your cart are no longer available in the chosen quantity: check your cart and try again.",
+        "express_unverified": "Confirm you are not a robot before paying.",
+        "express_captcha": "Confirm you are not a robot below, then try again.",
         "secure": "All transactions are secure and encrypted",
         "logout": "Log out",
         "billing_different": "Use a different billing address",

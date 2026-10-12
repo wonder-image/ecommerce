@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Throwable;
+use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
@@ -13,7 +14,7 @@ use Wonder\View\View;
  * I bottoni del check-out rapido (Apple Pay, Google Pay, Link) dell'elemento
  * di Stripe: in cima al checkout, nel carrello e sulla scheda prodotto. Vuoti
  * se Stripe non è collegato o non ha wallet accesi, e per l'ospite quando gli
- * ordini senza account sono spenti.
+ * ordini senza account sono spenti o il reCAPTCHA non ha chiavi.
  */
 final class ExpressCheckout
 {
@@ -64,6 +65,7 @@ final class ExpressCheckout
                     'pending_rate' => (string) __t('ecommerce.checkout.express_pending_rate'),
                     'error' => (string) __t('ecommerce.checkout.express_error'),
                     'unavailable' => (string) __t('ecommerce.checkout.express_unavailable'),
+                    'captcha' => (string) __t('ecommerce.checkout.express_captcha'),
                 ],
             ];
 
@@ -71,6 +73,8 @@ final class ExpressCheckout
                 'config' => $config,
                 'terms' => self::legalUrl('terms_conditions'),
                 'privacy' => self::legalUrl('privacy_policy'),
+                // L'ospite passa dal reCAPTCHA a `start`: il riquadro sta sotto i bottoni.
+                'captcha' => !CartSession::authenticated(),
             ]);
         } catch (Throwable) {
             return '';
@@ -92,6 +96,11 @@ final class ExpressCheckout
     private static function method(): ?array
     {
         if (!GuestCheckout::enabled() && !CartSession::authenticated()) {
+            return null;
+        }
+
+        // L'ospite passa dal reCAPTCHA a `start`: senza chiavi non potrebbe mai aprire il foglio.
+        if (!CartSession::authenticated() && !RecaptchaGuard::configured()) {
             return null;
         }
 

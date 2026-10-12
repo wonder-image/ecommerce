@@ -76,6 +76,17 @@ versionamento semantico.
   mandati); la conferma dice che l'email è partita senza rivelare se l'account ha
   una password. La scheda del commerciante con la stessa email si collega senza
   cambiarne i dati.
+- reCAPTCHA v3 nel check-out: sul `618` (`RecaptchaChallenge`, punteggio basso) il
+  check-out risponde JSON 422 con `status: 618` e `checkout.js` apre la casella v2,
+  rinnovandola con `wiRecaptchaReset` dopo un invio rifiutato. Il check-out rapido
+  dell'ospite ha un riquadro autonomo (`data-wi-recaptcha-standalone`, azione
+  `ecommerce_express`): il token si chiede a `start`, il segno in sessione lega la
+  verifica al carrello rapido (`ExpressVerification`) e `place` rifiuta senza di esso;
+  senza chiavi reCAPTCHA (`RecaptchaGuard::configured()`) l'express dell'ospite non
+  compare. Richiede `wonder-image/app` `>= 2.4.0-beta.2` (`RecaptchaGuard::configured()`
+  e `RecaptchaChallenge`; `composer.json` e `module.json` alzati a `^2.4.0-beta.2`) e
+  `wonder-image/lib` `>= 2.1.2-alpha.27`; con l'app vecchia l'express dell'ospite non
+  compare.
 
 ### Modificato
 

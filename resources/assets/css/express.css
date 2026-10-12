@@ -36,3 +36,9 @@
     flex: 1;
     border-top: 1px solid var(--dropdown-border-color);
 }
+
+/* Ospite con la casella reCAPTCHA a vista: i bottoni aspettano la spunta. */
+.wi-express.wi-express-locked [data-express-element] {
+    pointer-events: none;
+    opacity: 0.5;
+}
