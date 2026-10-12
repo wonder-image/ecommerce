@@ -106,6 +106,7 @@ final class ExpressCart
         $source = (int) ($_SESSION[self::SESSION]['source_cart'] ?? 0);
         $remembered = (array) ($_SESSION[self::SESSION]['source_items'] ?? []);
         self::forget();
+        ExpressVerification::clear();
         unset($_SESSION[ExpressAddress::SESSION]);
 
         if ($source <= 0 || (string) (Order::findById($source)['stage'] ?? '') !== 'cart') {
