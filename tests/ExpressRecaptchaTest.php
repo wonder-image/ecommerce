@@ -72,4 +72,64 @@ foreach (['it', 'en'] as $lingua) {
     check("lang {$lingua}: express_unverified", fn () => ($testi['checkout']['express_unverified'] ?? '') !== '');
 }
 
+$express = $root.'/src/Frontend/Checkout/ExpressCheckout.php';
+$codiceExpress = (string) file_get_contents($express);
+check('l\'ospite senza chiavi reCAPTCHA non vede i bottoni', fn () =>
+    str_contains($codiceExpress, 'use Wonder\App\Security\RecaptchaGuard;')
+    && (bool) preg_match('/if \(!CartSession::authenticated\(\) && !RecaptchaGuard::configured\(\)\) \{\s*return null;/', $metodo($express, 'method')));
+check('la vista riceve captcha per l\'ospite, il JS l\'etichetta della casella', fn () =>
+    str_contains($codiceExpress, "'captcha' => !CartSession::authenticated(),")
+    && str_contains($codiceExpress, "'captcha' => (string) __t('ecommerce.checkout.express_captcha'),"));
+
+$vista = (string) file_get_contents($root.'/view/components/checkout/express.php');
+check('la vista mette il riquadro autonomo sotto i bottoni', fn () =>
+    str_contains($vista, 'use Wonder\App\ResourceSchema\FormField;')
+    && (bool) preg_match('/data-express-element><\/div>\s*<\?php if \(!empty\(\$captcha\)\): \?><div class="w-100 mt-3" data-wi-recaptcha-standalone><\?=FormField::key\(\'recaptcha\'\)->recaptcha\(\'ecommerce_express\'\)\?><\/div><\?php endif; \?>/', $vista));
+
+/** Un metodo della classe Express in checkout.js: dalla firma alla prima graffa chiusa a quattro spazi. */
+$metodoJs = static function (string $classe, string $firma): string {
+    $inizio = strpos($classe, "\n    {$firma}");
+    if ($inizio === false) {
+        return '';
+    }
+    $fine = strpos($classe, "\n    }\n", $inizio + 1);
+
+    return $fine === false ? substr($classe, $inizio) : substr($classe, $inizio, $fine - $inizio);
+};
+$codiceJs = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+$classe = substr($codiceJs, (int) strpos($codiceJs, 'class Express {'));
+$costruttore = $metodoJs($classe, 'constructor(root) {');
+$click = $metodoJs($classe, 'click(event) {');
+$verifica = $metodoJs($classe, 'async verify(data) {');
+$annulla = $metodoJs($classe, 'cancel() {');
+
+check('Express: il riquadro autonomo e la casella a vista spengono i bottoni', fn () =>
+    str_contains($costruttore, "this.captcha = root.querySelector('[data-wi-recaptcha-standalone]');")
+    && str_contains($costruttore, "this.challenge = Boolean(box?.dataset.wiSiteKey) && (!box.dataset.wiScoreKey || box.dataset.wiChallenge === '1');")
+    && str_contains($costruttore, "addEventListener('wi-recaptcha-change'")
+    && str_contains($classe, "this.root.classList.toggle('wi-express-locked', on);"));
+check('Express: a bottoni spenti il clic non apre il foglio', fn () =>
+    str_contains($click, "this.root.classList.contains('wi-express-locked')")
+    && strpos($click, "this.root.classList.contains('wi-express-locked')") < (int) strpos($click, 'event.resolve('));
+check('Express: il token si chiede dopo resolve e va a start con i tre campi', fn () =>
+    strpos($click, 'event.resolve(') < (int) strpos($click, 'this.verify(data)')
+    && str_contains($verifica, 'window.wiRecaptchaToken(this.captcha)')
+    && str_contains($verifica, "'g-recaptcha-token': answer.token, 'g-recaptcha-action': answer.action, 'g-recaptcha-type': answer.type"));
+check('Express: sul 618 la casella si apre sotto i bottoni', fn () =>
+    str_contains($click, 'reply.data?.status === 618')
+    && str_contains($click, 'window.wiRecaptchaChallenge?.(this.captcha);')
+    && str_contains($click, 'this.lockButtons(true);'));
+check('Express: il token della casella si rinnova dopo start', fn () =>
+    str_contains($click, "values['g-recaptcha-type'] === 'checkbox'") && str_contains($click, 'window.wiRecaptchaReset?.(this.captcha);'));
+check('Express: il foglio chiuso ricorda la casella', fn () => str_contains($annulla, 'this.say(this.labels.captcha);'));
+
+$css = (string) file_get_contents($root.'/resources/assets/css/express.css');
+check('CSS: bottoni spenti', fn () =>
+    (bool) preg_match('/\.wi-express\.wi-express-locked \[data-express-element\] \{\s*pointer-events: none;/', $css));
+
+foreach (['it', 'en'] as $lingua) {
+    $testi = json_decode((string) file_get_contents($root."/lang/{$lingua}/ecommerce.json"), true);
+    check("lang {$lingua}: express_captcha", fn () => ($testi['checkout']['express_captcha'] ?? '') !== '');
+}
+
 summary();

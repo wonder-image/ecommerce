@@ -1255,6 +1255,20 @@ class Express {
         this.invoice?.addEventListener('change', () => this.toggle());
         this.toggle();
 
+        // Il riquadro reCAPTCHA dell'ospite sta fuori dal modulo (riquadro autonomo); chi è entrato non ce l'ha.
+        this.captcha = root.querySelector('[data-wi-recaptcha-standalone]');
+        const box = this.captcha?.querySelector('.g-recaptcha');
+        // Casella a vista (solo v2, o sfida già aperta dal server): i bottoni aspettano la spunta.
+        this.challenge = Boolean(box?.dataset.wiSiteKey) && (!box.dataset.wiScoreKey || box.dataset.wiChallenge === '1');
+        this.captcha?.addEventListener('wi-recaptcha-change', (event) => {
+            if (this.challenge) {
+                this.lockButtons(!event.detail?.token);
+            }
+        });
+        if (this.challenge) {
+            this.lockButtons(true);
+        }
+
         // Sulla scheda il foglio si apre col totale di quantità e variante scelte: Stripe mostra l'importo prima di ogni evento.
         this.productForm = this.config.source === 'product' ? document.querySelector('form[data-ecommerce-add-to-cart]') : null;
         if (this.productForm) {
@@ -1329,7 +1343,14 @@ class Express {
     }
 
     // Stripe vuole la risposta entro un secondo: il foglio si apre subito, il carrello a parte nasce intanto.
+    // L'ospite passa dal reCAPTCHA: il token v3 si chiede dopo `resolve`, la casella va spuntata prima.
     click(event) {
+        if (this.root.classList.contains('wi-express-locked')) {
+            // Senza `resolve` il foglio non si apre: prima la casella.
+            this.say(this.labels.captcha);
+            return;
+        }
+
         this.say('');
         event.resolve({
             emailRequired: true,
@@ -1349,12 +1370,52 @@ class Express {
             data.quantity = form?.querySelector('[name="quantity"]')?.value || '1';
         }
 
-        this.started = this.post('start', data).then((reply) => {
-            this.total = reply.ok ? reply.data.total : null;
-            this.startError = reply.ok ? '' : reply.data.message || '';
+        this.started = this.verify(data)
+            .then((values) => {
+                if (!values) {
+                    // Nessun token: la casella è aperta e non spuntata.
+                    return { ok: false, data: { status: 618, message: this.labels.captcha } };
+                }
 
-            return reply;
-        });
+                return this.post('start', values).then((reply) => {
+                    // Il token della casella vale una volta: si rinnova per il prossimo avvio.
+                    if (values['g-recaptcha-type'] === 'checkbox') {
+                        window.wiRecaptchaReset?.(this.captcha);
+                    }
+
+                    return reply;
+                });
+            })
+            .then((reply) => {
+                this.total = reply.ok ? reply.data.total : null;
+                this.startError = reply.ok ? '' : reply.data.message || '';
+
+                // Punteggio basso: la casella si apre sotto i bottoni, che aspettano la spunta.
+                if (reply.data?.status === 618) {
+                    this.challenge = true;
+                    window.wiRecaptchaChallenge?.(this.captcha);
+                    this.lockButtons(true);
+                    this.say(this.labels.captcha);
+                }
+
+                return reply;
+            });
+    }
+
+    // Il token reCAPTCHA dell'ospite per `start`; null se la casella è aperta e non spuntata.
+    async verify(data) {
+        if (!this.captcha || typeof window.wiRecaptchaToken !== 'function') {
+            return data;
+        }
+
+        const answer = await window.wiRecaptchaToken(this.captcha).catch(() => null);
+
+        return answer ? { ...data, 'g-recaptcha-token': answer.token, 'g-recaptcha-action': answer.action, 'g-recaptcha-type': answer.type } : null;
+    }
+
+    // Bottoni spenti finché la casella non è spuntata (vedi express.css).
+    lockButtons(on) {
+        this.root.classList.toggle('wi-express-locked', on);
     }
 
     async address(event) {
@@ -1466,6 +1527,11 @@ class Express {
         this.started = null;
         this.total = null;
         this.post('cancel', {});
+
+        // Il cliente ritrova la casella aperta sotto i bottoni.
+        if (this.challenge) {
+            this.say(this.labels.captcha);
+        }
     }
 
     async post(action, values) {
