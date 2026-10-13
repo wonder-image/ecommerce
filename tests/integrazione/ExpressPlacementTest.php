@@ -195,8 +195,8 @@ check('express: l\'ordine in sospeso del checkout normale torna nel carrello ver
     return (string) Order::findById($normale)['status'] === 'cancelled' && $righe === [[$vecchio, 1.0]];
 }));
 
-check('senza express apple_pay si rifiuta', fn () => prova(static function (): bool {
-    stripeConTipi(['card', 'apple_pay']);
+check('dal modulo (senza express) apple_pay si rifiuta solo se è spento nel conto', fn () => prova(static function (): bool {
+    stripeConTipi(['card']);
     [$cartId, $post] = postExpress(metodoStripe(), 'apple_pay');
     $totale = CheckoutSummary::payload($cartId, $post, utenteProva())['order']['total'];
 

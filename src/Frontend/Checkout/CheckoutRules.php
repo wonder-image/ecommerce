@@ -5,6 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use Wonder\App\Support\GoogleMaps;
 use Wonder\Consent\ConsentDictionary;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Providers\Payments\StripeMethods;
 
 /** Le regole della pagina di checkout: cosa serve per ordinare e cosa si scrive sull'ordine. */
 final class CheckoutRules
@@ -160,9 +161,16 @@ final class CheckoutRules
         return $post;
     }
 
+    /** Apple Pay, Google Pay e Link fra le scelte: restano nascosti finché il browser non li conferma. */
+    public static function wallet(array $option): bool
+    {
+        return StripeMethods::expressChoices([(string) ($option['stripe_method_type'] ?? '')]) !== [];
+    }
+
     /**
      * La chiave della scelta di pagamento da spuntare: quella salvata, se la
-     * pagina la offre; altrimenti la voce con l'id scelto e, per Stripe, la
+     * pagina la offre e non è un wallet (resta nascosto finché il browser non
+     * lo conferma); altrimenti la voce con l'id scelto e, per Stripe, la
      * carta. Vuota se nessuna.
      *
      * @param list<array<string, mixed>> $options
@@ -170,7 +178,7 @@ final class CheckoutRules
     public static function checkedPayment(array $options, string $saved, int $selected): string
     {
         foreach ($options as $option) {
-            if ($saved !== '' && (string) ($option['key'] ?? '') === $saved) {
+            if ($saved !== '' && !self::wallet($option) && (string) ($option['key'] ?? '') === $saved) {
                 return $saved;
             }
         }
