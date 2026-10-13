@@ -66,7 +66,7 @@ check('dopo un rifiuto il modulo si riapre: l\'ordine si annulla e si può cambi
     $reopen = substr($js, (int) strpos($js, '    async reopen(keep = []) {'), 1200);
 
     return !str_contains($js, 'abandon')
-        && substr_count($js, 'await this.reopen(') === 2
+        && substr_count($js, 'await this.reopen(') === 4
         && str_contains($reopen, 'if (!this.placed)')
         && str_contains($reopen, 'this.placed = null;')
         && str_contains($reopen, 'this.frozen = false;')
@@ -211,7 +211,7 @@ check('mentre si paga lo spinner della lib dice «Elaborazione pagamento» e tor
         && str_contains($view, "\$labels['processing'] = (string) __t('ecommerce.checkout.pay.processing')")
         && str_contains($pay, "'processing' => (string) __t('ecommerce.checkout.pay.processing')")
         && str_contains($js, 'function paySpinner(')
-        && substr_count($js, 'paySpinner(true, this.labels.processing)') === 2
+        && substr_count($js, 'paySpinner(true, this.labels.processing)') === 3
         && substr_count($js, 'paySpinner(false)') >= 3
         && str_contains($js, '#loading-spinner .text');
 });
@@ -229,7 +229,7 @@ check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che res
         && str_contains($js, "'.wi-alert-body'")
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed)')
         && str_contains($js, 'payAlert(error.message || this.labels.failed)')
-        && substr_count($js, "payAlert('')") === 2;
+        && substr_count($js, "payAlert('')") === 3;
 });
 
 check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box del pagamento', function () use ($js): bool {
@@ -274,10 +274,65 @@ check('il riquadro dei metodi a reindirizzamento è senza bordo né sfondo', fn 
     && str_contains($js, 'appearance: STRIPE_APPEARANCE')
     && !str_contains($js, '// PROVA'));
 
-check('nessuna scelta mostra i wallet: Link, Apple Pay e Google Pay stanno nella barra rapida', fn () =>
-    !str_contains($js, "link: 'auto'")
+check('il Payment Element non mostra i wallet: Apple Pay, Google Pay e Link hanno la loro scelta, con un Express Checkout di un solo wallet', fn () =>
+    str_contains($js, "const WALLETS = { apple_pay: 'applePay', google_pay: 'googlePay', link: 'link' };")
+    && str_contains($js, 'function walletMethods(types)')
+    && str_contains($js, "elements.create('expressCheckout', { paymentMethods: walletMethods([chosen.stripe_method_type]) })")
+    && str_contains($js, 'paymentMethods: walletMethods(types)')
     && str_contains($js, "elements.create('payment', STRIPE_PAYMENT_ELEMENT)")
     && str_contains($js, "const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }"));
+
+check('i wallet fra le scelte restano nascosti finché una prova nascosta non li conferma; quelli assenti spariscono', function () use ($js, $view): bool {
+    $box = substr($js, (int) strpos($js, '    stripeBox(payload) {'), 1600);
+
+    return str_contains($js, 'walletProbe()')
+        && str_contains($js, "'height:0;margin:0;overflow:hidden;visibility:hidden'")
+        && str_contains($js, 'this.walletTypes')
+        && str_contains($js, 'hidden: isWallet(o) && !this.walletTypes.has(o.stripe_method_type)')
+        && str_contains($js, "node.toggleAttribute('hidden', Boolean(option.hidden))")
+        // La prova parte anche quando la scelta spuntata è un bonifico.
+        && str_contains($box, 'if (!on && (!probe || this.probed))')
+        && str_contains($view, "->attr('hidden', CheckoutRules::wallet(\$p))")
+        && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet(['stripe_method_type' => 'apple_pay'])
+        && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet(['stripe_method_type' => 'google_pay'])
+        && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet(['stripe_method_type' => 'link'])
+        && !\Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet(['stripe_method_type' => 'klarna'])
+        && !\Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet(['stripe_method_type' => 'card'])
+        && !\Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::wallet([]);
+});
+
+check('wallet fra le scelte: il clic controlla il modulo prima di aprire il foglio; la conferma crea l\'ordine e poi Stripe incassa', function () use ($js, $view, $root): bool {
+    $from = (int) strpos($js, '    walletClick(event) {');
+    $click = substr($js, $from, (int) strpos($js, '    captchaToken() {') - $from);
+    $from = (int) strpos($js, '    async walletConfirm(event, key) {');
+    $confirm = substr($js, $from, (int) strpos($js, '    walletEvents(group, key) {') - $from);
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $at = static fn (string $haystack, string $needle): int => ($p = strpos($haystack, $needle)) === false ? -1 : $p;
+
+    return $from > 0
+        && $at($click, 'this.validate(null)') >= 0
+        && $at($click, 'this.validate(null)') < $at($click, 'event.resolve({})')
+        && $at($click, 'event.resolve({})') < $at($click, 'this.walletToken = this.captchaToken()')
+        && $at($confirm, 'await elements.submit()') >= 0
+        && $at($confirm, 'await elements.submit()') < $at($confirm, 'await this.walletToken')
+        && $at($confirm, 'await this.walletToken') < $at($confirm, 'this.place()')
+        && $at($confirm, 'this.place()') < $at($confirm, 'confirmPayment(')
+        && str_contains($confirm, "event.paymentFailed({ reason: 'fail' })")
+        && str_contains($confirm, 'this.labels.captcha')
+        && str_contains($confirm, 'billing_details: this.placed.billing_details')
+        && str_contains($view, "\$labels['captcha'] = (string) __t('ecommerce.checkout.express_captcha')")
+        && ($it['checkout']['express_captcha'] ?? '') !== ''
+        && str_contains($js, 'event?.preventDefault()');
+});
+
+check('con un wallet scelto «Paga» sparisce: si paga dal bottone del wallet', function () use ($js): bool {
+    $guard = substr($js, (int) strpos($js, '    guardSubmit() {'), 500);
+    $change = substr($js, (int) strpos($js, "if (event.target.name === 'payment_method_id') {"), 160);
+
+    return str_contains($js, 'button.hidden = isWallet(chosen)')
+        && (bool) preg_match('/if \(isWallet\(this\.chosenPayment\(\)\)\) \{\s*event\.preventDefault\(\);\s*return;/', $guard)
+        && str_contains($change, 'this.submit(this.latest)');
+});
 
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 
@@ -296,14 +351,18 @@ check('dopo un rifiuto con redirect lo stato del modulo ricorda il valore grezzo
         && CheckoutRules::post(['payment_method_id' => $kept['payment_method_id']])['payment_method_id'] === 891;
 });
 
-check('nella vista è spuntata la scelta con la chiave salvata; senza corrispondenza vale l\'id più la carta', function () use ($view, $controller): bool {
+check('nella vista è spuntata la scelta con la chiave salvata; senza corrispondenza vale l\'id più la carta; un wallet salvato torna alla carta', function () use ($view, $controller): bool {
     $options = [
         ['id' => 891, 'key' => '891', 'stripe_method_type' => 'card'],
+        ['id' => 891, 'key' => '891:apple_pay', 'stripe_method_type' => 'apple_pay'],
+        ['id' => 891, 'key' => '891:link', 'stripe_method_type' => 'link'],
         ['id' => 891, 'key' => '891:klarna', 'stripe_method_type' => 'klarna'],
         ['id' => 7, 'key' => '7', 'stripe_method_type' => ''],
     ];
 
     return CheckoutRules::checkedPayment($options, '891:klarna', 891) === '891:klarna'
+        // Il wallet resta nascosto finché il browser non lo conferma: spuntato all'avvio lascerebbe il modulo senza scelta visibile.
+        && CheckoutRules::checkedPayment($options, '891:apple_pay', 891) === '891'
         && CheckoutRules::checkedPayment($options, '891:link', 891) === '891'
         && CheckoutRules::checkedPayment($options, '891', 891) === '891'
         && CheckoutRules::checkedPayment($options, '', 7) === '7'

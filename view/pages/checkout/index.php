@@ -61,6 +61,7 @@ foreach (['products_total', 'discount', 'total'] as $key) {
 $labels['stripe_error'] = (string) __t('ecommerce.checkout.pay.error');
 $labels['pay_failed'] = (string) __t('ecommerce.checkout.pay.failed');
 $labels['processing'] = (string) __t('ecommerce.checkout.pay.processing');
+$labels['captcha'] = (string) __t('ecommerce.checkout.express_captcha');
 
 $gaItems = array_map(static fn (array $item): array => [
     'item_id' => (string) ($item['sku'] ?? $item['product_id'] ?? ''),
@@ -72,7 +73,7 @@ $gaItems = array_map(static fn (array $item): array => [
 $payment = static fn (array $p): Choice => Choice::make('payment_method_id', (string) $p['key'])
     ->type('radio')->title((string) $p['name'])->aside((string) ($p['fee_display'] ?? ''))
     ->icons((array) ($p['icon_urls'] ?? []))->panel((string) ($p['panel'] ?? ''))
-    ->checked((string) $p['key'] === $paymentChecked);
+    ->checked((string) $p['key'] === $paymentChecked)->attr('hidden', CheckoutRules::wallet($p));
 
 Ecommerce::layout('checkout');
 View::head(DataLayer::script([

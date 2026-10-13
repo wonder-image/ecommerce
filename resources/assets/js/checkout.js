@@ -8,6 +8,10 @@ class Checkout {
         // il cui Payment Element non si carica (loaderror) si tolgono per sempre dal modulo.
         this.groups = {};
         this.dropped = new Set();
+        // Apple Pay, Google Pay e Link fra le scelte: nascosti finché il browser non dice quali sa usare (walletProbe).
+        this.walletTypes = new Set();
+        this.probed = false;
+        this.walletToken = null;
 
         if (!this.root || !this.root.dataset.summaryUrl) {
             return;
@@ -50,6 +54,7 @@ class Checkout {
             // Il gruppo della nuova scelta parte subito: «Paga» non deve trovare l'elemento della scelta di prima.
             if (event.target.name === 'payment_method_id') {
                 this.stripeBox(this.latest);
+                this.submit(this.latest);
             }
 
             this.schedule();
@@ -327,6 +332,8 @@ class Checkout {
                 this.pane(pane);
             }
 
+            node.toggleAttribute('hidden', Boolean(option.hidden));
+
             return node;
         };
 
@@ -412,7 +419,8 @@ class Checkout {
             return;
         }
 
-        const options = (payload.payment_methods.options || []).filter((o) => !this.dropped.has(o.key)).map((o) => ({ ...o, value: o.key }));
+        const options = (payload.payment_methods.options || []).filter((o) => !this.dropped.has(o.key))
+            .map((o) => ({ ...o, value: o.key, hidden: isWallet(o) && !this.walletTypes.has(o.stripe_method_type) }));
         // Resta spuntata la scelta di prima, se c'è ancora; altrimenti la voce dell'anteprima (carta, per i metodi Stripe).
         const checked = this.form?.querySelector('[name="payment_method_id"]:checked')?.value;
         const selected = options.some((o) => o.value === checked)
@@ -446,8 +454,10 @@ class Checkout {
         const chosen = this.chosenPayment(payload);
 
         if (chosen) {
+            // Con un wallet si paga dal suo bottone nel pannello: «Paga» sparisce.
             document.querySelectorAll('[data-checkout-submit]').forEach((button) => {
                 button.textContent = chosen.manual ? this.labels.submit_manual : this.labels.submit_online;
+                button.hidden = isWallet(chosen);
             });
         }
     }
@@ -560,12 +570,14 @@ class Checkout {
         const stripeChoices = (payload?.payment_methods?.options || []).filter((o) => o.provider === 'stripe');
         const chosen = this.chosenPayment(payload);
         const on = Boolean(box && stripeChoices.length && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
+        // I wallet fra le scelte si provano anche se è spuntato un pagamento manuale: per mostrarli serve Stripe.js.
+        const probe = Boolean(stripeChoices.some((o) => isWallet(o) && !this.dropped.has(o.key)) && keys?.publishable_key && keys.amount > 0);
 
         this.stripeOn = on;
         box?.toggleAttribute('hidden', !on);
         this.stripeSlot(on);
 
-        if (!on) {
+        if (!on && (!probe || this.probed)) {
             return;
         }
 
@@ -576,15 +588,27 @@ class Checkout {
                 this.stripe = window.Stripe(keys.publishable_key, keys.account ? { stripeAccount: keys.account } : {});
             }).catch(() => {
                 this.stripeReady = null;
-                this.say([this.labels.stripe_error]);
+
+                if (this.stripeOn) {
+                    this.say([this.labels.stripe_error]);
+                }
+
+                // Senza Stripe.js i wallet non si possono provare: spariscono.
+                (this.latest?.payment_methods?.options || []).filter(isWallet).forEach((o) => this.dropChoice(o.key));
             });
         }
 
         this.stripeReady.then(() => {
             // Se Stripe.js non è partito, non c'è niente da fare. Intanto la scelta può essere cambiata: vale l'ultima.
+            if (!this.stripe) {
+                return;
+            }
+
+            this.walletProbe();
+
             const chosen = this.chosenPayment(this.latest);
 
-            if (!this.stripe || !this.stripeOn || chosen?.provider !== 'stripe') {
+            if (!this.stripeOn || chosen?.provider !== 'stripe') {
                 return;
             }
 
@@ -595,8 +619,16 @@ class Checkout {
                     const options = { ...this.stripeOptions, appearance: STRIPE_APPEARANCE, ...(chosen.payment_method_types?.length ? { paymentMethodTypes: chosen.payment_method_types } : {}) };
                     const elements = this.stripe.elements(options);
 
-                    group = { elements, element: elements.create('payment', STRIPE_PAYMENT_ELEMENT), container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
+                    const element = isWallet(chosen)
+                        ? elements.create('expressCheckout', { paymentMethods: walletMethods([chosen.stripe_method_type]) })
+                        : elements.create('payment', STRIPE_PAYMENT_ELEMENT);
+
+                    group = { elements, element, container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
                     this.groups[chosen.key] = group;
+
+                    if (isWallet(chosen)) {
+                        this.walletEvents(group, chosen.key);
+                    }
 
                     // Klarna, BLIK… fuori dai loro limiti (importo, paese) non si caricano: la scelta sparisce e torna la carta.
                     if (!['', 'card'].includes(chosen.stripe_method_type ?? '')) {
@@ -637,6 +669,57 @@ class Checkout {
         container.className = container.className || 'w-100';
 
         return container;
+    }
+
+    // Una volta sola, un Express Checkout Element invisibile prova tutti i wallet fra le scelte: quelli che il browser
+    // sa usare si mostrano, gli altri spariscono come le scelte che non si caricano.
+    walletProbe() {
+        const wallets = (this.latest?.payment_methods?.options || []).filter((o) => isWallet(o) && !this.dropped.has(o.key));
+
+        if (this.probed || !wallets.length || !this.form) {
+            return;
+        }
+
+        this.probed = true;
+
+        const holder = document.createElement('div');
+        let element = null;
+        let done = false;
+        const finish = (available) => {
+            if (done) {
+                return;
+            }
+
+            done = true;
+            Object.entries(WALLETS).forEach(([type, name]) => {
+                if (available?.[name]) {
+                    this.walletTypes.add(type);
+                }
+            });
+            wallets.forEach((o) => {
+                if (this.walletTypes.has(o.stripe_method_type)) {
+                    [...this.form.querySelectorAll('[name="payment_method_id"]')].find((r) => r.value === o.key)?.closest('label')?.removeAttribute('hidden');
+                } else {
+                    this.dropChoice(o.key);
+                }
+            });
+
+            try { element?.destroy(); } catch (error) { /* già smontato */ }
+            holder.remove();
+        };
+
+        holder.style.cssText = 'height:0;margin:0;overflow:hidden;visibility:hidden';
+        this.form.append(holder);
+
+        try {
+            element = this.stripe.elements({ ...this.stripeOptions, appearance: STRIPE_APPEARANCE })
+                .create('expressCheckout', { paymentMethods: walletMethods(wallets.map((o) => o.stripe_method_type)) });
+            element.on('ready', ({ availablePaymentMethods }) => finish(availablePaymentMethods));
+            element.on('loaderror', () => finish(null));
+            element.mount(holder);
+        } catch (error) {
+            finish(null);
+        }
     }
 
     // I campi vanno nel pannello della scelta Stripe. Spostare l'iframe lo ricarica: ogni gruppo si monta
@@ -731,6 +814,7 @@ class Checkout {
         }
 
         this.stripeBox(this.latest);
+        this.submit(this.latest);
         // Il totale può avere un'altra commissione: il riepilogo si rilegge con la carta.
         this.schedule();
     }
@@ -868,6 +952,130 @@ class Checkout {
         this.form.querySelectorAll('input[name="g-recaptcha-token"], input[name="g-recaptcha-action"]').forEach((field) => { field.value = ''; });
     }
 
+    // Clic sul bottone del wallet: il foglio si apre solo se il modulo è a posto. Stripe vuole la risposta entro
+    // un secondo, quindi il controllo è sincrono; il token reCAPTCHA si chiede subito dopo e serve alla conferma.
+    walletClick(event) {
+        if (this.paying || this.frozen || !this.validate(null)) {
+            return;
+        }
+
+        // Casella reCAPTCHA a vista e non spuntata: il foglio non si apre.
+        const box = this.form.querySelector('.g-recaptcha');
+        const checkbox = Boolean(box?.dataset.wiSiteKey) && (!box.dataset.wiScoreKey || box.dataset.wiChallenge === '1');
+
+        if (checkbox && !this.form.querySelector('input[name="g-recaptcha-token"]')?.value) {
+            this.say([this.labels.captcha]);
+
+            return;
+        }
+
+        this.say([]);
+        payAlert('');
+        event.resolve({});
+        this.walletToken = this.captchaToken();
+    }
+
+    // Chi è entrato non ha il reCAPTCHA: vale sì. La lib scrive il token nei campi nascosti del modulo.
+    captchaToken() {
+        if (!this.form.querySelector('.g-recaptcha') || typeof window.wiRecaptchaToken !== 'function') {
+            return Promise.resolve(true);
+        }
+
+        return window.wiRecaptchaToken(this.form).then(Boolean, () => false);
+    }
+
+    // Il cliente ha confermato nel foglio del wallet: come «Paga», ma con l'elements del wallet.
+    async walletConfirm(event, key) {
+        const group = this.groups[key];
+
+        if (this.paying || !group) {
+            event.paymentFailed({ reason: 'fail' });
+
+            return;
+        }
+
+        const { elements } = group;
+        let sent = false;
+
+        this.sequence++;
+        clearTimeout(this.timer);
+        this.payKey = key;
+        this.paying = true;
+        this.lock(true);
+        paySpinner(true, this.labels.processing);
+
+        try {
+            const checked = await elements.submit();
+
+            if (checked.error) {
+                event.paymentFailed({ reason: 'fail' });
+                this.say([checked.error.message || this.labels.pay_failed]);
+
+                return;
+            }
+
+            if (!(await this.walletToken)) {
+                event.paymentFailed({ reason: 'fail' });
+                this.say([this.labels.captcha]);
+
+                return;
+            }
+
+            if (!this.placed) {
+                this.placed = await this.place();
+
+                if (!this.placed) {
+                    event.paymentFailed({ reason: 'fail' });
+
+                    return;
+                }
+
+                this.freeze();
+            }
+
+            sent = true;
+
+            const { error } = await this.stripe.confirmPayment({
+                elements,
+                clientSecret: this.placed.client_secret,
+                confirmParams: {
+                    return_url: new URL(this.placed.return_url, window.location.href).href,
+                    payment_method_data: { billing_details: this.placed.billing_details },
+                },
+            });
+
+            if (error) {
+                payAlert(error.message || this.labels.pay_failed);
+                this.say([]);
+                await this.reopen();
+            }
+        } catch (error) {
+            if (!sent) {
+                event.paymentFailed({ reason: 'fail' });
+            }
+
+            this.say([this.labels.stripe_error]);
+            await this.reopen([this.labels.stripe_error]);
+        } finally {
+            this.paying = false;
+            this.payKey = null;
+            this.walletToken = null;
+            this.lock(false);
+            paySpinner(false);
+        }
+    }
+
+    walletEvents(group, key) {
+        // Il wallet non c'è più (per esempio la carta è uscita da Google Pay): la scelta sparisce, torna la carta.
+        group.element.on('ready', ({ availablePaymentMethods }) => {
+            if (!availablePaymentMethods) {
+                this.dropChoice(key);
+            }
+        });
+        group.element.on('click', (e) => this.walletClick(e));
+        group.element.on('confirm', (e) => this.walletConfirm(e, key));
+    }
+
     // L'ordine è nato: il modulo non cambia più, altrimenti si pagherebbe un ordine diverso da quello che si vede.
     // Si spengono solo i campi accesi, così la riapertura non accende quelli che il modulo tiene spenti.
     freeze() {
@@ -934,6 +1142,12 @@ class Checkout {
                 return;
             }
 
+            // Con un wallet «Paga» non c'è: anche Invio non manda il modulo, si paga dal bottone del wallet.
+            if (isWallet(this.chosenPayment())) {
+                event.preventDefault();
+                return;
+            }
+
             if (this.chosenPayment()?.provider === 'stripe') {
                 event.preventDefault();
                 this.payOnline();
@@ -970,7 +1184,7 @@ class Checkout {
             return true;
         }
 
-        event.preventDefault();
+        event?.preventDefault();
         first.focus({ preventScroll: true });
         first.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
@@ -1123,8 +1337,24 @@ window.addEventListener('pageshow', (event) => {
 
 let stripeScript = null;
 
-// Solo numero, scadenza e CVC: Link e i wallet vanno nei bottoni rapidi, i dati del cliente li dà l'ordine alla conferma.
+// Solo numero, scadenza e CVC: Link e i wallet hanno la loro scelta (e i bottoni rapidi), i dati del cliente li dà l'ordine alla conferma.
 const STRIPE_PAYMENT_ELEMENT = { wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, fields: { billingDetails: 'never' } };
+
+// Il tipo Stripe del wallet → il suo nome nell'Express Checkout Element.
+const WALLETS = { apple_pay: 'applePay', google_pay: 'googlePay', link: 'link' };
+const isWallet = (o) => Boolean(o && WALLETS[o.stripe_method_type]);
+
+// Nell'Express Checkout Element solo i wallet dati: gli altri metodi hanno la loro scelta.
+function walletMethods(types) {
+    return {
+        applePay: types.includes('apple_pay') ? 'auto' : 'never',
+        googlePay: types.includes('google_pay') ? 'auto' : 'never',
+        link: types.includes('link') ? 'auto' : 'never',
+        paypal: 'never',
+        amazonPay: 'never',
+        klarna: 'never',
+    };
+}
 
 // Klarna, PayPal e gli altri a reindirizzamento: Stripe mostra il loro logo in un riquadro che non si può togliere, almeno senza bordo né sfondo.
 const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };
@@ -1300,7 +1530,6 @@ class Express {
     mount() {
         const { publishable_key: key, account } = this.config.stripe || {};
         const types = this.config.types || [];
-        const wallet = (type) => (types.includes(type) ? 'auto' : 'never');
 
         this.stripe = window.Stripe(key, account ? { stripeAccount: account } : {});
         this.elements = this.stripe.elements({
@@ -1310,14 +1539,7 @@ class Express {
             appearance: STRIPE_APPEARANCE,
         });
         this.element = this.elements.create('expressCheckout', {
-            paymentMethods: {
-                applePay: wallet('apple_pay'),
-                googlePay: wallet('google_pay'),
-                link: wallet('link'),
-                paypal: 'never',
-                amazonPay: 'never',
-                klarna: 'never',
-            },
+            paymentMethods: walletMethods(types),
             ...(this.config.layout ? { layout: this.config.layout } : {}),
             ...(this.config.buttonType ? { buttonType: this.config.buttonType } : {}),
         });
