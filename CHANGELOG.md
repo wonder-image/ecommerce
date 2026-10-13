@@ -88,6 +88,14 @@ versionamento semantico.
   `wonder-image/lib` `>= 2.1.2-alpha.27`; con l'app vecchia l'express dell'ospite non
   compare. Le celle del riquadro nel check-out e nell'express hanno la classe
   `wi-recaptcha-cell`: con la sola v3 restano nascoste finché sono vuote, senza spazio vuoto.
+- Apple Pay, Google Pay e Link anche fra le scelte di pagamento del check-out, dopo la
+  carta: chi chiede fattura o ritira in negozio (niente barra rapida) li può usare.
+  Restano nascosti finché un Express Checkout Element invisibile non conferma che il
+  browser li sa usare (`CheckoutRules::wallet`, `walletProbe`); quelli assenti
+  spariscono. Scelto un wallet, «Paga» sparisce e nel pannello c'è il suo bottone: il
+  clic controlla il modulo, la conferma fa nascere l'ordine e poi Stripe incassa. Un
+  wallet salvato non torna spuntato. Richiede il gestionale con `StripeMethods::choices`
+  che mette i wallet fra le scelte.
 
 ### Modificato
 
