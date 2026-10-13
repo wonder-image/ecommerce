@@ -147,6 +147,7 @@
         "shipping_pending": "Enter your shipping address",
         "shipping_methods_pending": "Enter your shipping address to view available shipping methods",
         "redirect_panel": "After clicking “Pay now”, you will be redirected to {{name}} to complete your purchase securely",
+        "wallet_panel": "After submitting, {{name}} will open so you can complete your purchase securely",
         "invoice": "I need an invoice",
         "billing_private": "Private",
         "billing_business": "Business",

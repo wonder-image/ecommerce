@@ -122,6 +122,8 @@ final class CheckoutSummary
             'fee_display' => $fee > 0 ? '+ '.CartPresenter::money($fee, $currency) : '',
             'panel' => match (true) {
                 !empty($option['manual']) => (string) ($option['instructions'] ?? ''),
+                // Un wallet si apre dal suo bottone, al posto di «Paga ora»: qui solo l'avviso.
+                $stripe && CheckoutRules::wallet($option) => (string) __t('ecommerce.checkout.wallet_panel', ['name' => (string) ($option['name'] ?? '')]),
                 // La carta si scrive nel Payment Element, sotto le scelte: niente pannello.
                 $stripe => '',
                 default => (string) __t('ecommerce.checkout.redirect_panel', ['name' => (string) ($option['name'] ?? '')]),

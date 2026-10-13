@@ -110,6 +110,24 @@ check('le scelte Stripe del gestionale arrivano alla pagina con chiave, tipo e t
         && (int) $payload['payment_methods']['selected'] === $id;
 }));
 
+check('un wallet ha il suo pannello col nome e il logo, la carta e Klarna no', fn () => prova(static function (): bool {
+    stripeConTipi(['card', 'klarna', 'link']);
+    $id = metodoStripe();
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    spegniFunzionalita(['shipping']);
+
+    $payload = CheckoutSummary::payload($cart, CheckoutRules::post(['payment_method_id' => (string) $id]));
+    $per = static fn (string $key): array => current(array_filter((array) $payload['payment_methods']['options'], static fn (array $v): bool => $v['key'] === $key)) ?: [];
+    $link = $per($id.':link');
+
+    return (string) ($link['panel'] ?? '') === (string) __t('ecommerce.checkout.wallet_panel', ['name' => 'Link'])
+        && str_contains((string) $link['panel'], 'Link')
+        && !str_contains((string) $link['panel'], 'wallet_panel')
+        && array_column((array) $link['icon_urls'], 'alt') === ['Link']
+        && ($per((string) $id)['panel'] ?? null) === ''
+        && ($per($id.':klarna')['panel'] ?? null) === '';
+}));
+
 check('un metodo non Stripe resta con la chiave nuda e senza tipi', fn () => prova(static function (): bool {
     stripeConTipi(['card']);
     $bonifico = (int) (PaymentMethod::create([
