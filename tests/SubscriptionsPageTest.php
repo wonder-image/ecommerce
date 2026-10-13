@@ -6,6 +6,7 @@ require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionBilling;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 
 $root = dirname(__DIR__);
@@ -121,7 +122,7 @@ check('le rotte: la conferma prima del prezzo, il prezzo solo con il suo codice'
     $prezzo = strpos($routes, "Route::get('/{price}/'");
 
     return $conferma !== false && $prezzo !== false && $conferma < $prezzo
-        && str_contains($routes, "->where('price', 'ppr_[a-z0-9]+')");
+        && str_contains($routes, "->where('price', 'ppr_[a-z0-9-]+')");
 });
 
 check('le traduzioni degli abbonamenti ci sono in tutte le lingue, con la descrizione entro 140 caratteri', function () use ($root) {
@@ -136,6 +137,23 @@ check('le traduzioni degli abbonamenti ci sono in tutte le lingue, con la descri
     }
 
     return true;
+});
+
+check('la fatturazione vuole l\'indirizzo e chi paga: persona o ragione sociale', function () {
+    $indirizzo = ['billing_country' => 'IT', 'billing_city' => 'Torino', 'billing_cap' => '10100', 'billing_street' => 'Via Po'];
+
+    return SubscriptionBilling::complete($indirizzo + ['billing_name' => 'Lucia', 'billing_surname' => 'Rossi'])
+        && SubscriptionBilling::complete($indirizzo + ['billing_business_name' => 'Rossi Srl'])
+        && !SubscriptionBilling::complete($indirizzo + ['billing_name' => 'Lucia'])
+        && !SubscriptionBilling::complete(['billing_city' => ''] + $indirizzo + ['billing_business_name' => 'Rossi Srl'])
+        && !SubscriptionBilling::complete([]);
+});
+
+check('la conferma smette di ricaricarsi dopo qualche minuto e lo dice', function () use ($root) {
+    $vista = (string) file_get_contents($root.'/view/pages/subscriptions/confirm.php');
+
+    return str_contains($vista, "if (\$state === 'waiting')") && str_contains($vista, 'http-equiv="refresh"')
+        && \Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController::WAIT_SECONDS <= 300;
 });
 
 summary();

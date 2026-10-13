@@ -398,6 +398,8 @@
             "waiting_text": "Ci vuole qualche secondo: la pagina si aggiorna da sola.",
             "confirmed_title": "Abbonamento attivo",
             "confirmed_text": "Grazie! Ti abbiamo mandato un'email con i dettagli.",
+            "slow_title": "Ci sta mettendo più del previsto",
+            "slow_text": "Il pagamento è in verifica: controlla tra poco nella sezione Abbonamenti del tuo account. Se non compare, scrivici.",
             "failed_title": "Abbonamento non attivato",
             "failed_text": "Il pagamento non è stato completato. Puoi riprovare dalla pagina dei piani.",
             "account": "Vai ai tuoi abbonamenti",

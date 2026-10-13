@@ -343,6 +343,8 @@
             "waiting_text": "It takes a few seconds: this page refreshes by itself.",
             "confirmed_title": "Subscription active",
             "confirmed_text": "Thank you! We sent you an email with the details.",
+            "slow_title": "This is taking longer than expected",
+            "slow_text": "Your payment is being checked: look again shortly in the Subscriptions section of your account. If it does not appear, contact us.",
             "failed_title": "Subscription not activated",
             "failed_text": "The payment was not completed. You can try again from the plans page.",
             "account": "Go to your subscriptions",

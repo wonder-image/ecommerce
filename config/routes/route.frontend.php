@@ -50,10 +50,10 @@ Route::area('frontend')
                 Route::get('/', $handler, ['subscriptions_action' => 'plans'])->name('plans');
                 Route::get('/conferma/', $handler, ['subscriptions_action' => 'confirm'])->name('confirm');
                 Route::get('/{price}/', $handler, ['subscriptions_action' => 'subscribe'])
-                    ->where('price', 'ppr_[a-z0-9]+')
+                    ->where('price', 'ppr_[a-z0-9-]+')
                     ->name('subscribe');
                 Route::post('/{price}/', $handler, ['subscriptions_action' => 'start'])
-                    ->where('price', 'ppr_[a-z0-9]+')
+                    ->where('price', 'ppr_[a-z0-9-]+')
                     ->name('start');
             });
 

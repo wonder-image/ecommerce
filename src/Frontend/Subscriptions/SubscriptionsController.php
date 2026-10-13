@@ -35,6 +35,9 @@ final class SubscriptionsController
     /** Le conferme già mandate a GTM in questa sessione: `purchase` non si ripete. */
     public const TRACKED = 'ecommerce_subscription_purchases';
 
+    /** Quanto la conferma si ricarica da sola aspettando la notifica di Stripe. */
+    public const WAIT_SECONDS = 180;
+
     public static function handle(string $action, array $parameters = []): void
     {
         if (!Gestionale::feature('online_subscriptions')) {
@@ -127,11 +130,19 @@ final class SubscriptionsController
             ARRAY_FILTER_USE_BOTH
         );
 
+        $billing = array_map(static fn ($value): string => trim((string) $value), $billing);
+
+        if (!SubscriptionBilling::complete($billing)) {
+            self::rememberFormState($billing + ['coupon' => (string) ($_POST['coupon'] ?? '')]);
+            FlashMessage::error((string) __t('ecommerce.checkout.errors.billing'), (string) __t('ecommerce.subscriptions.error_title'));
+            self::redirect($back);
+        }
+
         try {
             $started = OnlineSubscriptions::start(
                 CartSession::customerId(),
                 $code,
-                array_map(static fn ($value): string => trim((string) $value), $billing),
+                $billing,
                 trim((string) ($_POST['coupon'] ?? '')),
                 [
                     'success' => self::absolute(self::route('ecommerce.subscriptions.confirm')).'?abbonamento={SUBSCRIPTION}',
@@ -158,7 +169,8 @@ final class SubscriptionsController
      */
     private static function confirm(string $code): void
     {
-        self::requireLogin(self::route('ecommerce.subscriptions.plans'));
+        // Se la sessione si è persa durante il giro su Stripe, il login riporta qui.
+        self::requireLogin(self::route('ecommerce.subscriptions.confirm').'?abbonamento='.rawurlencode($code));
         $row = $code !== '' ? Subscription::find(['code' => $code, 'channel' => 'online', 'deleted' => 'false'], 1) : null;
 
         if (!is_array($row) || (int) ($row['id'] ?? 0) <= 0 || (int) $row['customer_id'] !== CartSession::customerId()) {
@@ -167,6 +179,11 @@ final class SubscriptionsController
 
         $status = (string) $row['status'];
         $state = in_array($status, Subscription::LIVE, true) ? 'confirmed' : ($status === 'pending' ? 'waiting' : 'failed');
+
+        // Una notifica che non arriva in qualche minuto non arriverà subito: si smette di ricaricare.
+        if ($state === 'waiting' && strtotime((string) ($row['creation'] ?? 'now')) < time() - self::WAIT_SECONDS) {
+            $state = 'slow';
+        }
         $tracked = (array) ($_SESSION[self::TRACKED] ?? []);
         $purchase = $state === 'confirmed' && !in_array($code, $tracked, true);
 
