@@ -179,6 +179,8 @@ check('i form espongono id semantici per Google Tag Manager', function () use ($
         'view/pages/auth/password-restore.php' => 'password_restore',
         'app/view/components/frontend/account/navigation.php' => 'logout', // il menu dell'account è del core
         'view/pages/backend/impersonation.php' => 'impersonate_user',
+        'view/pages/subscriptions/subscribe.php' => 'subscription_checkout',
+        'view/pages/account/subscriptions.php' => 'subscription_change',
     ];
 
     foreach ($forms as $file => $id) {

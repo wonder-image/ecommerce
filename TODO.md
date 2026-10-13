@@ -188,6 +188,22 @@ dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambit
 - [x] D9 Layout `ecommerce.shop` e `ecommerce.checkout`, pagine carrello,
   checkout e conferma collegate al flusso funzionale.
 
+## Fase E — Abbonamenti (E3, con G10 del gestionale)
+
+Spec nel gestionale: `docs/superpowers/specs/2026-10-13-abbonamenti-design.md`
+§2 e §5; piano `docs/superpowers/plans/2026-10-13-g10-piano-2-abbonamenti-online.md`.
+Si unisce su `main` dopo la `1.0.0`.
+
+- [x] E3.1 Pagina dei piani `/abbonamenti/` con `ItemList` di `Product`,
+  breadcrumb, `view_item_list` e `select_item` (`SubscriptionsPageTest`).
+- [x] E3.2 Sottoscrizione con account obbligatorio, fatturazione e codice
+  sconto, `begin_checkout`, poi Stripe Checkout.
+- [x] E3.3 Conferma che aspetta la notifica, `purchase` una volta sola.
+- [x] E3.4 Area cliente → Abbonamenti: cambia piano, disdici, aggiorna la carta.
+- [ ] E3.5 Prova nel browser con Stripe in modalità test (aspetta le chiavi di
+  prova sul sito di prova): carta, carta con autenticazione, prova gratuita,
+  cambio piano, disdetta, portale.
+
 ## Infrastruttura e rilascio
 
 - [ ] I1 Configurare il secret CI `MODULI_TOKEN` per il gestionale privato.

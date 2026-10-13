@@ -334,6 +334,74 @@
             "unlimited": "illimitato",
             "free_shipping": "Spedizione gratuita",
             "store_credit": "Credito"
+        },
+        "subscriptions": {
+            "title": "Abbonamenti",
+            "empty": "Non hai abbonamenti.",
+            "discover": "Scopri i piani",
+            "amount": "Importo del periodo",
+            "trial_end": "Fine della prova",
+            "renewal": "Prossimo rinnovo",
+            "ends": "Attivo fino al",
+            "payments": "Ultimi pagamenti",
+            "change_label": "Passa a",
+            "change": "Cambia piano",
+            "change_note": "Il nuovo prezzo vale dal prossimo rinnovo, senza conguagli.",
+            "card": "Aggiorna la carta",
+            "cancel": "Disdici",
+            "cancel_confirm": "Vuoi disdire l'abbonamento? Resta attivo fino alla fine del periodo pagato.",
+            "changed": "Piano cambiato: il nuovo prezzo vale dal prossimo rinnovo.",
+            "cancelled": "Disdetta registrata: l'abbonamento resta attivo fino al {{date}}."
+        }
+    },
+    "subscriptions": {
+        "error_title": "Abbonamento",
+        "error": "Qualcosa non ha funzionato: riprova tra qualche minuto.",
+        "choose": "Scegli",
+        "tax_included": "IVA inclusa",
+        "tax_excluded": "IVA esclusa",
+        "trial": "{{days}} giorni di prova gratuita",
+        "trial_once": "Prova gratuita di {{days}} giorni, se non hai mai avuto questo piano: il primo addebito arriva alla fine della prova.",
+        "commitment": "Vincolo di {{months}} mesi",
+        "every": {
+            "month": "al mese",
+            "months": "ogni {{count}} mesi",
+            "year": "all'anno",
+            "years": "ogni {{count}} anni"
+        },
+        "status": {
+            "pending": "In attesa",
+            "trialing": "In prova",
+            "active": "Attivo",
+            "past_due": "Da pagare",
+            "unpaid": "Non pagato",
+            "cancelled": "Chiuso"
+        },
+        "features": {},
+        "plans": {
+            "title": "Abbonamenti",
+            "seo": "Scegli il piano che fa per te: prezzi mensili e annuali, attivazione immediata e disdetta dall'area cliente.",
+            "intro": "Scegli il piano e paga in sicurezza con Stripe. Puoi cambiarlo o disdirlo quando vuoi dalla tua area cliente.",
+            "empty": "Al momento non ci sono piani disponibili."
+        },
+        "subscribe": {
+            "title": "Abbonati a {{plan}}",
+            "seo": "Conferma i dati e completa l'abbonamento.",
+            "summary": "Riepilogo",
+            "coupon": "Codice sconto (facoltativo)",
+            "stripe": "Il pagamento avviene sulla pagina sicura di Stripe; poi torni qui.",
+            "submit": "Vai al pagamento"
+        },
+        "confirm": {
+            "title": "Abbonamento",
+            "waiting_title": "Stiamo confermando il pagamento",
+            "waiting_text": "Ci vuole qualche secondo: la pagina si aggiorna da sola.",
+            "confirmed_title": "Abbonamento attivo",
+            "confirmed_text": "Grazie! Ti abbiamo mandato un'email con i dettagli.",
+            "failed_title": "Abbonamento non attivato",
+            "failed_text": "Il pagamento non è stato completato. Puoi riprovare dalla pagina dei piani.",
+            "account": "Vai ai tuoi abbonamenti",
+            "plans": "Torna ai piani"
         }
     },
     "impersonation": {

@@ -10,7 +10,7 @@ use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
 use Wonder\Plugin\Gestionale\Gestionale;
 
-/** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio, font e stile. */
+/** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio (ordini, abbonamenti, coupon), font e stile. */
 final class EcommerceAccountExtension extends BaseAccountExtension
 {
     public function routes(): void
@@ -23,13 +23,21 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             Route::get('/ordini/{code}/', $handler, ['account_action' => 'orders.show'])->name('orders.show');
             // La route c'è sempre: con la funzionalità spenta è il controller a dare 404.
             Route::get('/coupon/', $handler, ['account_action' => 'coupons'])->name('coupons');
+            // Abbonamenti (G10): come i coupon, con la funzionalità spenta il controller dà 404.
+            Route::get('/abbonamenti/', $handler, ['account_action' => 'subscriptions'])->name('subscriptions');
+            Route::post('/abbonamenti/{code}/cambia/', $handler, ['account_action' => 'subscriptions.change'])->name('subscriptions.change');
+            Route::post('/abbonamenti/{code}/disdici/', $handler, ['account_action' => 'subscriptions.cancel'])->name('subscriptions.cancel');
+            Route::post('/abbonamenti/{code}/carta/', $handler, ['account_action' => 'subscriptions.card'])->name('subscriptions.card');
         });
     }
 
-    /** Ordini, e Coupon se la funzionalità è accesa, vanno subito dopo Panoramica. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
+    /** Ordini, Abbonamenti e Coupon (questi due con la loro funzionalità) vanno subito dopo Panoramica. Il sito ritocca il menu con `account.navigation`: `false` toglie la voce, un array la ritocca. */
     public function navigation(array $items, object $user): array
     {
         $own = ['orders' => ['label' => (string) __t('ecommerce.account.orders.title'), 'href' => Route::url('account.orders'), 'icon' => 'bi bi-bag']];
+        if (Gestionale::feature('online_subscriptions')) {
+            $own['subscriptions'] = ['label' => (string) __t('ecommerce.account.subscriptions.title'), 'href' => Route::url('account.subscriptions'), 'icon' => 'bi bi-arrow-repeat'];
+        }
         if (Gestionale::feature('coupons')) {
             $own['coupons'] = ['label' => (string) __t('ecommerce.account.coupons.title'), 'href' => Route::url('account.coupons'), 'icon' => 'bi bi-ticket-perforated'];
         }
