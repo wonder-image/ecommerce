@@ -454,7 +454,7 @@ class Checkout {
         const chosen = this.chosenPayment(payload);
 
         if (chosen) {
-            // Con un wallet si paga dal suo bottone nel pannello: «Paga» sparisce.
+            // Con un wallet si paga dal suo bottone, che prende il posto di «Paga»: questo sparisce.
             document.querySelectorAll('[data-checkout-submit]').forEach((button) => {
                 button.textContent = chosen.manual ? this.labels.submit_manual : this.labels.submit_online;
                 button.hidden = isWallet(chosen);
@@ -623,7 +623,7 @@ class Checkout {
                         ? elements.create('expressCheckout', { paymentMethods: walletMethods([chosen.stripe_method_type]) })
                         : elements.create('payment', STRIPE_PAYMENT_ELEMENT);
 
-                    group = { elements, element, container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false };
+                    group = { elements, element, container: this.stripeContainer(chosen.key, chosen.stripe_method_type), mounted: false, wallet: isWallet(chosen) };
                     this.groups[chosen.key] = group;
 
                     if (isWallet(chosen)) {
@@ -722,10 +722,12 @@ class Checkout {
         }
     }
 
-    // I campi vanno nel pannello della scelta Stripe. Spostare l'iframe lo ricarica: ogni gruppo si monta
-    // una volta sola, si rimonta solo se il pannello è cambiato, e scegliendo altro si nasconde e basta.
+    // I campi vanno nel pannello della scelta Stripe, il bottone di un wallet al posto di «Paga». Spostare l'iframe
+    // lo ricarica: ogni gruppo si monta una volta sola, si rimonta solo se il posto è cambiato, e scegliendo altro
+    // si nasconde e basta.
     stripeSlot(on) {
         const radio = this.form?.querySelector('[name="payment_method_id"]:checked');
+        const slot = this.form?.querySelector('[data-checkout-wallet-slot]');
 
         Object.entries(this.groups).forEach(([key, other]) => {
             if (on && radio && key === radio.value) {
@@ -743,6 +745,11 @@ class Checkout {
 
         const group = on && radio ? this.groups[radio.value] : null;
 
+        // Vuoto, lo slot terrebbe comunque il suo spazio fra i campi della conferma.
+        if (slot) {
+            slot.hidden = !group?.wallet;
+        }
+
         if (!group) {
             return;
         }
@@ -751,7 +758,7 @@ class Checkout {
         this.paymentElement = group.element;
 
         const card = group.container;
-        const target = radio.closest('label')?.querySelector('[data-choice-panel]');
+        const target = group.wallet ? slot : radio.closest('label')?.querySelector('[data-choice-panel]');
         const holder = card.closest('[data-choice-panel]');
 
         card.hidden = !target;
@@ -764,7 +771,7 @@ class Checkout {
             return;
         }
 
-        if (holder !== target || !card.isConnected) {
+        if (card.parentElement !== target) {
             if (group.mounted) {
                 this.paymentElement.unmount();
                 group.mounted = false;
@@ -778,7 +785,9 @@ class Checkout {
             group.mounted = true;
         }
 
-        this.pane(target);
+        if (!group.wallet) {
+            this.pane(target);
+        }
     }
 
     // Il Payment Element di una scelta non si carica: la voce sparisce, torna spuntata la carta Stripe. Niente messaggi.

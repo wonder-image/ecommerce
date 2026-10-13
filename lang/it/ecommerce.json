@@ -162,6 +162,7 @@
         "shipping_pending": "Inserisci l’indirizzo di spedizione",
         "shipping_methods_pending": "Inserisci l’indirizzo di spedizione per vedere i metodi disponibili",
         "redirect_panel": "Dopo aver cliccato «Paga ora» verrai reindirizzato a {{name}} per completare l’acquisto in modo sicuro",
+        "wallet_panel": "Dopo l’invio si aprirà {{name}} per completare l’acquisto in modo sicuro",
         "invoice": "Mi serve la fattura",
         "billing_private": "Privato",
         "billing_business": "Azienda",

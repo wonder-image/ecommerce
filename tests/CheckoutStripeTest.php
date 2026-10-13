@@ -334,6 +334,20 @@ check('con un wallet scelto «Paga» sparisce: si paga dal bottone del wallet', 
         && str_contains($change, 'this.submit(this.latest)');
 });
 
+check('il bottone del wallet prende il posto di «Paga ora»: si monta accanto al submit, non nel pannello', function () use ($js, $view): bool {
+    $confirm = substr($view, (int) strpos($view, '<div id="conferma"'), 1600);
+    $slot = substr($js, (int) strpos($js, '    stripeSlot(on) {'), 2400);
+    $at = strpos($confirm, 'data-checkout-wallet-slot');
+
+    return $at !== false && $at < (int) strpos($confirm, 'data-checkout-submit')
+        && str_contains($js, 'wallet: isWallet(chosen)')
+        && str_contains($slot, "querySelector('[data-checkout-wallet-slot]')")
+        && str_contains($slot, 'slot.hidden = !group?.wallet')
+        && str_contains($slot, 'group.wallet ? slot :')
+        // Il posto si confronta col genitore: lo slot non è un pannello, e rimontare l'iframe lo ricarica.
+        && str_contains($slot, 'card.parentElement !== target');
+});
+
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 
 check('dopo un rifiuto con redirect lo stato del modulo ricorda il valore grezzo del radio', function (): bool {

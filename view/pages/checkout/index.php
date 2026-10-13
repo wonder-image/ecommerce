@@ -223,6 +223,8 @@ View::head(DataLayer::script([
             <?php if ($guest): ?>
                 <div class="wi-recaptcha-cell w-100"><?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?></div>
             <?php endif; ?>
+            <?php /* Con un wallet scelto checkout.js ci monta il suo bottone e nasconde «Paga ora». */ ?>
+            <div class="w-100" data-checkout-wallet-slot hidden></div>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
         </div>
