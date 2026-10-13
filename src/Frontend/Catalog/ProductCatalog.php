@@ -17,6 +17,8 @@ use Wonder\Plugin\Gestionale\Models\Stock\Stock as StockRow;
 use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
+use Wonder\Plugin\Gestionale\Support\Stock\Levels;
+use Wonder\Plugin\Gestionale\Support\Stock\Locations;
 use Wonder\Plugin\Gestionale\Support\Stock\Stock;
 
 /** Legge una scheda pubblica dalle tabelle catalogo del gestionale. */
@@ -140,10 +142,7 @@ final class ProductCatalog
         $optionGroups = self::optionGroups($model, $products);
 
         foreach ($products as $product) {
-            $quantity = 0.0;
-            foreach (self::rows(StockRow::find(['product_id' => (int) $product['id']])) as $stock) {
-                $quantity += (float) ($stock['quantity'] ?? 0);
-            }
+            $quantity = self::onHand((int) $product['id']);
 
             $sku = trim((string) ($product['sku'] ?? ''));
             $offers[] = [
@@ -405,6 +404,31 @@ final class ProductCatalog
     }
 
     /** @return list<array<string, mixed>> */
+    /**
+     * I pezzi che si possono vendere online: quelli della sede da cui escono
+     * gli ordini, senza i lotti scaduti (gestionale G3, spec §2.2). Con più
+     * sedi la merce dei negozi non conta.
+     *
+     * Il ripiego somma tutte le righe di giacenza, come prima: serve finché
+     * il gestionale installato non ha `Levels::forSale()`.
+     */
+    private static function onHand(int $productId): float
+    {
+        if (method_exists(Levels::class, 'forSale') && method_exists(Locations::class, 'forSale')) {
+            $level = Levels::forSale([$productId], Locations::forSale())[$productId] ?? [];
+
+            return round((float) ($level['quantity'] ?? 0) - (float) ($level['expired'] ?? 0), 3);
+        }
+
+        $quantity = 0.0;
+
+        foreach (self::rows(StockRow::find(['product_id' => $productId])) as $stock) {
+            $quantity += (float) ($stock['quantity'] ?? 0);
+        }
+
+        return $quantity;
+    }
+
     private static function rows(mixed $rows): array
     {
         if (!is_array($rows) || $rows === []) {
