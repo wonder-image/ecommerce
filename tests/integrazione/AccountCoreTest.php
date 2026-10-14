@@ -296,9 +296,10 @@ try {
         check('un form sconosciuto: 404', fn () => pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'altro']) === '404');
 
         $overview = pagina('index');
-        check('Panoramica: saluto e codice cliente', fn () =>
-            str_contains($overview, '<strong>Grace</strong>')
-            && str_contains($overview, (string) Contact::find(['user_id' => $userId], 1)['code']));
+        // Panoramica senza saluto né codice cliente: solo le righe dei dati, con il nome aggiornato.
+        check('Panoramica: niente saluto né codice cliente', fn () =>
+            str_contains($overview, 'Grace Hopper')
+            && !str_contains($overview, (string) Contact::find(['user_id' => $userId], 1)['code']));
         // Il testo sta anche nel dizionario JSON della pagina: si guarda il corpo dell'avviso.
         $savedAlert = "<div class='wi-alert-body'>".__t('account.saved').'</div>';
         check('l\'avviso del salvataggio si vede una volta sola', fn () =>

@@ -357,7 +357,9 @@ check('dettaglio: informazioni, tracking, prodotti, riepilogo e indirizzi', fn (
         && !str_contains($html, 'RIGA-SPEDIZIONE')
         && str_contains($html, 'BENVENUTO') && str_contains($html, $money('4.00')) && str_contains($html, $money('1.50')) && str_contains($html, $money('42.50'))
         && str_contains($html, 'Spedita') && str_contains($html, 'Fatturata')
-        && strpos($html, e((string) __t('ecommerce.account.orders.delivery_address'))) < strpos($html, e((string) __t('ecommerce.checkout.billing')));
+        && strpos($html, e((string) __t('ecommerce.account.orders.delivery_address'))) < strpos($html, e((string) __t('ecommerce.checkout.billing')))
+        // Gli indirizzi sono testo sotto un titolo, senza la cornice delle schede.
+        && !str_contains($html, 'wi-address-card');
 }));
 
 check('dettaglio: ritiro in sede con la sede, o il ripiego se la sede non c\'è più', fn () => prova(static function (): bool {
