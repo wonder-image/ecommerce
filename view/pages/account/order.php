@@ -81,20 +81,17 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
         </div>
     </div>
 
-    <div class="wi-address-grid">
+    <?php /* Gli indirizzi come le altre sezioni: titolo e testo, uno accanto all'altro, senza cornice. */ ?>
+    <div class="w-100 d-grid col-2 col-p-1 gap-8">
         <?php if ($order['delivery'] !== null): ?>
-            <div class="wi-address-card">
-                <div class="wi-address-card__body">
-                    <div class="wi-row-table__title"><?=e($order['delivery']['title'])?></div>
-                    <div><?=$order['delivery']['html']?></div>
-                </div>
+            <div class="d-grid col-1 gap-2">
+                <h3 class="subtitle"><?=e($order['delivery']['title'])?></h3>
+                <div class="text"><?=$order['delivery']['html']?></div>
             </div>
         <?php endif; ?>
-        <div class="wi-address-card">
-            <div class="wi-address-card__body">
-                <div class="wi-row-table__title"><?=e((string) __t('ecommerce.checkout.billing'))?></div>
-                <div><?=$order['billing']?></div>
-            </div>
+        <div class="d-grid col-1 gap-2">
+            <h3 class="subtitle"><?=e((string) __t('ecommerce.checkout.billing'))?></h3>
+            <div class="text"><?=$order['billing']?></div>
         </div>
     </div>
 

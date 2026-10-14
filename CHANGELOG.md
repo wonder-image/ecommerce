@@ -119,6 +119,13 @@ versionamento semantico.
 
 ### Modificato
 
+- Area cliente: ogni ordine dell'elenco è una riga di `frontend.account.row`
+  come «Dati personali» (Ordine, Data, Totale, **Visualizza**), al posto della
+  tabella `.wi-row-table`; la riga la costruisce `AccountOrder::row()`. In
+  Panoramica l'ultimo ordine, con il link al dettaglio, o la riga «Non hai
+  ancora effettuato ordini» (`overviewRows()`). Richiede l'app con
+  `AccountOverview` e la fatturazione in «Dati personali».
+
 - Vetrina: un'opzione è disponibile se ha pezzi nella sede da cui escono gli
   ordini, senza i lotti scaduti (`Levels::forSale()` del gestionale, G3). Con
   più sedi la merce dei negozi non rende disponibile un'opzione online. Con un

@@ -20,6 +20,27 @@ use Wonder\Plugin\Gestionale\Support\Shipping\Carriers;
 final class AccountOrder
 {
     /**
+     * L'ordine come riga del pannello (`frontend.account.row`): numero, data e totale, con il link al dettaglio.
+     * La usano l'elenco degli ordini e l'ultimo ordine in Panoramica.
+     *
+     * @param array<string, mixed> $order una riga di `gst_orders`
+     */
+    public static function row(array $order, string $label = ''): array
+    {
+        $number = (string) __t('ecommerce.account.orders.number', ['number' => (string) ($order['order_number'] ?? '')]);
+
+        return [
+            'key' => 'order-'.(string) ($order['code'] ?? ''),
+            'columns' => [
+                ['label' => $label !== '' ? $label : (string) __t('ecommerce.account.orders.order'), 'value' => $number],
+                ['label' => (string) __t('ecommerce.account.orders.date'), 'value' => OrderSheet::date((string) ($order['ordered_at'] ?? ''))],
+                ['label' => (string) __t('ecommerce.cart.total'), 'value' => CartPresenter::money($order['total'] ?? 0, (string) (($order['currency'] ?? '') ?: 'EUR'))],
+            ],
+            'action' => ['label' => (string) __t('ecommerce.account.orders.view'), 'href' => Route::url('account.orders.show', ['code' => (string) ($order['code'] ?? '')]), 'modal' => '', 'icon' => 'bi bi-eye', 'disabled' => false, 'hint' => ''],
+        ];
+    }
+
+    /**
      * I dati della vista del dettaglio. Gli indirizzi (`delivery.html`, `billing`) arrivano già escapati da
      * `OrderSheet::address()`; ogni altro testo va escapato da chi lo stampa.
      *

@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 
+use Wonder\App\Models\Contacts\Contact;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\BaseAccountExtension;
 use Wonder\Http\Route;
@@ -9,6 +10,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
 use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
 /** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio (ordini, abbonamenti, coupon), font e stile. */
 final class EcommerceAccountExtension extends BaseAccountExtension
@@ -58,6 +60,21 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             }
         }
         return $items;
+    }
+
+    /** In Panoramica l'ultimo ordine del cliente, con il link al dettaglio; senza ordini, una riga che lo dice. */
+    public function overviewRows(array $rows, object $user): array
+    {
+        $contact = Contact::find(['user_id' => (int) ($user->id ?? 0)], 1);
+        $contactId = is_array($contact) ? (int) ($contact['id'] ?? 0) : 0;
+        // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
+        $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(['stage' => 'order', 'customer_id' => $contactId], 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
+        $label = (string) __t('ecommerce.account.orders.last');
+
+        $rows[] = $last !== null
+            ? ['key' => 'last_order'] + AccountOrder::row($last, $label)
+            : ['key' => 'last_order', 'columns' => [['label' => $label, 'value' => (string) __t('ecommerce.account.orders.empty')]], 'action' => []];
+        return $rows;
     }
 
     public function personalRows(array $rows, object $user): array

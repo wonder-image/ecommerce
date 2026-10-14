@@ -7,7 +7,6 @@ use Wonder\Auth\Frontend\AccountController;
 use Wonder\Auth\Frontend\AccountPagination;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
@@ -67,12 +66,7 @@ class EcommerceAccountController extends AccountController
             'title' => (string) __t('ecommerce.account.orders.title'),
             'seo_url' => Route::url('account.orders'),
             'errors' => $this->contactErrors($contact),
-            'orders' => array_map(static fn (array $order): array => [
-                'number' => (string) ($order['order_number'] ?? ''),
-                'date' => OrderSheet::date((string) ($order['ordered_at'] ?? '')),
-                'total' => CartPresenter::money($order['total'] ?? 0, (string) (($order['currency'] ?? '') ?: 'EUR')),
-                'href' => Route::url('account.orders.show', ['code' => (string) $order['code']]),
-            ], $orders),
+            'orders' => array_map(static fn (array $order): array => AccountOrder::row($order), $orders),
             'pagination' => $pagination,
             'base_url' => Route::url('account.orders'),
         ]);

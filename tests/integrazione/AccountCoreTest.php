@@ -247,7 +247,9 @@ try {
         check('Dati personali: tre righe con Modifica che apre il proprio modal', fn () =>
             substr_count($html, 'data-wi-modal-target') >= 3 && str_contains($html, 'id="account-email"'));
         preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $html, $submits);
-        // Salva di Dati personali, Email e Password, più Esci.
+        // Salva di Dati personali, Email, Password e Fatturazione. Esci del menu non ha campi da aspettare e non ha
+        // `wi-input-submit`: la sua imbottitura coprirebbe quella della voce di menu.
+        $submits[0] = array_values(array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-side-nav__link')));
         check('ogni submit ha wi-input-submit, e sono almeno quattro', fn () =>
             count($submits[0]) >= 4 && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
         check('Esci posta il csrf_token all\'auth, con l\'id logout di Google Tag Manager', fn () =>
@@ -255,7 +257,10 @@ try {
         check('voce attiva e niente voci di moduli', fn () =>
             str_contains($html, 'aria-current="page"') && !str_contains($html, '/account/ordini/'));
         check('il titolo della pagina è nel layout del pannello', fn () =>
-            str_contains($html, 'wi-side-layout__title') && str_contains($html, 'wi-data-row__action'));
+            (bool) preg_match('~<h2\b[^>]*>'.preg_quote(htmlspecialchars((string) __t('account.personal.label'), ENT_QUOTES), '~').'</h2>~', $html)
+            && str_contains($html, 'wi-data-row'));
+        check('Dati personali: la riga della fatturazione apre il suo modal', fn () =>
+            str_contains($html, 'id="account-billing"') && str_contains($html, 'data-wi-modal-target="#account-billing"'));
 
         check('POST senza CSRF: 419', fn () => pagina('personal', [], 'POST', ['form' => 'personal', 'name' => 'X']) === '419');
 
@@ -291,9 +296,10 @@ try {
         check('un form sconosciuto: 404', fn () => pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'altro']) === '404');
 
         $overview = pagina('index');
-        check('Panoramica: saluto e codice cliente', fn () =>
-            str_contains($overview, '<strong>Grace</strong>')
-            && str_contains($overview, (string) Contact::find(['user_id' => $userId], 1)['code']));
+        // Panoramica senza saluto né codice cliente: solo le righe dei dati, con il nome aggiornato.
+        check('Panoramica: niente saluto né codice cliente', fn () =>
+            str_contains($overview, 'Grace Hopper')
+            && !str_contains($overview, (string) Contact::find(['user_id' => $userId], 1)['code']));
         // Il testo sta anche nel dizionario JSON della pagina: si guarda il corpo dell'avviso.
         $savedAlert = "<div class='wi-alert-body'>".__t('account.saved').'</div>';
         check('l\'avviso del salvataggio si vede una volta sola', fn () =>
@@ -455,11 +461,11 @@ try {
         check('aggiunta: redirect all\'elenco', fn () => pagina('addresses.create', [], 'POST', $address) === 'redirect '.Route::url('account.addresses'));
         $id = (int) (AccountAddresses::all($contactId)[0]['id'] ?? 0);
         $list = pagina('addresses');
-        check('scheda con nome, tel: e righe dell\'indirizzo', fn () =>
-            str_contains($list, 'wi-address-card__name') && str_contains($list, 'href="tel:+393331234567"')
+        check('scheda con nome, telefono e righe dell\'indirizzo', fn () =>
+            str_contains($list, '>Ada Lovelace<') && str_contains($list, '+39 3331234567')
             && str_contains($list, 'Via Roma 1, 20100') && str_contains($list, 'Milano (MI)'));
-        check('il telefono della scheda ha la sua classe, senza stile in linea', fn () =>
-            str_contains($list, 'class="wi-address-card__link"') && !str_contains($list, 'style="text-decoration'));
+        check('la scheda per aggiungere esce dal componente della scheda e apre il modal', fn () =>
+            (bool) preg_match('~<a class="wi-address-card wi-address-card--add[^"]*" href="'.preg_quote(Route::url('account.addresses.create'), '~').'" data-wi-modal-target="#account-address-new"~', $list));
 
         $aperti = static fn (string $html): int => (int) preg_match_all('/<section\b[^>]*class="[^"]*\bwi-show\b/', $html);
         check('elenco: per ogni indirizzo il modal di modifica e quello di conferma, tutti chiusi', fn () =>
@@ -496,22 +502,29 @@ try {
         foreach ([
             'indirizzo nuovo' => ['addresses.create', [], ['name' => ['x'], 'street' => ['y']] + $address],
             'modifica indirizzo' => ['addresses.edit', ['id' => $id], ['city' => ['x'], 'cap' => ['y']] + $address],
-            'fatturazione' => ['billing', [], ['type' => ['x'], 'name' => ['y'], 'city' => ['z']] + $address],
+            'fatturazione' => ['personal', [], ['form' => 'billing', 'type' => ['x'], 'name' => ['y'], 'city' => ['z']] + $address],
         ] as $nome => [$azione, $parametri, $post]) {
             [$html, $avvisi] = conAvvisi(static fn (): string => pagina($azione, $parametri, 'POST', $post));
             check($nome.' con campi mandati come array: nessun avviso PHP e nessun «Array» nella pagina', fn () =>
                 $avvisi === [] && !str_contains($html, 'value="Array"'));
         }
 
-        $billingInvalid = pagina('billing', [], 'POST', ['_csrf' => $csrf, 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
+        $billingInvalid = pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'billing', 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT']);
         check('Fatturazione con errori: si riapre il modal con gli errori', fn () =>
             $aperti($billingInvalid) === 1 && preg_match('/<section(?=[^>]*\bid="account-billing")(?=[^>]*class="[^"]*\bwi-show\b)[^>]*>/', $billingInvalid) === 1);
-        check('Fatturazione valida: redirect alla pagina', fn () =>
-            pagina('billing', [], 'POST', ['_csrf' => $csrf, 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT', 'province' => 'MI', 'cap' => '20100', 'city' => 'Milano', 'street' => 'Via Roma', 'number' => '1'])
-            === 'redirect '.Route::url('account.billing'));
-        $billing = pagina('billing');
-        check('Fatturazione: righe e modal con Salva wi-input-submit', fn () =>
-            str_contains($billing, 'wi-data-row') && str_contains($billing, 'id="account-billing"'));
+        check('Fatturazione valida: redirect a Dati personali', fn () =>
+            pagina('personal', [], 'POST', ['_csrf' => $csrf, 'form' => 'billing', 'type' => 'private', 'name' => 'Ada', 'surname' => 'Lovelace', 'country' => 'IT', 'province' => 'MI', 'cap' => '20100', 'city' => 'Milano', 'street' => 'Via Roma', 'number' => '1'])
+            === 'redirect '.Route::url('account.personal'));
+        $billing = pagina('personal');
+        check('Fatturazione salvata: la sua riga in Dati personali mostra i dati', fn () =>
+            str_contains($billing, 'id="account-billing"') && str_contains($billing, 'Via Roma'));
+        check('il vecchio indirizzo della fatturazione porta a Dati personali', fn () =>
+            pagina('billing') === 'redirect '.Route::url('account.personal'));
+        $overview = pagina('index');
+        check('Panoramica: anteprima di dati personali, fatturazione e indirizzi, con i link alle pagine', fn () =>
+            substr_count($overview, 'wi-data-row') >= 3 && str_contains($overview, 'Ada Lovelace')
+            && str_contains($overview, 'href="'.Route::url('account.personal').'"') && str_contains($overview, 'href="'.Route::url('account.addresses').'"')
+            && !str_contains($overview, 'data-wi-modal-target="#account-'));
 
         throw new AnnullaAccountCore();
     });
@@ -558,7 +571,7 @@ try {
         $rigaMetodi = static function (string $html) use ($label): string {
             foreach (array_slice(explode('<div class="wi-data-row">', $html), 1) as $riga) {
                 // Solo la riga: l'ultima arriva fino a fine pagina, con i modal e i loro bottoni spenti.
-                if (str_contains($riga, $label) && preg_match('~^.*?<div class="wi-data-row__action">.*?</div>~s', $riga, $trovata)) {
+                if (str_contains($riga, $label) && preg_match('~^.*?<div class="d-flex j-content-end gap-1">\s*<div>.*?</div>~s', $riga, $trovata)) {
                     return $trovata[0];
                 }
             }
@@ -597,16 +610,16 @@ try {
         }
 
         $withShop = pagina('personal');
-        check('Metodi di pagamento fuori dal menu', fn () => str_contains($withShop, 'wi-side-nav__link" href="'.$personalUrl)
-            && !str_contains($withShop, 'wi-side-nav__link" href="'.$paymentUrl));
+        $voce = static fn (string $html, string $url): bool => (bool) preg_match('~class="wi-side-nav__link[^"]*" href="'.preg_quote($url, '~').'"~', $html);
+        check('Metodi di pagamento fuori dal menu', fn () => $voce($withShop, $personalUrl) && !$voce($withShop, $paymentUrl));
 
         $payment = pagina('payment-methods', [], 'GET', [], ControllerEcommerceDiProva::class);
         check('Metodi di pagamento: titolo, avviso Stripe e torna a Dati personali', fn () =>
-            str_contains($payment, 'wi-side-layout__title') && str_contains($payment, htmlspecialchars((string) __t('ecommerce.account.payment_methods.title'), ENT_QUOTES))
+            (bool) preg_match('~<h2\b[^>]*>'.preg_quote(htmlspecialchars((string) __t('ecommerce.account.payment_methods.title'), ENT_QUOTES), '~').'</h2>~', $payment)
             && str_contains($payment, 'Stripe')
             && str_contains($payment, 'href="'.$personalUrl.'"') && str_contains($payment, htmlspecialchars((string) __t('account.actions.back'), ENT_QUOTES)));
         check('Metodi di pagamento: la voce attiva del menu è Dati personali', fn () =>
-            (bool) preg_match('~<a class="wi-side-nav__link" href="'.preg_quote($personalUrl, '~').'" aria-current="page"~', $payment));
+            (bool) preg_match('~<a class="wi-side-nav__link[^"]*" href="'.preg_quote($personalUrl, '~').'" aria-current="page"~', $payment));
         check('Metodi di pagamento: SEO privata', fn () => str_contains($payment, 'NOINDEX,NOFOLLOW'));
         check('Metodi di pagamento: l\'estensione mette font e foglio di stile del negozio nell\'head', function () use ($payment) {
             $head = preg_match('~<head\b.*?</head>~si', $payment, $found) === 1 ? $found[0] : '';
@@ -616,8 +629,9 @@ try {
         $notFound = pagina('nessuna', [], 'GET', [], ControllerEcommerceDiProva::class);
         $billing = pagina('billing', [], 'GET', [], ControllerEcommerceDiProva::class);
         check('le azioni del core passano ancora dal controller dell\'ecommerce', fn () =>
-            $notFound === '404' && str_contains($billing, 'id="account-billing"'));
+            $notFound === '404' && $billing === 'redirect '.$personalUrl);
         preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $payment, $submits);
+        $submits[0] = array_values(array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-side-nav__link')));
         check('Metodi di pagamento: ogni submit ha wi-input-submit', fn () =>
             $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === []);
 
