@@ -78,7 +78,7 @@ Il pannello del cliente (`/account/`) è del core: l'ecommerce lo registra con
 `AccountRoutes::register()` e lo estende con `EcommerceAccountExtension`; non ha
 controller, viste o presentazione propri per le sezioni del core. Panoramica,
 Dati personali (nome, data di nascita, cellulare, email con link di conferma,
-password in un modal), Indirizzi e Fatturazione sono del core: vedi
+password in un modal, fatturazione) e Indirizzi sono del core: vedi
 `docs/app/concetti/utenti/auth-frontend.md`, «Pannello account».
 
 | Route | URL | Di chi |
@@ -86,7 +86,7 @@ password in un modal), Indirizzi e Fatturazione sono del core: vedi
 | `account.index` | `/account/` | core |
 | `account.personal` | `/account/dati-personali/` | core |
 | `account.addresses`, `.create`, `.edit`, `.delete` | `/account/indirizzi/…` | core |
-| `account.billing` | `/account/fatturazione/` | core |
+| `account.billing` | `/account/fatturazione/` | core, solo un redirect a «Dati personali» |
 | `account.email.confirm` | `/account/email/conferma/` | core |
 | `account.payment-methods` | `/account/metodi-di-pagamento/` | ecommerce |
 | `account.orders` | `/account/ordini/` (`?pagina=N`) | ecommerce |
@@ -107,13 +107,15 @@ riservati al cliente e in corso (`AccountCoupons::forCustomer()`, sopra
 validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazione è del core
 (`AccountPagination` e il componente `frontend.account.pagination`).
 
-`EcommerceAccountExtension` usa quattro ganci di `BaseAccountExtension`:
+`EcommerceAccountExtension` usa cinque ganci di `BaseAccountExtension`:
 
 - `routes()`: `account.payment-methods`, `account.orders`, `account.orders.show` e
   `account.coupons`, nel gruppo privato del pannello (la route dei coupon c'è sempre:
   con la funzionalità spenta risponde 404 il controller);
 - `navigation()`: aggiunge `orders` e, con la funzionalità Coupon accesa, `coupons`
   subito dopo Panoramica, poi applica `account.navigation` al menu;
+- `overviewRows()`: in Panoramica l'ultimo ordine (N°, data, totale, «Visualizza» al
+  dettaglio) o, senza ordini, la riga che lo dice;
 - `personalRows()`: la riga «Metodi di pagamento» in «Dati personali»;
 - `head()`: font e stile del negozio nell'head delle pagine del pannello.
 
@@ -161,9 +163,10 @@ Il riferimento visivo è `elenajossifov-com/account`: nav laterale senza box
 annidati, menu orizzontale su telefono, righe compatte con separatore, dati a
 sinistra e azioni a destra. Non ne vengono copiati helper, query o CSS float.
 I componenti sono `frontend.account.navigation`, `frontend.account.row` e
-`frontend.account.pagination`, del core. Ordini e Coupon non usano `frontend.account.row`:
-sono una tabella a righe (`.wi-row-table`) della lib con `frontend.account.pagination`, e il
-dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
+`frontend.account.pagination`, del core. Ogni ordine è una riga di `frontend.account.row`
+come «Dati personali» (`AccountOrder::row()`, la stessa dell'ultimo ordine in Panoramica),
+con `frontend.account.pagination` in fondo. I Coupon restano una tabella a righe
+(`.wi-row-table`) della lib, e il dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
 
 La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
 modelli del core `Wonder\App\Models\Contacts` / `Models\System`.

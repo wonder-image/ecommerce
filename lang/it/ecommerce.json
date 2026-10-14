@@ -291,6 +291,8 @@
         },
         "orders": {
             "title": "Ordini",
+            "date": "Data",
+            "last": "Ultimo ordine",
             "empty": "Non hai ancora effettuato ordini",
             "order": "Ordine",
             "number": "N° {{number}}",

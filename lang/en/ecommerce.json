@@ -236,6 +236,8 @@
         },
         "orders": {
             "title": "Orders",
+            "date": "Date",
+            "last": "Last order",
             "empty": "You haven't placed any orders yet",
             "order": "Order",
             "number": "No. {{number}}",

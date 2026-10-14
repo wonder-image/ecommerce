@@ -144,7 +144,7 @@ check('Ordini nel menu subito dopo Panoramica, attivo sulla sua pagina', fn () =
     $html = paginaNegozio('orders');
 
     return array_slice($keys, 0, 2) === ['overview', 'orders']
-        && str_contains($html, 'wi-side-nav__link" href="'.Route::url('account.orders').'" aria-current="page"');
+        && (bool) preg_match('~class="wi-side-nav__link[^"]*" href="'.preg_quote(Route::url('account.orders'), '~').'" aria-current="page"~', $html);
 }));
 
 check('elenco: solo gli ordini del cliente, dal più recente, 10 per pagina', fn () => prova(static function (): bool {
@@ -174,6 +174,31 @@ check('elenco: solo gli ordini del cliente, dal più recente, 10 per pagina', fn
         && str_contains($seconda, $summary(11, 12)) && str_contains($seconda, 'PRV-01') && !str_contains($seconda, 'PRV-12')
         && str_contains($oltre, $summary(11, 12))
         && str_contains($strana, $summary(1, 10));
+}));
+
+check('elenco: ogni ordine è una riga del pannello, come i dati personali', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('ordini-righe');
+    ordineDelCliente($scheda, 'PRV-R1', '2026-03-01 10:00:00');
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('orders');
+
+    return substr_count($html, '<div class="wi-data-row">') === 1 && !str_contains($html, 'wi-row-table__row') && !str_contains($html, 'wi-row-table__head')
+        && str_contains($html, e((string) __t('ecommerce.account.orders.date')));
+}));
+
+check('Panoramica: l\'ultimo ordine con il link al dettaglio, o la riga che dice che non ce ne sono', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('ordini-panoramica');
+    $_SESSION['user_id'] = $userId;
+    $vuota = paginaNegozio('index');
+    ordineDelCliente($scheda, 'PRV-VECCHIO', '2026-01-01 10:00:00');
+    ordineDelCliente($scheda, 'PRV-ULTIMO', '2026-02-01 10:00:00');
+    $piena = paginaNegozio('index');
+    $code = (string) (Order::find(['order_number' => 'PRV-ULTIMO'], 1)['code'] ?? '');
+    $ultimo = e((string) __t('ecommerce.account.orders.last'));
+
+    return str_contains($vuota, $ultimo) && str_contains($vuota, e((string) __t('ecommerce.account.orders.empty')))
+        && str_contains($piena, $ultimo) && str_contains($piena, 'PRV-ULTIMO') && !str_contains($piena, 'PRV-VECCHIO')
+        && str_contains($piena, 'href="'.Route::url('account.orders.show', ['code' => $code]).'"');
 }));
 
 check('?pagina= strano: 0, negativo, decimale, array e testo tornano a una pagina valida', fn () => prova(static function (): bool {
@@ -219,6 +244,8 @@ check('ogni submit della pagina ha wi-input-submit', fn () => prova(static funct
     [$userId] = clienteConScheda('ordini-submit');
     $_SESSION['user_id'] = $userId;
     preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', paginaNegozio('orders'), $submits);
+    // Esci del menu non ha campi da aspettare: niente `wi-input-submit`.
+    $submits[0] = array_values(array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-side-nav__link')));
 
     return $submits[0] !== [] && array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-input-submit')) === [];
 }));
