@@ -437,6 +437,8 @@ function couponDelCliente(int $scheda, array $valori = []): int
 
 check('coupon: solo quelli in corso, con valore e usi del cliente', fn () => prova(static function (): bool {
     accendiFunzionalita(['coupons']);
+    // Con gli abbonamenti online accesi la loro voce sta tra Ordini e Coupon: qui si guarda il menu senza.
+    spegniFunzionalita(['online_subscriptions']);
     [$userId, $scheda] = clienteConScheda('coupon');
     $tre = couponDelCliente($scheda, ['code' => 'TREUSI', 'usage_limit_per_customer' => '3']);
     couponDelCliente($scheda, ['code' => 'CINQUE', 'discount_type' => 'amount', 'discount_value' => '5.00']);
