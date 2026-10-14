@@ -91,12 +91,17 @@ password in un modal), Indirizzi e Fatturazione sono del core: vedi
 | `account.payment-methods` | `/account/metodi-di-pagamento/` | ecommerce |
 | `account.orders` | `/account/ordini/` (`?pagina=N`) | ecommerce |
 | `account.orders.show` | `/account/ordini/{code}/` | ecommerce |
+| `account.orders.proforma` | `/account/ordini/{code}/proforma/` | ecommerce, il PDF del proforma (`OrderProforma` del gestionale) |
 | `account.coupons` | `/account/coupon/` (`?pagina=N`) | ecommerce, solo con la funzionalità `coupons` accesa (404 se spenta) |
 
 Gli ordini sono quelli della scheda del cliente (`stage = order`, in qualsiasi stato; i
 carrelli no), dal più recente, a dieci per pagina. Il dettaglio si cerca per `code`:
 ordini di altri clienti, carrelli, ordini degli ospiti e codici che non esistono danno
-tutti 404, e senza la scheda del cliente non si cerca nulla. I coupon sono quelli
+tutti 404, e senza la scheda del cliente non si cerca nulla. Il dettaglio mostra le
+informazioni tre per riga (stato, consegna, evasione, pagamento col solo nome del
+metodo, stato del pagamento, tracking) e **Scarica la proforma** quando l'ordine ce
+l'ha (non bozza né annullato): la route del PDF segue le stesse regole del dettaglio,
+risponde con il PDF e `X-Robots-Tag: noindex`, senza la pagina. I coupon sono quelli
 riservati al cliente e in corso (`AccountCoupons::forCustomer()`, sopra
 `Coupons::reserved()` del gestionale), anche con tutti gli usi già spesi e quelli
 validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazione è del core

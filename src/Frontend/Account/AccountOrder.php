@@ -2,8 +2,8 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 
+use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
-use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\Sales\OrderItem;
@@ -11,6 +11,7 @@ use Wonder\Plugin\Gestionale\Models\Shipping\Carrier;
 use Wonder\Plugin\Gestionale\Models\Shipping\Shipment;
 use Wonder\Plugin\Gestionale\Models\Shipping\ShippingMethod;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
+use Wonder\Plugin\Gestionale\Support\Documents\OrderProforma;
 use Wonder\Plugin\Gestionale\Support\Locations\PickupPoints;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
 use Wonder\Plugin\Gestionale\Support\Shipping\Carriers;
@@ -40,11 +41,22 @@ final class AccountOrder
             'total' => $money($order['total'] ?? 0),
             'delivery' => self::delivery($order, $pickup),
             'billing' => OrderSheet::address($order, 'billing'),
+            'proforma_url' => self::proformaUrl($order),
         ];
     }
 
+    /** Il proforma in PDF, per gli ordini che lo hanno (non bozze né annullati); vuoto altrimenti. */
+    public static function proformaUrl(array $order): string
+    {
+        if (!class_exists(OrderProforma::class) || !OrderProforma::available($order)) {
+            return '';
+        }
+
+        return Route::url('account.orders.proforma', ['code' => (string) ($order['code'] ?? '')]);
+    }
+
     /**
-     * Stato, consegna, pagamento e, per ogni spedizione non annullata con il numero, tracking e corriere.
+     * Stato, consegna, evasione, pagamento e, per ogni spedizione non annullata con il numero, tracking e corriere.
      * Se un metodo non c'è più la riga resta con un ripiego.
      *
      * @param array<string, mixed> $order
@@ -66,10 +78,15 @@ final class AccountOrder
             $rows[] = $row((string) __t('ecommerce.checkout.delivery'), $method !== [] ? (string) $method['name'] : (string) __t('ecommerce.checkout.fulfillment_shipping'));
         }
 
+        // L'evasione solo quando c'è qualcosa da consegnare; un ordine annullato non si evade più.
+        $fulfillment = (string) ($order['fulfillment_status'] ?? '');
+        if ($type !== 'none' && $type !== '' && $status !== 'cancelled') {
+            $rows[] = $row((string) __t('ecommerce.account.orders.fulfillment_label'), in_array($fulfillment, Order::FULFILLMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.fulfillment.'.$fulfillment) : '—');
+        }
+
+        // Il metodo di pagamento col suo nome, senza le icone delle carte.
         $payment = self::byId(PaymentMethod::class, (int) ($order['payment_method_id'] ?? 0));
-        $rows[] = $payment !== []
-            ? $row((string) __t('ecommerce.account.orders.payment'), (string) $payment['name'], CheckoutSummary::paymentIcons(PaymentMethod::iconsOf((string) ($payment['icons'] ?? ''))))
-            : $row((string) __t('ecommerce.account.orders.payment'), '—');
+        $rows[] = $row((string) __t('ecommerce.account.orders.payment'), $payment !== [] ? (string) $payment['name'] : '—');
         $rows[] = $row((string) __t('ecommerce.account.orders.payment_status_label'), in_array($paymentStatus, Order::PAYMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.payment_status.'.$paymentStatus) : '—');
 
         foreach (EcommerceAccountController::rows(Shipment::find(['order_id' => (int) $order['id'], 'type' => 'delivery'], null, 'id', 'ASC')) as $shipment) {

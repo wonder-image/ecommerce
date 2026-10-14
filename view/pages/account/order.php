@@ -14,22 +14,22 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
     <div class="w-100 d-grid col-1 gap-2">
         <h3 class="subtitle"><?=e((string) __t('ecommerce.account.orders.info'))?></h3>
         <div>
-            <?php foreach ($order['info'] as $row): ?>
+            <?php /* Tre informazioni per riga, come le righe dei dati dell'area cliente. */ ?>
+            <?php foreach (array_chunk($order['info'], 3) as $group): ?>
                 <div class="wi-data-row">
                     <div class="wi-data-row__cols">
-                        <div class="wi-data-row__col">
-                            <div class="wi-data-row__label"><?=e($row['label'])?></div>
-                            <div class="wi-data-row__value">
-                                <?php if ($row['href'] !== ''): ?>
-                                    <a href="<?=e($row['href'])?>" target="_blank" rel="noopener noreferrer"><?=e($row['value'])?></a>
-                                <?php else: ?>
-                                    <?=e($row['value'])?>
-                                <?php endif; ?>
-                                <?php foreach ($row['icons'] as $icon): ?>
-                                    <img src="<?=e($icon['src'])?>" alt="<?=e($icon['alt'])?>" height="20">
-                                <?php endforeach; ?>
+                        <?php foreach ($group as $row): ?>
+                            <div class="wi-data-row__col">
+                                <div class="wi-data-row__label"><?=e($row['label'])?></div>
+                                <div class="wi-data-row__value">
+                                    <?php if ($row['href'] !== ''): ?>
+                                        <a href="<?=e($row['href'])?>" target="_blank" rel="noopener noreferrer"><?=e($row['value'])?></a>
+                                    <?php else: ?>
+                                        <?=e($row['value'])?>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                        </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -98,8 +98,11 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
         </div>
     </div>
 
-    <div>
+    <div class="d-flex flex-wrap gap-3">
         <?=Button::to(Route::url('account.orders'), (string) __t('ecommerce.account.orders.back'))->outline()->variant('black')->render()?>
+        <?php if ($order['proforma_url'] !== ''): ?>
+            <?=Button::to($order['proforma_url'], (string) __t('ecommerce.account.orders.proforma'))->variant('black')->icon('bi bi-file-earmark-pdf')->target('_blank')->attr('id', 'order_proforma_download')->render()?>
+        <?php endif; ?>
     </div>
 </div>
 <?php View::end(); ?>

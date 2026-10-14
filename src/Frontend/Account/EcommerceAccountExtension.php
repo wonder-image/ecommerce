@@ -21,6 +21,8 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             // `/ordini/` prima di `/ordini/{code}/`.
             Route::get('/ordini/', $handler, ['account_action' => 'orders'])->name('orders');
             Route::get('/ordini/{code}/', $handler, ['account_action' => 'orders.show'])->name('orders.show');
+            // Il proforma in PDF dell'ordine: risponde il controller, senza la pagina.
+            Route::get('/ordini/{code}/proforma/', $handler, ['account_action' => 'orders.proforma'])->name('orders.proforma');
             // La route c'è sempre: con la funzionalità spenta è il controller a dare 404.
             Route::get('/coupon/', $handler, ['account_action' => 'coupons'])->name('coupons');
             // Abbonamenti (G10): come i coupon, con la funzionalità spenta il controller dà 404.

@@ -246,6 +246,7 @@
             "status_label": "Status",
             "payment": "Payment",
             "payment_status_label": "Payment status",
+            "fulfillment_label": "Fulfilment",
             "tracking": "Tracking number",
             "carrier": "Carrier",
             "products": "Products",
@@ -254,12 +255,19 @@
             "delivery_address": "Delivery address",
             "pickup_address": "Pickup address",
             "back": "Back to orders",
+            "proforma": "Download the pro forma",
             "status": {
                 "pending": "Pending",
                 "confirmed": "Confirmed",
                 "processing": "Processing",
                 "completed": "Completed",
                 "cancelled": "Cancelled"
+            },
+            "fulfillment": {
+                "unfulfilled": "Not shipped yet",
+                "ready_for_pickup": "Ready for pickup",
+                "partially_fulfilled": "Partially shipped",
+                "fulfilled": "Shipped"
             },
             "payment_status": {
                 "unpaid": "Unpaid",

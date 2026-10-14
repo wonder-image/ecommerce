@@ -126,12 +126,14 @@ $GLOBALS['REGISTRA'] = static function (): void {
 
 check('route degli ordini con le URL italiane', fn () =>
     str_ends_with(Route::url('account.orders'), '/account/ordini/')
-    && str_ends_with(Route::url('account.orders.show', ['code' => 'ord_abc']), '/account/ordini/ord_abc/'));
+    && str_ends_with(Route::url('account.orders.show', ['code' => 'ord_abc']), '/account/ordini/ord_abc/')
+    && str_ends_with(Route::url('account.orders.proforma', ['code' => 'ord_abc']), '/account/ordini/ord_abc/proforma/'));
 
 check('le route degli ordini sono private, per i clienti', function (): bool {
     $route = array_values(array_filter(Route::all(), static fn ($r) => str_contains((string) ($r['path'] ?? ''), '/account/ordini/')));
 
-    return count($route) === 2
+    // Elenco, dettaglio e proforma.
+    return count($route) === 3
         && array_filter($route, static fn ($r) => ($r['private'] ?? false) !== true || ($r['permit'] ?? null) !== ['client']) === [];
 });
 
@@ -258,6 +260,22 @@ check('dettaglio: un ordine non del cliente dà 404', fn () => prova(static func
     return true;
 }));
 
+check('proforma: un ordine non del cliente, annullato o senza codice dà 404; un annullato non ha il pulsante', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('proforma-404');
+    [, $altra] = clienteConScheda('proforma-altro');
+    [, $altrui] = ordineDelCliente($altra, 'PRV-P-ALTRUI', '2026-03-01 10:00:00');
+    [, $annullato] = ordineDelCliente($scheda, 'PRV-P-ANNULLATO', '2026-03-01 10:00:00', ['status' => 'cancelled']);
+    $_SESSION['user_id'] = $userId;
+
+    foreach ([$altrui, $annullato, 'ord_inesistente', ''] as $code) {
+        if (paginaNegozio('orders.proforma', ['code' => $code]) !== '404') {
+            return false;
+        }
+    }
+
+    return !str_contains(paginaNegozio('orders.show', ['code' => $annullato]), '/proforma/');
+}));
+
 check('dettaglio: senza scheda del cliente niente ordini degli ospiti', fn () => prova(static function (): bool {
     [$userId] = clienteConScheda('dettaglio-senza-scheda', false);
     [, $altra] = clienteConScheda('dettaglio-conflitto');
@@ -302,7 +320,10 @@ check('dettaglio: informazioni, tracking, prodotti, riepilogo e indirizzi', fn (
         && str_contains($html, e((string) __t('ecommerce.account.orders.status.confirmed')))
         && str_contains($html, e((string) __t('ecommerce.account.orders.payment_status.paid')))
         // I nomi dei metodi li scrive il modello con le iniziali maiuscole (`sanitizeFirst()`).
-        && str_contains($html, 'Corriere Espresso') && str_contains($html, 'Carta Di Prova') && str_contains($html, 'payment-icons/visa.svg')
+        // Il pagamento è il solo nome del metodo, senza le icone delle carte.
+        && str_contains($html, 'Corriere Espresso') && str_contains($html, 'Carta Di Prova') && !str_contains($html, 'payment-icons/visa.svg')
+        && str_contains($html, e((string) __t('ecommerce.account.orders.fulfillment_label')))
+        && str_contains($html, '/'.$code.'/proforma/') && str_contains($html, e((string) __t('ecommerce.account.orders.proforma')))
         && str_contains($html, 'TRK123') && str_contains($html, 'href="https://traccia.example/TRK123"') && !str_contains($html, 'ANNULLATA')
         && str_contains($html, 'Tazza &lt;b&gt;blu&lt;/b&gt;') && !str_contains($html, 'Tazza <b>blu</b>')
         && str_contains($html, 'Piattino scelto') && str_contains($html, e((string) __t('ecommerce.account.orders.choice')))
@@ -416,6 +437,8 @@ function couponDelCliente(int $scheda, array $valori = []): int
 
 check('coupon: solo quelli in corso, con valore e usi del cliente', fn () => prova(static function (): bool {
     accendiFunzionalita(['coupons']);
+    // Con gli abbonamenti online accesi la loro voce sta tra Ordini e Coupon: qui si guarda il menu senza.
+    spegniFunzionalita(['online_subscriptions']);
     [$userId, $scheda] = clienteConScheda('coupon');
     $tre = couponDelCliente($scheda, ['code' => 'TREUSI', 'usage_limit_per_customer' => '3']);
     couponDelCliente($scheda, ['code' => 'CINQUE', 'discount_type' => 'amount', 'discount_value' => '5.00']);

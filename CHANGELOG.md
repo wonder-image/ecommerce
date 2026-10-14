@@ -7,6 +7,12 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Area cliente, dettaglio dell'ordine: le informazioni tre per riga, la riga
+  **Evasione**, il pagamento col solo nome del metodo (senza le icone delle
+  carte) e **Scarica la proforma** (`account.orders.proforma`, il PDF
+  `order_proforma` del gestionale, per gli ordini non in bozza né annullati).
+  Richiede il gestionale con `OrderProforma`.
+
 - **Abbonamenti** (E3, con `online_subscriptions` del gestionale):
   - pagina pubblica dei piani `/abbonamenti/` con JSON-LD `ItemList` di
     `Product` e `UnitPriceSpecification`, breadcrumb, `view_item_list` e
