@@ -126,12 +126,14 @@ $GLOBALS['REGISTRA'] = static function (): void {
 
 check('route degli ordini con le URL italiane', fn () =>
     str_ends_with(Route::url('account.orders'), '/account/ordini/')
-    && str_ends_with(Route::url('account.orders.show', ['code' => 'ord_abc']), '/account/ordini/ord_abc/'));
+    && str_ends_with(Route::url('account.orders.show', ['code' => 'ord_abc']), '/account/ordini/ord_abc/')
+    && str_ends_with(Route::url('account.orders.proforma', ['code' => 'ord_abc']), '/account/ordini/ord_abc/proforma/'));
 
 check('le route degli ordini sono private, per i clienti', function (): bool {
     $route = array_values(array_filter(Route::all(), static fn ($r) => str_contains((string) ($r['path'] ?? ''), '/account/ordini/')));
 
-    return count($route) === 2
+    // Elenco, dettaglio e proforma.
+    return count($route) === 3
         && array_filter($route, static fn ($r) => ($r['private'] ?? false) !== true || ($r['permit'] ?? null) !== ['client']) === [];
 });
 
