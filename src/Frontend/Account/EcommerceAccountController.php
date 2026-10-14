@@ -13,6 +13,7 @@ use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
+use Wonder\Plugin\Gestionale\Support\Documents\OrderProforma;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
@@ -30,6 +31,7 @@ class EcommerceAccountController extends AccountController
             'payment-methods' => $this->paymentMethods(),
             'orders' => $this->orders(),
             'orders.show' => $this->order((string) ($parameters['code'] ?? '')),
+            'orders.proforma' => $this->orderProforma((string) ($parameters['code'] ?? '')),
             'coupons' => $this->coupons(),
             'subscriptions' => $this->subscriptions(),
             'subscriptions.change' => $this->changeSubscription((string) ($parameters['code'] ?? '')),
@@ -82,17 +84,44 @@ class EcommerceAccountController extends AccountController
      */
     protected function order(string $code): void
     {
-        $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
-        $order = $code !== '' && $contactId > 0 ? Order::find(['code' => $code, 'stage' => 'order'], 1) : null;
-        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId) {
-            $this->notFound();
-        }
+        $order = $this->ownOrder($code);
 
         $this->page(Ecommerce::viewPath('pages/account/order.php'), 'orders', [
             'title' => (string) __t('ecommerce.account.orders.order_title', ['number' => (string) $order['order_number']]),
             'seo_url' => Route::url('account.orders.show', ['code' => (string) $order['code']]),
             'order' => AccountOrder::present($order),
         ]);
+    }
+
+    /**
+     * Il proforma in PDF di un ordine del cliente, con le stesse regole del dettaglio: un ordine non suo, una bozza o
+     * un annullato danno 404. Il PDF esce da qui, senza il layout della pagina.
+     */
+    protected function orderProforma(string $code): void
+    {
+        $order = $this->ownOrder($code);
+
+        if (!class_exists(OrderProforma::class) || !OrderProforma::available($order)) {
+            $this->notFound();
+        }
+
+        OrderProforma::send($order);
+    }
+
+    /**
+     * L'ordine del cliente con quel codice (`stage = order`, la sua scheda); altrimenti 404. Senza scheda non si cerca.
+     *
+     * @return array<string, mixed>
+     */
+    private function ownOrder(string $code): array
+    {
+        $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
+        $order = $code !== '' && $contactId > 0 ? Order::find(['code' => $code, 'stage' => 'order'], 1) : null;
+        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId) {
+            $this->notFound();
+        }
+
+        return $order;
     }
 
     /**

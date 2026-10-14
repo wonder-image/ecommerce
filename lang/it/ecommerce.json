@@ -301,6 +301,7 @@
             "status_label": "Stato",
             "payment": "Pagamento",
             "payment_status_label": "Stato pagamento",
+            "fulfillment_label": "Evasione",
             "tracking": "N° spedizione",
             "carrier": "Corriere",
             "products": "Prodotti",
@@ -309,12 +310,19 @@
             "delivery_address": "Indirizzo di consegna",
             "pickup_address": "Indirizzo di ritiro",
             "back": "Torna agli ordini",
+            "proforma": "Scarica la proforma",
             "status": {
                 "pending": "In attesa",
                 "confirmed": "Confermato",
                 "processing": "In preparazione",
                 "completed": "Completato",
                 "cancelled": "Annullato"
+            },
+            "fulfillment": {
+                "unfulfilled": "Da evadere",
+                "ready_for_pickup": "Pronto per il ritiro",
+                "partially_fulfilled": "Evaso in parte",
+                "fulfilled": "Evaso"
             },
             "payment_status": {
                 "unpaid": "Da pagare",
