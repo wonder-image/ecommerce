@@ -279,6 +279,76 @@
             "unlimited": "unlimited",
             "free_shipping": "Free shipping",
             "store_credit": "Credit"
+        },
+        "subscriptions": {
+            "title": "Subscriptions",
+            "empty": "You have no subscriptions.",
+            "discover": "Discover the plans",
+            "amount": "Amount per period",
+            "trial_end": "Trial ends",
+            "renewal": "Next renewal",
+            "ends": "Active until",
+            "payments": "Latest payments",
+            "change_label": "Switch to",
+            "change": "Change plan",
+            "change_note": "The new price applies from the next renewal, with no proration.",
+            "card": "Update card",
+            "cancel": "Cancel",
+            "cancel_confirm": "Do you want to cancel the subscription? It stays active until the end of the paid period.",
+            "changed": "Plan changed: the new price applies from the next renewal.",
+            "cancelled": "Cancellation recorded: the subscription stays active until {{date}}."
+        }
+    },
+    "subscriptions": {
+        "error_title": "Subscription",
+        "error": "Something went wrong: please try again in a few minutes.",
+        "choose": "Choose",
+        "tax_included": "VAT included",
+        "tax_excluded": "VAT excluded",
+        "trial": "{{days}}-day free trial",
+        "trial_once": "{{days}}-day free trial if you have never had this plan: the first charge comes at the end of the trial.",
+        "commitment": "{{months}}-month commitment",
+        "every": {
+            "month": "per month",
+            "months": "every {{count}} months",
+            "year": "per year",
+            "years": "every {{count}} years"
+        },
+        "status": {
+            "pending": "Pending",
+            "trialing": "Trial",
+            "active": "Active",
+            "past_due": "Past due",
+            "unpaid": "Unpaid",
+            "cancelled": "Closed"
+        },
+        "features": {},
+        "plans": {
+            "title": "Subscriptions",
+            "seo": "Choose the plan that suits you: monthly and yearly prices, instant activation and cancellation from your account.",
+            "intro": "Choose a plan and pay securely with Stripe. You can change or cancel it anytime from your account.",
+            "empty": "There are no plans available right now."
+        },
+        "subscribe": {
+            "title": "Subscribe to {{plan}}",
+            "seo": "Confirm your details and complete the subscription.",
+            "summary": "Summary",
+            "coupon": "Discount code (optional)",
+            "stripe": "Payment happens on Stripe's secure page; then you come back here.",
+            "submit": "Go to payment"
+        },
+        "confirm": {
+            "title": "Subscription",
+            "waiting_title": "We are confirming your payment",
+            "waiting_text": "It takes a few seconds: this page refreshes by itself.",
+            "confirmed_title": "Subscription active",
+            "confirmed_text": "Thank you! We sent you an email with the details.",
+            "slow_title": "This is taking longer than expected",
+            "slow_text": "Your payment is being checked: look again shortly in the Subscriptions section of your account. If it does not appear, contact us.",
+            "failed_title": "Subscription not activated",
+            "failed_text": "The payment was not completed. You can try again from the plans page.",
+            "account": "Go to your subscriptions",
+            "plans": "Back to plans"
         }
     },
     "impersonation": { "active": "Impersonation active", "operating_as": "You are acting as", "started_by": "started by", "stop": "Return to your account" }

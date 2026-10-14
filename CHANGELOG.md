@@ -7,6 +7,20 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Abbonamenti** (E3, con `online_subscriptions` del gestionale):
+  - pagina pubblica dei piani `/abbonamenti/` con JSON-LD `ItemList` di
+    `Product` e `UnitPriceSpecification`, breadcrumb, `view_item_list` e
+    `select_item`;
+  - sottoscrizione con account obbligatorio, dati di fatturazione e codice
+    sconto, poi Stripe Checkout (`begin_checkout`);
+  - conferma che aspetta la notifica di Stripe e manda `purchase` una volta
+    sola;
+  - sezione **Abbonamenti** nell'area cliente: piano, stato, rinnovo,
+    pagamenti, cambio piano, disdetta e aggiornamento della carta sul portale
+    di Stripe.
+
+  Documentazione in `docs/subscriptions.md`.
+
 - Scheletro del modulo: manifest, entrypoint `Ecommerce`, configurazione,
   permessi, rotte frontend e cartelle di lavoro.
 - Test del modulo con harness proprio e `php tests/run.php`; CI su GitHub
