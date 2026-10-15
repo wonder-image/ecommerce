@@ -12,22 +12,23 @@ require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 require __DIR__.'/dns-fixture.php';
 
-use Wonder\App\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\App\Models\User\User;
-use Wonder\Auth\Frontend\AccountAddresses;
-use Wonder\Auth\Frontend\AccountBilling;
-use Wonder\Auth\Frontend\AccountController;
+use Wonder\Plugin\CustomerAccount\Account\AccountAddresses;
+use Wonder\Plugin\CustomerAccount\Account\AccountBilling;
 use Wonder\Auth\Frontend\AccountEmail;
 use Wonder\Auth\Frontend\AccountPanel;
 use Wonder\Auth\Frontend\AccountPersonal;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\AuthProfile;
 use Wonder\Auth\Frontend\AuthRoutes;
-use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Http\Csrf;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\CustomerAccount\Account\CustomerAccountController;
+use Wonder\Plugin\CustomerAccount\Account\CustomerAccountExtension;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountController;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 use Wonder\Sql\Transaction;
@@ -50,7 +51,8 @@ trait UsciteDiProva
     }
 }
 
-final class ControllerDiProva extends AccountController
+/** Il pannello del core con customer-account: le pagine del core più indirizzi e fatturazione. */
+final class ControllerDiProva extends CustomerAccountController
 {
     use UsciteDiProva;
 }
@@ -237,7 +239,8 @@ try {
             Route::reset();
             AccountRoutes::reset();
             AuthRoutes::register(new AuthProfile()); // così `route('logout')` si risolve senza ricaricare le route
-            AccountRoutes::register(new AccountPanel(), new AuthProfile()); // senza moduli: nessuna estensione
+            AccountRoutes::register(new AccountPanel(), new AuthProfile());
+            AccountRoutes::extend(new CustomerAccountExtension()); // solo customer-account, senza l'ecommerce
         };
         ($GLOBALS['REGISTRA'])();
 
@@ -539,6 +542,7 @@ try {
             AccountRoutes::reset();
             AuthRoutes::register(new AuthProfile());
             AccountRoutes::register(new AccountPanel(), new AuthProfile());
+            AccountRoutes::extend(new CustomerAccountExtension());
             AccountRoutes::extend(new EcommerceAccountExtension());
         };
         ($GLOBALS['REGISTRA'])();

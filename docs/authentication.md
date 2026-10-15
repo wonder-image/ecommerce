@@ -168,11 +168,15 @@ come «Dati personali» (`AccountOrder::row()`, la stessa dell'ultimo ordine in 
 con `frontend.account.pagination` in fondo. I Coupon restano una tabella a righe
 (`.wi-row-table`) della lib, e il dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
 
-La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
-modelli del core `Wonder\App\Models\Contacts` / `Models\System`.
+La fatturazione unica, le spedizioni multiple e la pagina «Indirizzi» sono del
+modulo `wonder-image/customer-account` (`Wonder\Plugin\CustomerAccount\Models`,
+`CustomerAccountExtension`), che l'ecommerce registra prima della propria estensione;
+i riferimenti esterni restano nel core (`Models\System`).
 I nomi SQL sono `contacts`, `contact_addresses`, `external_references`, con
-migrazione conservativa dei vecchi nomi `gst_*`; i namespace del gestionale sono
-subclass compatibili e conservano le sole estensioni commerciali.
+migrazione conservativa dei vecchi nomi `gst_*` (del modulo); i namespace del
+gestionale sono subclass compatibili e conservano le sole estensioni commerciali.
+I controller dell'ecommerce leggono la scheda del cliente con il trait
+`ManagesContact` del modulo.
 Gli indirizzi usano `AccountAddressForm` del core per label tradotte, default paese e
 prefisso, e griglia responsive con i Container del framework. I POST falliti
 mantengono anche i campi svuotati.

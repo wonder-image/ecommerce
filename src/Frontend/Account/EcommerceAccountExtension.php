@@ -2,10 +2,10 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 
-use Wonder\App\Models\Contacts\Contact;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\BaseAccountExtension;
 use Wonder\Http\Route;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;

@@ -11,9 +11,9 @@ require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 require __DIR__.'/dns-fixture.php';
 
-use Wonder\App\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\App\Models\User\User;
-use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Sql\Transaction;
 
 final class AnnullaBirthDate extends RuntimeException {}

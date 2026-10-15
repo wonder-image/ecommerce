@@ -10,7 +10,7 @@ require $site.'/vendor/autoload.php';
 require $site.'/vendor/wonder-image/app/wonder-image.php';
 if (($argv[1] ?? '') === 'backend') {
     \Wonder\App\Theme::set('bootstrap');
-    $resource = \Wonder\App\Resources\Contacts\ContactAddressResource::class;
+    $resource = \Wonder\Plugin\CustomerAccount\Resources\ContactAddressResource::class;
     $form = (new \Wonder\Backend\Support\ResourcePagePresenter($resource))->form('create', [
         'country' => 'DE', 'province' => 'BE', 'name' => 'Test', 'surname' => 'Recipient',
     ]);
@@ -18,8 +18,8 @@ if (($argv[1] ?? '') === 'backend') {
     exit;
 }
 $address = ($argv[1] ?? '') === 'billing'
-    ? \Wonder\App\Models\Contacts\Contact::billing()
-    : \Wonder\App\Models\Contacts\ContactAddress::address();
+    ? \Wonder\Plugin\CustomerAccount\Models\Contact::billing()
+    : \Wonder\Plugin\CustomerAccount\Models\ContactAddress::address();
 $fields = \Wonder\Auth\Frontend\AccountAddressForm::fields($address, ['province' => 'BG']);
 if (($argv[1] ?? '') === 'modal') {
     // Come lo manda il server dopo un errore: aperto (`wi-show`), con il suo Salva spento finché mancano i campi.

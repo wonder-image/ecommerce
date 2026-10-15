@@ -15,13 +15,13 @@ $supporto = dirname(__DIR__, 3).'/gestionale/tests/integrazione/supporto';
 require $supporto.'/compra.php';
 require $supporto.'/spedizioni.php';
 
-use Wonder\App\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\AccountPanel;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\AuthProfile;
 use Wonder\Auth\Frontend\AuthRoutes;
-use Wonder\Auth\Frontend\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountController;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
@@ -120,6 +120,7 @@ $GLOBALS['REGISTRA'] = static function (): void {
     AccountRoutes::reset();
     AuthRoutes::register(new AuthProfile());
     AccountRoutes::register(new AccountPanel(), new AuthProfile());
+    AccountRoutes::extend(new \Wonder\Plugin\CustomerAccount\Account\CustomerAccountExtension());
     AccountRoutes::extend(new EcommerceAccountExtension());
 };
 ($GLOBALS['REGISTRA'])();

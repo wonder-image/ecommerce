@@ -2,8 +2,9 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Client;
 
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
-use Wonder\App\Models\Contacts\Contact;
 
 final class CustomerAccount
 {
@@ -43,6 +44,6 @@ final class CustomerAccount
         if (isset($input['_ecommerce_contact_phone'])) {
             $input['phone'] = $input['_ecommerce_contact_phone'];
         }
-        return \Wonder\Auth\Frontend\ContactAccount::link($userId, $input);
+        return ContactAccount::link($userId, $input);
     }
 }
