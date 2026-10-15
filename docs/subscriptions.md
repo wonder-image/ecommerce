@@ -21,7 +21,11 @@ voce del menu dell'account non c'è.
 | `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui |
 | `GET /abbonamenti/conferma/?abbonamento=sub_…` | `ecommerce.subscriptions.confirm` | aspetta la notifica di Stripe e poi conferma |
 | `GET /account/abbonamenti/` | `account.subscriptions` | sezione dell'area cliente |
-| `POST /account/abbonamenti/{sub_…}/cambia/` | `account.subscriptions.change` | cambio piano |
+| `GET /account/abbonamenti/{sub_…}/aggiungi/` | `account.subscriptions.add` | Aggiungi servizio: scelta del prezzo e configurazione (`?price=ppr_…`) |
+| `POST /account/abbonamenti/{sub_…}/aggiungi/` | `account.subscriptions.add.preview` | anteprima della quota pro-rata (o della prova), niente cambia |
+| `POST /account/abbonamenti/{sub_…}/aggiungi/conferma/` | `account.subscriptions.add.confirm` | il servizio entra subito, pro-rata |
+| `POST /account/abbonamenti/{sub_…}/righe/{item}/togli/` | `account.subscriptions.item.remove` | Togli: a fine periodo, con le figlie |
+| `POST /account/abbonamenti/{sub_…}/righe/{item}/cambia/` | `account.subscriptions.item.change` | Cambia: subito, pro-rata |
 | `POST /account/abbonamenti/{sub_…}/disdici/` | `account.subscriptions.cancel` | disdetta |
 | `POST /account/abbonamenti/{sub_…}/carta/` | `account.subscriptions.card` | portale di Stripe |
 
@@ -65,7 +69,7 @@ Gli identificativi sono gli stessi ovunque:
 alla pagina successiva (piani o riepilogo), ognuno preceduto da
 `{ecommerce: null}`.
 
-I form hanno `id` semantici: `subscription_configure`, `subscription_checkout` e `subscription_change`.
+I form hanno `id` semantici: `subscription_configure`, `subscription_checkout`, `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
 
 ## Limiti nei testi
 

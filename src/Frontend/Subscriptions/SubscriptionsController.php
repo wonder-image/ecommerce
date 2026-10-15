@@ -101,7 +101,7 @@ final class SubscriptionsController
     {
         $url = self::configureUrl($code);
         self::requireLogin($url);
-        self::requireRoom();
+        self::requireRoom($code);
         $found = PlanCatalog::find($code, self::configureUrl(...));
 
         if ($found === null) {
@@ -174,7 +174,7 @@ final class SubscriptionsController
             $index = SubscriptionSelection::add($item);
         } catch (UserError $error) {
             if ($error->key() === 'subscription.limit_reached') {
-                self::toAccount($error->getMessage());
+                self::toAccount($error->getMessage(), $code);
             }
 
             self::rememberConfigureState($code, $item, $error);
@@ -326,7 +326,7 @@ final class SubscriptionsController
             );
         } catch (UserError $error) {
             if ($error->key() === 'subscription.limit_reached') {
-                self::toAccount($error->getMessage());
+                self::toAccount($error->getMessage(), (string) ($items[0]['price_code'] ?? ''));
             }
 
             self::rememberFormState($state);
@@ -438,12 +438,14 @@ final class SubscriptionsController
     /**
      * I campi del servizio: quantità, una voce per personalizzazione del piano
      * (col sovrapprezzo nell'etichetta) e la madre fra le righe già scelte.
+     * Li usa anche Aggiungi servizio dell'area cliente, con le righe
+     * dell'abbonamento come madri.
      *
      * @param array<string, mixed> $state lo stato dopo un errore
      * @param array<int, string> $parents indice della riga ⇒ etichetta
      * @return array{quantity: mixed, customizations: list<array{field: mixed, help: string}>, parent: mixed}
      */
-    private static function configureFields(int $planId, array $state, array $parents): array
+    public static function configureFields(int $planId, array $state, array $parents): array
     {
         $quantity = FormField::key('quantity')->number()->integer()
             ->label((string) __t('ecommerce.subscriptions.configure.quantity'))
@@ -630,20 +632,54 @@ final class SubscriptionsController
     }
 
     /** Chi ha già il massimo di abbonamenti aggiunge servizi dall'area cliente. */
-    private static function requireRoom(): void
+    private static function requireRoom(string $priceCode): void
     {
         try {
             Subscriptions::assertRoom(CartSession::customerId());
         } catch (UserError $error) {
-            self::toAccount($error->getMessage());
+            self::toAccount($error->getMessage(), $priceCode);
         }
     }
 
-    private static function toAccount(string $message): never
+    /**
+     * Al limite di abbonamenti (G10b §7): con un solo abbonamento a cui si
+     * possono aggiungere servizi si va dritti ad Aggiungi servizio, col prezzo
+     * scelto; altrimenti alla pagina degli abbonamenti, dove ognuno ha il suo.
+     */
+    private static function toAccount(string $message, string $priceCode = ''): never
     {
         SubscriptionSelection::clear();
         FlashMessage::warning($message, (string) __t('ecommerce.subscriptions.error_title'));
-        self::redirect(self::route('account.subscriptions'));
+        $editable = self::editableSubscriptions(CartSession::customerId());
+        $url = count($editable) === 1 ? self::route('account.subscriptions.add', ['code' => $editable[0]]) : '';
+
+        self::redirect($url !== ''
+            ? $url.($priceCode !== '' ? '?price='.rawurlencode($priceCode) : '')
+            : self::route('account.subscriptions'));
+    }
+
+    /** @return list<string> i codici degli abbonamenti del cliente a cui si aggiungono servizi: in corso, su Stripe, che si rinnovano */
+    private static function editableSubscriptions(int $customerId): array
+    {
+        if ($customerId <= 0) {
+            return [];
+        }
+
+        try {
+            $found = Subscription::find(
+                '`customer_id` = '.$customerId." AND `status` IN ('".implode("','", Subscription::LIVE)."') AND `provider` = 'stripe'"
+                ." AND `provider_reference` <> '' AND `auto_renew` = 'true' AND `deleted` = 'false'",
+                null,
+                'id',
+                'DESC'
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $rows = !is_array($found) || $found === [] ? [] : (isset($found['id']) ? [$found] : array_values(array_filter($found, 'is_array')));
+
+        return array_values(array_map(static fn (array $row): string => (string) $row['code'], $rows));
     }
 
     /** @param array<string, mixed> $item */

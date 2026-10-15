@@ -181,7 +181,7 @@ check('i form espongono id semantici per Google Tag Manager', function () use ($
         'view/pages/backend/impersonation.php' => 'impersonate_user',
         'view/pages/subscriptions/configure.php' => 'subscription_configure',
         'view/pages/subscriptions/summary.php' => 'subscription_checkout',
-        'view/pages/account/subscriptions.php' => 'subscription_change',
+        'view/pages/account/subscription-add.php' => 'subscription_add',
     ];
 
     foreach ($forms as $file => $id) {
