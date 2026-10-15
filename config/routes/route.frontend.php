@@ -57,7 +57,7 @@ Route::area('frontend')
             Ecommerce::handlerPath('frontend/product.php')
         )->name('ecommerce.catalog.product.variant');
 
-        // Abbonamenti (G10): `/abbonamenti/conferma/` prima di `/abbonamenti/{price}/`.
+        // Abbonamenti (G10, G10b): `/conferma/` e `/riepilogo/` prima di `/{price}/`.
         Route::name('ecommerce.subscriptions.')
             ->prefix('/abbonamenti')
             ->group(function () {
@@ -65,12 +65,15 @@ Route::area('frontend')
 
                 Route::get('/', $handler, ['subscriptions_action' => 'plans'])->name('plans');
                 Route::get('/conferma/', $handler, ['subscriptions_action' => 'confirm'])->name('confirm');
-                Route::get('/{price}/', $handler, ['subscriptions_action' => 'subscribe'])
+                Route::get('/riepilogo/', $handler, ['subscriptions_action' => 'summary'])->name('summary');
+                Route::post('/riepilogo/', $handler, ['subscriptions_action' => 'start'])->name('start');
+                Route::post('/riepilogo/togli/', $handler, ['subscriptions_action' => 'remove'])->name('remove');
+                Route::get('/{price}/', $handler, ['subscriptions_action' => 'configure'])
                     ->where('price', 'ppr_[a-z0-9-]+')
-                    ->name('subscribe');
-                Route::post('/{price}/', $handler, ['subscriptions_action' => 'start'])
+                    ->name('configure');
+                Route::post('/{price}/', $handler, ['subscriptions_action' => 'add'])
                     ->where('price', 'ppr_[a-z0-9-]+')
-                    ->name('start');
+                    ->name('add');
             });
 
         Route::name('ecommerce.cart.')

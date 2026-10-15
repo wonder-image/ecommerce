@@ -68,7 +68,7 @@ final class PlanCatalog
      *
      * @param list<array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>}> $plans
      * @param callable(string): string $subscribeUrl il codice del prezzo → l'indirizzo
-     * @return list<array{code: string, name: string, description: string, features: list<array{key: string, value: string}>, prices: list<array<string, mixed>>}>
+     * @return list<array{id: int, code: string, name: string, description: string, features: list<array{key: string, value: string}>, prices: list<array<string, mixed>>}>
      */
     public static function present(array $plans, callable $subscribeUrl): array
     {
@@ -101,6 +101,7 @@ final class PlanCatalog
             }
 
             $out[] = [
+                'id' => (int) ($plan['id'] ?? 0),
                 'code' => (string) ($plan['code'] ?? ''),
                 'name' => $name,
                 'description' => trim(html_entity_decode(strip_tags((string) ($plan['description'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
