@@ -141,7 +141,7 @@ try {
         check('salvare due volte gli stessi dati personali riesce', fn () => $again->success);
 
         $bad = AccountPersonal::save($userId, ['name' => 'Grace', 'surname' => 'Hopper', 'birth_date' => '1990-02-31'], $panel, false);
-        check('una data di nascita impossibile è un errore', fn () => !$bad->success && ($bad->errors['birth_date'] ?? '') === 'invalid');
+        check('una data di nascita impossibile è un errore', fn () => !$bad->success && $bad->messages === [(string) __t('account.personal.errors.birth_date')]);
 
         // Scheda in conflitto: nulla viene scritto.
         $otherId = clienteDiProva('account-other');
@@ -631,8 +631,9 @@ try {
             return str_contains($head, 'store.css') && !str_contains($body, 'store.css');
         });
         $notFound = pagina('nessuna', [], 'GET', [], ControllerEcommerceDiProva::class);
-        $billing = pagina('billing', [], 'GET', [], ControllerEcommerceDiProva::class);
-        check('le azioni del core passano ancora dal controller dell\'ecommerce', fn () =>
+        // Il vecchio indirizzo della fatturazione è una route di customer-account, con il suo controller.
+        $billing = pagina('billing', [], 'GET', [], ControllerDiProva::class);
+        check('le azioni del core passano ancora dal controller dell\'ecommerce, la fatturazione da customer-account', fn () =>
             $notFound === '404' && $billing === 'redirect '.$personalUrl);
         preg_match_all('/<(button|input)\b[^>]*type="submit"[^>]*>/', $payment, $submits);
         $submits[0] = array_values(array_filter($submits[0], static fn ($tag) => !str_contains($tag, 'wi-side-nav__link')));
