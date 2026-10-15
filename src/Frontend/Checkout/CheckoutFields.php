@@ -14,10 +14,28 @@ final class CheckoutFields
         'street' => 3, 'phone' => 3, 'business_name' => 3,
     ];
 
+    /** Da telefono la griglia ha 5 colonne: l'indirizzo da solo, poi civico e provincia, città e CAP, prefisso e telefono. */
+    private const PHONE_SPANS = [
+        'number' => 2, 'cap' => 2, 'phone_prefix' => 2, 'sdi' => 2,
+        'province' => 3, 'city' => 3, 'phone' => 3, 'business_name' => 3,
+    ];
+
     /** Le colonne occupate dal campo; quelli non elencati prendono la riga intera. */
     public static function span(string $key): int
     {
         return self::SPANS[preg_replace('/^(shipping|billing)_/', '', $key)] ?? 4;
+    }
+
+    /** Le colonne da telefono, sulla griglia `col-p-5`. */
+    public static function phoneSpan(string $key): int
+    {
+        return self::PHONE_SPANS[preg_replace('/^(shipping|billing)_/', '', $key)] ?? 5;
+    }
+
+    /** Le classi della cella: colonne della griglia a 4 e di quella a 5 da telefono. */
+    public static function cols(string $key): string
+    {
+        return 'col-'.self::span($key).' col-p-'.self::phoneSpan($key);
     }
 
     /** Place ID e coordinate dell'aiuto di Google: campi nascosti, fuori dalla griglia. */

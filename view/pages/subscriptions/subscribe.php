@@ -69,8 +69,8 @@ Ecommerce::layout('checkout');
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
         <div class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.billing'))?></h2>
-            <div class="w-100 d-grid col-4 gap-4 gap-p-3">
-                <?php foreach ($billing_fields as $key => $field): ?><div class="w-100 col-<?=CheckoutFields::span($key)?>"><?=$field?></div><?php endforeach; ?>
+            <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3">
+                <?php foreach ($billing_fields as $key => $field): ?><div class="w-100 <?=CheckoutFields::cols($key)?>"><?=$field?></div><?php endforeach; ?>
             </div>
         </div>
         <div class="w-100">
