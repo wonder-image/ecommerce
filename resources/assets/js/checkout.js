@@ -217,6 +217,19 @@ class Checkout {
         this.text(node, '[data-line-name]', item.name);
         this.text(node, '[data-line-total]', item.line_total_display);
 
+        // I pezzi di un multiprodotto, già scritti dal server («1 × Pane»).
+        const parts = node.querySelector('[data-line-parts]');
+
+        if (parts) {
+            parts.hidden = !(item.parts || []).length;
+            parts.replaceChildren(...(item.parts || []).map((part) => {
+                const li = document.createElement('li');
+                li.textContent = part;
+
+                return li;
+            }));
+        }
+
         return node;
     }
 

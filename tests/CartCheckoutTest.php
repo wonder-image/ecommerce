@@ -817,8 +817,11 @@ check('il mini-carrello non dice «Prodotto aggiunto» e porta anche al checkout
         && str_contains($shell, "__r('ecommerce.checkout.index')")
         && str_contains($shell, 'data-cart-checkout')
         && str_contains($shell, "__t('ecommerce.cart.mini.checkout')")
-        && str_contains($script, '[data-cart-checkout]')
-        && str_contains($script, 'payload.empty');
+        && str_contains($shell, 'd-none" data-cart-actions')
+        && str_contains($script, '[data-cart-actions]')
+        && str_contains($script, 'payload.empty')
+        && str_contains($body, "__t('ecommerce.cart.mini.continue_shopping')")
+        && str_contains($body, 'data-cart-close');
 });
 
 check('la quantità con −/+ sulla scheda prodotto cambia il campo del modulo, senza inviarlo', function () use ($root): bool {
@@ -900,6 +903,89 @@ check('l\'indirizzo che va in rubrica si porta dietro place ID e coordinate vali
         && $address['place_id'] === 'ChIJabc_def-123' && $address['lat'] === 45.4642035 && $address['lng'] === 9.189982
         && $bad['place_id'] === null && $bad['lat'] === null && $bad['lng'] === null
         && !isset($address['shipping_street']);
+});
+
+check('il cesto conta uno: i suoi pezzi non entrano nel conteggio', fn () =>
+    CartPresenter::count([
+        ['id' => 1, 'type' => 'product', 'quantity' => 1, 'parent_item_id' => 0],
+        ['id' => 2, 'type' => 'product', 'quantity' => 1, 'parent_item_id' => 1],
+        ['id' => 3, 'type' => 'product', 'quantity' => 2, 'parent_item_id' => 1],
+    ]) === '1'
+);
+
+check('le scelte del multiprodotto arrivano piatte al carrello', fn () =>
+    \Wonder\Plugin\Ecommerce\Frontend\Cart\CartController::choices([
+        'product_id' => '9', 'choices_3' => '32', 'choices_4' => ['41', '42', 'x'], 'choices' => ['42', '7'], 'choicesX' => '99',
+    ]) === [32, 41, 42, 7]
+);
+
+check('add_to_cart usa la riga madre con le stesse scelte e il prezzo col sovrapprezzo', function (): bool {
+    $cart = ['items' => [
+        ['id' => 1, 'type' => 'product', 'product_id' => 9, 'parent_item_id' => 0, 'name' => 'Cesto — Bianco', 'unit_price' => '39.00', 'children' => [
+            ['id' => 2, 'product_id' => 50, 'parent_item_id' => 1, 'bundle_option_id' => 31],
+        ]],
+        ['id' => 3, 'type' => 'product', 'product_id' => 9, 'parent_item_id' => 0, 'name' => 'Cesto', 'unit_price' => '44.00', 'children' => [
+            ['id' => 4, 'product_id' => 51, 'parent_item_id' => 3, 'bundle_option_id' => 32],
+            ['id' => 5, 'product_id' => 60, 'parent_item_id' => 3, 'bundle_option_id' => 0],
+        ]],
+    ]];
+    $event = CartPresenter::addEvent($cart, 9, [32], 2, 'eur');
+
+    return $event !== null
+        && $event['event'] === 'add_to_cart'
+        && $event['ecommerce']['currency'] === 'EUR'
+        && $event['ecommerce']['value'] === 88.0
+        && $event['ecommerce']['items'][0] === ['item_id' => '9', 'item_name' => 'Cesto', 'price' => 44.0, 'quantity' => 2.0]
+        && CartPresenter::addEvent($cart, 9, [99], 1) === null;
+});
+
+check('il controller passa le scelte al carrello e il mini-carrello spinge add_to_cart', function () use ($root): bool {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Cart/CartController.php');
+    $js = (string) file_get_contents($root.'/resources/assets/js/mini-cart.js');
+    $body = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+
+    return str_contains($controller, "'choices' => \$choices")
+        && str_contains($controller, 'CartPresenter::addEvent(')
+        && str_contains($js, "window.dataLayer.push({ ecommerce: null });")
+        && str_contains($js, "payload.event.event === 'add_to_cart'")
+        && str_contains($body, 'CartPresenter::parts($item)');
+});
+
+check('i testi dei multiprodotti ci sono in tutte le lingue', function () use ($root): bool {
+    foreach (glob($root.'/lang/*/ecommerce.json') ?: [] as $file) {
+        $bundle = json_decode((string) file_get_contents($file), true)['catalog']['bundle'] ?? [];
+        foreach (['contents', 'value', 'value_from', 'surcharge', 'choose_exactly', 'choose_up_to', 'choose_between'] as $key) {
+            if (trim((string) ($bundle[$key] ?? '')) === '') {
+                return false;
+            }
+        }
+    }
+
+    return true;
+});
+
+check('i pezzi di un multiprodotto si leggono sotto la madre in mini-carrello, carrello e checkout', function () use ($root): bool {
+    $parts = CartPresenter::parts(['children' => [
+        ['name' => 'Felpa — Blu / M', 'quantity' => '1.000'],
+        ['name' => 'Pane', 'quantity' => 2],
+    ]]);
+    $views = [
+        'view/components/cart/mini-cart-body.php',
+        'view/pages/cart/index.php',
+        'view/components/checkout/lines.php',
+    ];
+    foreach ($views as $view) {
+        if (!str_contains((string) file_get_contents($root.'/'.$view), 'CartPresenter::parts(')) {
+            return false;
+        }
+    }
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $summary = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutSummary.php');
+
+    return $parts === ['1 × Felpa Blu M', '2 × Pane']
+        && CartPresenter::parts(['name' => 'Maglia']) === []
+        && str_contains($summary, "['parts'] = CartPresenter::parts(")
+        && str_contains($js, "'[data-line-parts]'");
 });
 
 summary();

@@ -250,6 +250,7 @@ final class ProductDetail
             'images' => $images,
             'offers' => $offers,
             'option_groups' => array_values((array) ($row['option_groups'] ?? [])),
+            'bundle' => self::bundle((array) ($row['bundle'] ?? [])),
             'selected_product_id' => $selected['product_id'],
             'item_id' => $selected['item_id'],
             'sku' => $selected['sku'],
@@ -261,6 +262,58 @@ final class ProductDetail
             'stock_managed' => $offers !== [] && in_array(true, array_column($offers, 'stock_managed'), true),
             'currency' => $currency,
             'details' => array_values((array) ($row['details'] ?? [])),
+        ];
+    }
+
+    /**
+     * Componenti e gruppi di scelta di un multiprodotto, coi sovrapprezzi in
+     * numeri. Un gruppo senza opzioni non si mostra: non si potrebbe scegliere.
+     *
+     * @return array{components: list<array{name: string, quantity: float}>, groups: list<array{id: int, name: string, min: int, max: int, options: list<array{id: int, name: string, surcharge: float}>}>, value: float|null}
+     */
+    private static function bundle(array $bundle): array
+    {
+        $components = [];
+        foreach ((array) ($bundle['components'] ?? []) as $component) {
+            $name = self::string($component['name'] ?? '');
+            if ($name !== '') {
+                $components[] = ['name' => $name, 'quantity' => (float) ($component['quantity'] ?? 1)];
+            }
+        }
+
+        $groups = [];
+        foreach ((array) ($bundle['groups'] ?? []) as $group) {
+            $options = [];
+            foreach ((array) ($group['options'] ?? []) as $option) {
+                if ((int) ($option['id'] ?? 0) > 0) {
+                    $options[] = [
+                        'id' => (int) $option['id'],
+                        'name' => self::string($option['name'] ?? ''),
+                        'surcharge' => max(0.0, round((float) ($option['surcharge'] ?? 0), 2)),
+                    ];
+                }
+            }
+
+            if ((int) ($group['id'] ?? 0) <= 0 || $options === []) {
+                continue;
+            }
+
+            $max = min(count($options), max(1, (int) ($group['max'] ?? 1)));
+            $groups[] = [
+                'id' => (int) $group['id'],
+                'name' => self::string($group['name'] ?? ''),
+                'min' => min($max, max(0, (int) ($group['min'] ?? 0))),
+                'max' => $max,
+                'options' => $options,
+            ];
+        }
+
+        $value = $bundle['value'] ?? null;
+
+        return [
+            'components' => $components,
+            'groups' => $groups,
+            'value' => $value !== null && (float) $value > 0 ? round((float) $value, 2) : null,
         ];
     }
 

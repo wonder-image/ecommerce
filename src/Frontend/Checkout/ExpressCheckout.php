@@ -59,7 +59,12 @@ final class ExpressCheckout
                 'currency' => strtolower((string) ($order['currency'] ?? 'EUR')),
                 'types' => $method['types'],
                 // Nel carrello e sul prodotto i bottoni restano in fila senza «Vedi tutte» e Google Pay mostra solo il logo.
-                'layout' => $source === 'checkout' ? null : ['overflow' => 'never'],
+                // Nel carrello due per riga: Link e Google Pay stanno affiancati.
+                'layout' => match ($source) {
+                    'checkout' => null,
+                    'cart' => ['maxColumns' => 2, 'overflow' => 'never'],
+                    default => ['overflow' => 'never'],
+                },
                 'buttonType' => $source === 'checkout' ? null : ['googlePay' => 'plain'],
                 'labels' => [
                     'pending_rate' => (string) __t('ecommerce.checkout.express_pending_rate'),

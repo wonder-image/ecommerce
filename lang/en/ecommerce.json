@@ -1,6 +1,15 @@
 {
     "module": { "name": "Online store" },
     "catalog": {
+        "bundle": {
+            "contents": "What's included",
+            "value": "Value of the items: {{price}}",
+            "value_from": "Value of the items from {{price}}",
+            "surcharge": "{{name}} (+{{price}})",
+            "choose_exactly": "choose {{count}}",
+            "choose_up_to": "up to {{max}}",
+            "choose_between": "{{min}} to {{max}}"
+        },
         "breadcrumb_label": "Page path",
         "breadcrumb_home": "Home",
         "breadcrumb_products": "Products",
@@ -54,12 +63,14 @@
         "seo": "Review the products in your cart before checkout.",
         "count": "{{count}} items",
         "count_one": "1 item",
+        "in_cart": "You have {{items}} in your cart",
         "empty_title": "Your cart is empty",
         "empty_text": "Add a product to start your purchase.",
         "sku": "SKU: {{sku}}",
         "decrease": "Decrease quantity",
         "increase": "Increase quantity",
         "quantity": "Quantity",
+        "each": "{{price}} each",
         "update": "Update",
         "remove": "Remove",
         "remove_confirm_title": "Remove this product?",

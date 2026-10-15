@@ -41,12 +41,17 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>">
         <div class="w-100 col-2 col-t-1 wi-box h-auto p-5 d-flex d-column gap-4">
-            <h1 class="subtitle mb-2"><?=e(__t('ecommerce.cart.title'))?> <span class="fw-400">(<?=e(__t(($count = CartPresenter::count($items)) === 1 ? 'ecommerce.cart.count_one' : 'ecommerce.cart.count', ['count' => $count]))?>)</span></h1>
+            <?php // Sotto il titolo, in grigio: «Hai 5 articoli nel carrello». ?>
+            <div class="w-100 mb-2">
+                <h1 class="subtitle"><?=e(__t('ecommerce.cart.title'))?></h1>
+                <p class="wi-cart__meta wi-cart__count"><?=e(__t('ecommerce.cart.in_cart', ['items' => (string) __t(($count = CartPresenter::count($items)) === '1' ? 'ecommerce.cart.count_one' : 'ecommerce.cart.count', ['count' => $count])]))?></p>
+            </div>
             <?php foreach ($items as $index => $item): ?>
                 <?php
                 $id = (int) ($item['id'] ?? 0);
                 $quantity = (float) ($item['quantity'] ?? 1);
                 $remove = (string) __r('ecommerce.cart.remove', ['id' => $id]);
+                $url = CartPresenter::url($item);
                 $confirm = [
                     (string) __t('ecommerce.cart.remove_confirm_text', ['name' => (string) ($item['name'] ?? '')]),
                     (string) __t('ecommerce.cart.remove_confirm_title'),
@@ -59,26 +64,48 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                     : $minus->attr('name', 'quantity')->attr('value', $step($quantity - 1));
                 ?>
                 <?php if ($index > 0): ?><hr class="wi-cart__line"><?php endif; ?>
-                <article class="d-flex gap-4">
-                    <span class="wi-thumb" style="--wi-thumb-size: 88px">
+                <?php
+                $title = (string) ($item['title'] ?? $item['name'] ?? '');
+                $regular = CartPresenter::regularTotal($item);
+                ?>
+                <?php // In alto nome, scelte e prezzo; in basso quantità e «Rimuovi». La foto resta in cima, non si allunga con la riga. ?>
+                <article class="w-100 wi-cart__item">
+                    <<?=$url !== '' ? 'a href="'.e($url).'" tabindex="-1" aria-hidden="true"' : 'span'?> class="wi-thumb" style="--wi-thumb-size: 88px">
                         <?php if (trim((string) ($item['image'] ?? '')) !== ''): ?><img src="<?=e($item['image'])?>" alt="" loading="lazy"><?php endif; ?>
-                    </span>
-                    <div class="w-100 d-flex d-column j-content-between gap-3">
-                        <div class="w-100 d-grid col-2 col-p-1 gap-3">
-                            <h2 class="text fw-600"><?=e($item['name'] ?? '')?></h2>
+                    </<?=$url !== '' ? 'a' : 'span'?>>
+                    <div class="w-100 wi-cart__body">
+                        <div class="w-100 wi-cart__head">
+                            <div class="w-100">
+                                <h2 class="text fw-600"><?php if ($url !== ''): ?><a class="tx-black tx-none" href="<?=e($url)?>"><?=e($title)?></a><?php else: ?><?=e($title)?><?php endif; ?></h2>
+                                <?php if (($variant = (string) ($item['variant'] ?? '')) !== ''): ?>
+                                    <p class="wi-cart__meta"><?=e($variant)?></p>
+                                <?php endif; ?>
+                                <?php foreach (CartPresenter::details($item) as $detail): ?>
+                                    <p class="wi-cart__meta"><?=e($detail)?></p>
+                                <?php endforeach; ?>
+                                <?php if (($parts = CartPresenter::parts($item)) !== []): ?>
+                                    <ul class="wi-cart__parts wi-cart__meta">
+                                        <?php foreach ($parts as $part): ?><li><?=e($part)?></li><?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </div>
+                            <p class="wi-cart__price">
+                                <strong class="d-block"><?=e(CartPresenter::money($item['line_total'] ?? 0, $currency))?></strong>
+                                <?php if ($regular > 0): ?><s class="d-block wi-cart__meta"><?=e(CartPresenter::money($regular, $currency))?></s><?php endif; ?>
+                                <?php if ($quantity !== 1.0): ?><span class="d-block wi-cart__meta"><?=e(__t('ecommerce.cart.each', ['price' => CartPresenter::money($item['unit_price'] ?? 0, $currency)]))?></span><?php endif; ?>
+                            </p>
+                        </div>
+                        <div class="w-100 wi-cart__foot">
                             <form id="cart_quantity_<?=e((string) $id)?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => $id]))?>" class="wi-cart__stepper" data-cart-action>
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
                                 <?=$minus?>
                                 <span class="wi-cart__quantity" aria-label="<?=e(__t('ecommerce.cart.quantity'))?>"><?=e(CartPresenter::quantity($quantity))?></span>
                                 <?=Button::make('+')->type('submit')->size('sm')->variant('black')->outline()->attr('name', 'quantity')->attr('value', $step($quantity + 1))->attr('aria-label', (string) __t('ecommerce.cart.increase'))?>
                             </form>
-                        </div>
-                        <div class="w-100 d-grid col-2 gap-3">
                             <form id="cart_remove_<?=e((string) $id)?>" method="post" action="<?=e($remove)?>" data-cart-action>
                                 <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
                                 <button class="wi-cart__remove text-small" type="submit" data-wi-confirm="<?=e($confirm[0])?>" data-wi-confirm-title="<?=e($confirm[1])?>" data-wi-confirm-ok="<?=e($confirm[2])?>"><i class="bi bi-trash3"></i> <?=e(__t('ecommerce.cart.remove'))?></button>
                             </form>
-                            <p class="text fw-700 a-r"><?=e(CartPresenter::money($item['line_total'] ?? 0, $currency))?></p>
                         </div>
                     </div>
                 </article>
@@ -90,7 +117,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 'coupons' => false, 'couponCode' => '', 'notices' => [],
                 // I bottoni rapidi stanno sopra «Procedi».
                 'express' => Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', $order) : '',
-                'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 mt-5'),
+                'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 a-c mt-5'),
             ])?>
             <?php if (ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
                 View::head('<script src="'.e($checkoutJs).'" defer></script>');
@@ -99,7 +126,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 <?php
                 $couponCode = (string) ($order['coupon_code'] ?? '');
                 // Il tema Wonder non rende `Text`: all'accordion basta un oggetto con render().
-                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['csrf_token' => $csrf_token, 'code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon'])) {
+                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['csrf_token' => $csrf_token, 'code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => ''])) {
                     public function __construct(private string $html) {}
                     public function render(): string { return $this->html; }
                 };

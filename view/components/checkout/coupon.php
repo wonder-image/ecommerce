@@ -3,7 +3,8 @@
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Elements\Components\Button;
 ?>
-<form id="<?=e($id)?>" class="p-r f-start w-100 mt-5" method="post" action="<?=e(__r('ecommerce.checkout.coupon'))?>" data-checkout-coupon>
+<?php // Lo stacco da ciò che sta sopra: nell'accordion del carrello basta quello che il titolo aperto ha già. ?>
+<form id="<?=e($id)?>" class="p-r f-start w-100 <?=e((string) ($spacing ?? 'mt-5'))?>" method="post" action="<?=e(__r('ecommerce.checkout.coupon'))?>" data-checkout-coupon>
     <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
     <?=FormField::key('return')->hidden()->value($return)?>
 

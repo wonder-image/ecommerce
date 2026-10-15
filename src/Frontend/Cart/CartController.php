@@ -42,12 +42,47 @@ final class CartController
 
     private static function add(): void
     {
-        self::mutate(static function (int $cartId): array {
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        $quantity = self::number($_POST['quantity'] ?? 1);
+        $choices = self::choices($_POST);
+
+        self::mutate(static function (int $cartId) use ($productId, $quantity, $choices): array {
             return Cart::add($cartId, [
-                'product_id' => (int) ($_POST['product_id'] ?? 0),
-                'quantity' => self::number($_POST['quantity'] ?? 1),
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'choices' => $choices,
             ]);
-        }, (string) __t('ecommerce.cart.added'), true);
+        }, (string) __t('ecommerce.cart.added'), true, static fn (array $cart): ?array => CartPresenter::addEvent(
+            $cart,
+            $productId,
+            $choices,
+            $quantity,
+            (string) ($cart['order']['currency'] ?? '') ?: (string) Ecommerce::config('catalog.currency', 'EUR')
+        ));
+    }
+
+    /**
+     * Le opzioni scelte di un multiprodotto, piatte: la scheda le manda gruppo
+     * per gruppo in `choices_{id}`, un client le può mandare tutte in `choices`.
+     * Le valida {@see \Wonder\Plugin\Gestionale\Support\Catalog\Bundles::resolve()}.
+     *
+     * @return list<int>
+     */
+    public static function choices(array $post): array
+    {
+        $ids = [];
+
+        foreach ($post as $key => $value) {
+            if ($key === 'choices' || preg_match('/^choices_\d+$/', (string) $key) === 1) {
+                foreach ((array) $value as $id) {
+                    if (is_scalar($id) && (int) $id > 0) {
+                        $ids[(int) $id] = (int) $id;
+                    }
+                }
+            }
+        }
+
+        return array_values($ids);
     }
 
     private static function preview(): never
@@ -75,7 +110,8 @@ final class CartController
         );
     }
 
-    private static function mutate(callable $mutation, string $notice, bool $createCart = false): never
+    /** @param (callable(array): ?array)|null $event l'evento GTM, dal carrello che il server ha appena scritto */
+    private static function mutate(callable $mutation, string $notice, bool $createCart = false, ?callable $event = null): never
     {
         self::requirePost();
         $wantsJson = self::wantsJson();
@@ -95,8 +131,13 @@ final class CartController
         }
 
         if ($wantsJson) {
-            $cart = is_array($cart) ? $cart : CartSession::current(false);
-            self::json(self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors));
+            $written = is_array($cart);
+            $cart = $written ? $cart : CartSession::current(false);
+            $payload = self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors);
+            if ($errors === [] && $written && $event !== null && ($pushed = $event($cart)) !== null) {
+                $payload['event'] = $pushed;
+            }
+            self::json($payload);
         }
 
         if ($errors === []) {

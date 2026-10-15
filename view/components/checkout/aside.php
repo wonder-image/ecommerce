@@ -11,7 +11,8 @@ $express = (string) ($express ?? '');
 ?>
 <aside class="<?=$withLines ? 'w-100 col-2 col-t-1 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
 
-    <h2 class="subtitle mb-4"><?=e(__t($withLines ? 'ecommerce.checkout.your_cart' : 'ecommerce.cart.summary'))?></h2>
+    <?php // Nel carrello il riepilogo è solo totali: titolo e righe stanno vicini. ?>
+    <h2 class="subtitle <?=$withLines ? 'mb-4' : 'mb-3'?>"><?=e(__t($withLines ? 'ecommerce.checkout.your_cart' : 'ecommerce.cart.summary'))?></h2>
     
     <?php if ($withLines): ?><?=View::component(Ecommerce::viewPath('components/checkout/lines.php'), compact('items', 'currency'))?><?php endif; ?>
     
@@ -19,11 +20,11 @@ $express = (string) ($express ?? '');
         <?=View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['csrf_token' => $csrf_token, 'code' => $couponCode, 'return' => $step === 'cart' ? 'cart' : 'checkout', 'id' => 'checkout-coupon'])?>
     <?php endif; ?>
 
-    <div class="w-100 mt-1" data-checkout-notices>
+    <div class="w-100<?=$withLines ? ' mt-1' : ''?>" data-checkout-notices>
         <?php foreach ($notices as $message): ?><p class="text-small" role="status"><?=e($message)?></p><?php endforeach; ?>
     </div>
 
-    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup'])?>
+    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
     
     <?=$express?>
 

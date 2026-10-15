@@ -124,3 +124,90 @@ main .wi-cart__remove {
     cursor: pointer;
     text-decoration: underline;
 }
+/* Il conteggio sotto il titolo, alla misura del testo. */
+main .wi-cart__count {
+    margin-top: 4px;
+    font-size: var(--text-font-size);
+    line-height: var(--text-line-height);
+}
+/* Scheda articolo: foto ferma in alto, a destra nome, scelte e prezzo sopra, quantità e «Rimuovi» sotto. */
+main .wi-cart__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+main .wi-cart__item .wi-thumb {
+    flex: 0 0 auto;
+}
+main .wi-cart__body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+main .wi-cart__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 16px;
+}
+main .wi-cart__meta {
+    margin-top: 2px;
+    font-size: var(--text-xsmall-font-size);
+    line-height: var(--text-xsmall-line-height);
+    color: var(--black-color-60, #737373);
+}
+main .wi-cart__parts {
+    margin-top: 6px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+}
+main .wi-cart__price {
+    text-align: right;
+    white-space: nowrap;
+}
+main .wi-cart__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+/* Lo stepper diventa una pillola unica: − e + senza bordo proprio. */
+main .wi-cart__foot .wi-cart__stepper {
+    justify-content: flex-start;
+    gap: 0;
+    border: 1px solid var(--dropdown-border-color, #e5e5e5);
+    border-radius: 999px;
+}
+main .wi-cart__foot .wi-cart__stepper .btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--black-color, #000);
+}
+main .wi-cart__foot .wi-cart__stepper .btn:hover {
+    background: var(--black-color-10, #f2f2f2);
+}
+main .wi-cart__foot .wi-cart__quantity {
+    min-width: 28px;
+}
+main .wi-cart__foot .wi-cart__remove {
+    color: var(--black-color-60, #737373);
+}
+/* Sul telefono la foto si stringe e lascia spazio a nome e prezzo. */
+@media (max-width: 650px) {
+    main .wi-cart__item {
+        gap: 12px;
+    }
+    main .wi-cart__item .wi-thumb {
+        --wi-thumb-size: 72px !important;
+    }
+    main .wi-cart__head {
+        gap: 8px;
+    }
+}

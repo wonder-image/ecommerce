@@ -37,6 +37,12 @@ $priceLabel = $minPrice !== $maxPrice
         'max' => $money($maxPrice, $data['currency']),
     ])
     : $money($minPrice, $data['currency']);
+// Il prezzo pieno barrato, se l'opzione mostrata è in offerta. Con una forbice
+// di prezzi lo scrive lo script quando la scelta individua un'opzione.
+$shownOffer = current(array_filter($data['offers'], static fn (array $offer): bool => $offer['product_id'] === $data['selected_product_id'])) ?: null;
+$regularPrice = $minPrice === $maxPrice && $shownOffer !== null && $shownOffer['regular_price'] > $shownOffer['price']
+    ? (float) $shownOffer['regular_price']
+    : 0.0;
 $similar_products = is_array($similar_products ?? null) ? $similar_products : [];
 $recent_products = is_array($recent_products ?? null) ? $recent_products : [];
 $suggested_products = is_array($suggested_products ?? null) ? $suggested_products : [];
@@ -83,6 +89,38 @@ $expressHere = (bool) Ecommerce::config('express.product', true);
 // Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
 $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
 
+// Multiprodotto: i gruppi di scelta vanno nel form d'acquisto. Il check-out
+// rapido manda solo il prodotto, senza scelte: con dei gruppi resta spento.
+$bundle = $data['bundle'];
+$bundleGroups = $bundle['groups'];
+if ($bundleGroups !== []) $expressHere = false;
+$quantityLabel = static fn (float $quantity): string => rtrim(rtrim(number_format($quantity, 3, ',', '.'), '0'), ',');
+$bundleFields = '';
+foreach ($bundleGroups as $group) {
+    $choices = [];
+    foreach ($group['options'] as $option) {
+        $choices[(string) $option['id']] = $option['surcharge'] > 0
+            ? (string) __t('ecommerce.catalog.bundle.surcharge', ['name' => $option['name'], 'price' => $money($option['surcharge'], $data['currency'])])
+            : $option['name'];
+    }
+    $hint = match (true) {
+        $group['min'] === $group['max'] => __t('ecommerce.catalog.bundle.choose_exactly', ['count' => $group['min']]),
+        $group['min'] === 0 => __t('ecommerce.catalog.bundle.choose_up_to', ['max' => $group['max']]),
+        default => __t('ecommerce.catalog.bundle.choose_between', ['min' => $group['min'], 'max' => $group['max']]),
+    };
+    // Una sola scelta obbligata è un radio; il resto checkbox, col tetto dal JS.
+    // La label della lib, così l'asterisco del campo obbligatorio le sta accanto.
+    $label = $group['name'].' · '.(string) $hint;
+    $field = FormField::key('choices_'.$group['id'])->label($label);
+    $field = $group['min'] === 1 && $group['max'] === 1
+        ? $field->radio($choices)->required()
+        : $field->checkbox()->options($choices);
+    $bundleFields .= '<fieldset class="b-0 p-0 m-0" aria-label="'.e($label).'" data-bundle-group="'.e((string) $group['id']).'" data-min="'.$group['min'].'" data-max="'.$group['max'].'">'
+        .$field
+        .'</fieldset>';
+}
+if ($bundleFields !== '') $bundleFields = '<div class="d-grid col-1 gap-4 mb-3" data-bundle-groups>'.$bundleFields.'</div>';
+
 Dependencies::swiper();
 Dependencies::fancyapps();
 View::head(DataLayer::script([
@@ -117,9 +155,18 @@ Ecommerce::layout('shop');
 
     <div class="product-details w-100 d-grid col-1 gap-3">
 
-        <?php if ($data['category'] !== ''): ?>
-            <div>
-                <a class="badge badge-primary tx-upper" href="<?=e($data['category_url'])?>"><?=e($data['category'])?></a>
+        <?php if ($data['category'] !== '' || $data['stock_managed']): ?>
+            <div class="d-flex flex-wrap gap-2">
+                <?php if ($data['category'] !== ''): ?>
+                    <a class="badge badge-primary tx-upper" href="<?=e($data['category_url'])?>"><?=e($data['category'])?></a>
+                <?php endif; ?>
+                <?php if ($data['stock_managed']): ?>
+                    <span class="badge badge-light" data-product-availability>
+                        <?=$data['available']
+                            ? '<i class="bi bi-circle-fill tx-success"></i> '.e(__t('ecommerce.catalog.availability.in_stock'))
+                            : '<i class="bi bi-circle-fill tx-danger"></i> '.e(__t('ecommerce.catalog.availability.out_of_stock'))?>
+                    </span>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
@@ -130,21 +177,29 @@ Ecommerce::layout('shop');
         <?php endif; ?>
 
         <div>
-            <p class="subtitle fw-600 mt-2" data-product-price><?=e($priceLabel)?></p>
-
-            <?php if ($data['stock_managed']): ?>
-                <span class="badge badge-light" data-product-availability>
-                    <?=$data['available']
-                        ? '<i class="bi bi-circle-fill tx-success"></i> '.e(__t('ecommerce.catalog.availability.in_stock'))
-                        : '<i class="bi bi-circle-fill tx-danger"></i> '.e(__t('ecommerce.catalog.availability.out_of_stock'))?>
-                </span>
-            <?php endif; ?>
+            <p class="subtitle fw-600 mt-2"><span data-product-price><?=e($priceLabel)?></span> <s class="text fw-400 tx-dark ml-2" data-product-regular<?=$regularPrice > 0 ? '' : ' hidden'?>><?=$regularPrice > 0 ? e($money($regularPrice, $data['currency'])) : ''?></s></p>
 
         </div>
 
         <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants']])?>
 
-        <div class="mt-6">
+        <?php if ($bundle['components'] !== [] || $bundle['value'] !== null): ?>
+            <div class="w-100 text-small" data-bundle-contents>
+                <?php if ($bundle['components'] !== []): ?>
+                    <h2 class="text-small fw-600 mb-2"><?=e(__t('ecommerce.catalog.bundle.contents'))?></h2>
+                    <ul class="d-grid col-1 gap-1 m-0 pl-4">
+                        <?php foreach ($bundle['components'] as $component): ?>
+                            <li><?=e($quantityLabel($component['quantity']))?> × <?=e($component['name'])?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+                <?php if ($bundle['value'] !== null): ?>
+                    <p class="mt-2"><?=e(__t($bundleGroups !== [] ? 'ecommerce.catalog.bundle.value_from' : 'ecommerce.catalog.bundle.value', ['price' => $money($bundle['value'], $data['currency'])]))?></p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="<?=$bundleGroups !== [] ? 'mt-2' : 'mt-6'?>">
             <?php if (count($data['offers']) === 1): ?>
                 <?php if ($data['available']): ?>
                     <?=View::component(Ecommerce::viewPath('components/cart/add.php'), [
@@ -152,6 +207,7 @@ Ecommerce::layout('shop');
                         'csrf_token' => AuthSession::csrfToken(),
                         'label' => __t('ecommerce.cart.add'),
                         'stepper' => $stepper,
+                        'fields' => $bundleFields,
                     ])?>
                 <?php else: ?>
                     <button class="btn btn-primary w-100" type="button" disabled><?=e(__t('ecommerce.catalog.availability.out_of_stock'))?></button>
@@ -188,6 +244,7 @@ Ecommerce::layout('shop');
                         <?php endforeach; ?>
                     </div>
                     <?php endif; ?>
+                    <?=$bundleFields?>
                     <div class="w-100 d-flex gap-3 mt-3">
                         <?php if ($stepper): ?><?=View::component(Ecommerce::viewPath('components/cart/quantity.php'))?><?php endif; ?>
                         <button class="btn btn-primary w-100" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
@@ -316,7 +373,13 @@ document.addEventListener('DOMContentLoaded', function () {
             expressRoot.dataset.expressUnit = Math.round(offer.price * 100);
             expressRoot.dispatchEvent(new Event('express:amount'));
         }
-        if (price && offer) price.textContent = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> }).format(offer.price);
+        const format = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> });
+        if (price && offer) price.textContent = format.format(offer.price);
+        const regular = document.querySelector('[data-product-regular]');
+        if (regular && offer) {
+            regular.hidden = !(offer.regular_price > offer.price);
+            regular.textContent = regular.hidden ? '' : format.format(offer.regular_price);
+        }
         if (availability && offer) availability.innerHTML = offer.available
             ? '<i class="bi bi-circle-fill tx-success"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.in_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>
             : '<i class="bi bi-circle-fill tx-danger"></i> ' + <?=json_encode((string) __t('ecommerce.catalog.availability.out_of_stock'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>;
@@ -335,6 +398,55 @@ document.addEventListener('DOMContentLoaded', function () {
         if (event.persisted) sync();
     });
     sync();
+});
+</script>
+<?php endif; ?>
+
+<?php if ($bundleGroups !== []): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const box = document.querySelector('[data-bundle-groups]');
+    const form = box?.closest('form');
+    if (!form) return;
+    // Il server riconvalida tutto (Bundles::resolve): qui si guida la scelta.
+    const prices = <?=json_encode(array_column($data['offers'], 'price', 'product_id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
+    const regulars = <?=json_encode(array_column($data['offers'], 'regular_price', 'product_id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
+    const available = <?=json_encode(array_column($data['offers'], 'available', 'product_id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
+    const surcharges = <?=json_encode(array_column(array_merge(...array_column($bundleGroups, 'options')), 'surcharge', 'id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
+    const money = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> });
+    const groups = Array.from(box.querySelectorAll('[data-bundle-group]'));
+    const update = function () {
+        let complete = true;
+        let cents = 0;
+        groups.forEach(group => {
+            const inputs = Array.from(group.querySelectorAll('input[type="checkbox"], input[type="radio"]'));
+            const checked = inputs.filter(input => input.checked);
+            const min = Number(group.dataset.min);
+            const max = Number(group.dataset.max);
+            if (checked.length < min) complete = false;
+            group.toggleAttribute('data-incomplete', checked.length < min);
+            inputs.forEach(input => {
+                if (input.type === 'checkbox') input.disabled = !input.checked && checked.length >= max;
+            });
+            checked.forEach(input => { cents += Math.round(Number(surcharges[input.value] || 0) * 100); });
+        });
+        const productId = String(form.querySelector('[name="product_id"]')?.value || '');
+        const price = document.querySelector('[data-product-price]');
+        if (price && productId in prices) price.textContent = money.format((Math.round(Number(prices[productId]) * 100) + cents) / 100);
+        // Anche il prezzo pieno porta i sovrapprezzi: lo sconto resta quello dell'opzione.
+        const regular = document.querySelector('[data-product-regular]');
+        if (regular && productId in prices) {
+            regular.hidden = !(Number(regulars[productId]) > Number(prices[productId]));
+            regular.textContent = regular.hidden ? '' : money.format((Math.round(Number(regulars[productId]) * 100) + cents) / 100);
+        }
+        const submit = form.querySelector('[type="submit"]');
+        if (submit) submit.disabled = !complete || !(productId in available) || !available[productId];
+    };
+    // Dopo il sync delle opzioni del prodotto, che riscrive prezzo e bottone.
+    form.addEventListener('change', () => setTimeout(update));
+    form.addEventListener('click', event => { if (event.target.closest('[data-option-value]')) setTimeout(update); });
+    window.addEventListener('pageshow', event => { if (event.persisted) setTimeout(update); });
+    update();
 });
 </script>
 <?php endif; ?>

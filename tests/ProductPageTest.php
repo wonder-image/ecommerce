@@ -172,4 +172,50 @@ check('i bottoni rapidi stanno sotto «Aggiungi» e seguono la disponibilità de
         && str_contains($view, 'expressBox.hidden = !offer || !offer.available;');
 });
 
+check('i gruppi di un multiprodotto escono normalizzati, coi limiti dentro le opzioni', function () {
+    $data = ProductDetail::make([
+        'name' => 'Cesto',
+        'offers' => [['product_id' => 9, 'regular_price' => 39, 'available' => true]],
+        'bundle' => [
+            'components' => [['name' => 'Pane', 'quantity' => '2']],
+            'groups' => [
+                ['id' => 3, 'name' => 'Vino', 'min' => 1, 'max' => 1, 'options' => [
+                    ['id' => 31, 'name' => 'Rosso', 'surcharge' => '0.00'],
+                    ['id' => 32, 'name' => 'Bianco', 'surcharge' => '5.00'],
+                ]],
+                ['id' => 4, 'name' => 'Dolci', 'min' => 5, 'max' => 9, 'options' => [['id' => 41, 'name' => 'Torrone']]],
+                ['id' => 5, 'name' => 'Vuoto', 'min' => 1, 'max' => 1, 'options' => []],
+            ],
+            'value' => '0',
+        ],
+    ])->data()['bundle'];
+
+    return $data['components'] === [['name' => 'Pane', 'quantity' => 2.0]]
+        && count($data['groups']) === 2
+        && $data['groups'][0]['options'][1]['surcharge'] === 5.0
+        && $data['groups'][1]['min'] === 1 && $data['groups'][1]['max'] === 1
+        && $data['value'] === null;
+});
+
+check('la scheda mostra i gruppi di scelta, ne fa rispettare min/max e toglie i bottoni rapidi', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+    $add = (string) file_get_contents(dirname(__DIR__).'/view/components/cart/add.php');
+
+    return str_contains($view, 'data-bundle-groups')
+        && str_contains($view, "FormField::key('choices_'.")
+        && str_contains($view, 'data-min=')
+        && str_contains($view, 'data-max=')
+        && str_contains($view, '$expressHere = false;')
+        && str_contains($add, '<?=$fields?>');
+});
+
+check('in offerta il prezzo pieno compare barrato e segue opzione e sovrapprezzi', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+
+    return str_contains($view, '<s class="text fw-400 tx-dark ml-2" data-product-regular')
+        && str_contains($view, "\$shownOffer['regular_price'] > \$shownOffer['price']")
+        && str_contains($view, 'offer.regular_price > offer.price')
+        && str_contains($view, 'Number(regulars[productId]) * 100) + cents');
+});
+
 summary();

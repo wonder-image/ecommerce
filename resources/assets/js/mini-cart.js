@@ -23,11 +23,16 @@ class Cart {
             this.backdrop.style.transitionDuration = '.3s';
         }
 
+        // Tutti i pannelli fermi al bordo destro e spostati fuori schermo
+        // della stessa distanza: entrano insieme, da destra verso sinistra.
+        // `translate` e non `transform`: `.c-h` ha un transform !important nella lib
+        // che lo annullerebbe, lasciando quel pannello sempre a vista.
         this.panels.forEach(function (panel) {
-            panel.style.right = '-150%';
-            panel.style.transitionProperty = 'right';
-            panel.style.transitionDuration = '.3s';
-            panel.style.transitionDelay = '.3s';
+            panel.style.right = '0';
+            panel.style.translate = '100vw 0';
+            panel.style.transitionProperty = 'translate';
+            panel.style.transitionDuration = '.4s';
+            panel.style.transitionTimingFunction = 'cubic-bezier(.22, 1, .36, 1)';
         });
     }
 
@@ -51,12 +56,11 @@ class Cart {
 
         window.requestAnimationFrame(() => {
             if (this.backdrop) {
-                this.backdrop.style.transitionDelay = '.3s';
                 this.backdrop.style.opacity = '1';
             }
 
             this.panels.forEach(function (panel) {
-                panel.style.right = '0';
+                panel.style.translate = '0 0';
             });
         });
 
@@ -66,7 +70,10 @@ class Cart {
             return false;
         }
 
-        this.element.querySelector('[data-cart-close].btn')?.focus();
+        // Il pannello sta ancora entrando: senza preventScroll il browser fa
+        // scorrere la sezione per mostrare il bottone e scopre una striscia a destra.
+        this.element.querySelector('[data-cart-close].btn')?.focus({ preventScroll: true });
+        this.element.scrollLeft = 0;
 
         return true;
     }
@@ -77,12 +84,11 @@ class Cart {
         }
 
         if (this.backdrop) {
-            this.backdrop.style.transitionDelay = '0s';
             this.backdrop.style.opacity = '0';
         }
 
         this.panels.forEach(function (panel) {
-            panel.style.right = '-150%';
+            panel.style.translate = '100vw 0';
         });
 
         this.element.classList.remove('show');
@@ -124,7 +130,11 @@ class Cart {
         }
 
         this.content.innerHTML = payload.html;
-        this.element.querySelectorAll('[data-cart-checkout]').forEach((link) => link.classList.toggle('d-none', Boolean(payload.empty)));
+        this.element.querySelectorAll('[data-cart-actions]').forEach((actions) => actions.classList.toggle('d-none', Boolean(payload.empty)));
+        document.querySelectorAll('[data-ecommerce-cart-count]').forEach(function (badge) {
+            badge.textContent = String(payload.count ?? '0');
+            badge.classList.toggle('d-none', Boolean(payload.empty) || String(payload.count ?? '0') === '0');
+        });
         document.dispatchEvent(new CustomEvent('ecommerce:cart:updated', {
             detail: {
                 count: payload.count,
@@ -155,6 +165,14 @@ class Cart {
                 body: new FormData(form),
             });
             this.render(payload);
+
+            // add_to_cart lo scrive il server dalla riga salvata: prezzi e
+            // sovrapprezzi sono quelli del carrello, non quelli della pagina.
+            if (payload.success && payload.event && payload.event.event === 'add_to_cart') {
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push({ ecommerce: null });
+                window.dataLayer.push(payload.event);
+            }
 
             if (openAfter) {
                 await this.open(null, false);

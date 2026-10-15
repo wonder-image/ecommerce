@@ -273,15 +273,19 @@ check('riquadro: resta invisibile finché Stripe non mostra i bottoni', fn () =>
     return preg_match('~<div[^>]*data-express=[^>]*data-express-loading~', $html) === 1;
 }));
 
-check('riquadro: titolo, bottoni, condizioni piccole e staccate, poi «OPPURE» nel checkout e nel carrello', fn () => prova(static function () use ($tradotto): bool {
+check('riquadro: titolo (non nel carrello), bottoni, condizioni piccole e staccate, poi «OPPURE» nel checkout e nel carrello', fn () => prova(static function () use ($tradotto): bool {
     foreach (['checkout', 'cart'] as $fonte) {
         $html = riquadro($fonte);
         $titolo = strpos($html, '>'.$tradotto('express').'<');
         $bottoni = strpos($html, 'data-express-element');
         $condizioni = strpos($html, '<p class="text-xsmall a-c mt-3">'.$tradotto('express_terms'));
         $oppure = strpos($html, '<p class="wi-express__or mt-5">'.$tradotto('or').'</p>');
-        if ($titolo === false || $bottoni === false || $condizioni === false || $oppure === false
-            || !($titolo < $bottoni && $bottoni < $condizioni && $condizioni < $oppure)) {
+        // Nel carrello i bottoni stanno nel riepilogo senza titolo.
+        if ($fonte === 'cart' ? $titolo !== false : ($titolo === false || $titolo > $bottoni)) {
+            return false;
+        }
+        if ($bottoni === false || $condizioni === false || $oppure === false
+            || !($bottoni < $condizioni && $condizioni < $oppure)) {
             return false;
         }
     }
@@ -296,10 +300,10 @@ check('riquadro del prodotto: «Oppure acquista ora con», niente «OPPURE»', f
         && !str_contains($html, 'wi-express__or');
 }));
 
-check('riquadro: nel carrello e sul prodotto i bottoni stanno in fila e Google Pay mostra solo il logo', fn () => prova(static function (): bool {
-    foreach (['cart', 'product'] as $fonte) {
+check('riquadro: nel carrello e sul prodotto i bottoni stanno in fila (nel carrello due per riga) e Google Pay mostra solo il logo', fn () => prova(static function (): bool {
+    foreach (['cart' => '"layout":{"maxColumns":2,"overflow":"never"}', 'product' => '"layout":{"overflow":"never"}'] as $fonte => $layout) {
         $html = html_entity_decode(riquadro($fonte), ENT_QUOTES);
-        if (!str_contains($html, '"layout":{"overflow":"never"}') || !str_contains($html, '"buttonType":{"googlePay":"plain"}')) {
+        if (!str_contains($html, $layout) || !str_contains($html, '"buttonType":{"googlePay":"plain"}')) {
             return false;
         }
     }

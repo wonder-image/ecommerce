@@ -57,6 +57,27 @@ final class CartSession
         return Cart::recalculate((int) $cart['id']);
     }
 
+    /**
+     * Quanti articoli ci sono nel carrello, senza aprirlo né ricalcolarlo:
+     * serve a ogni pagina per il numerino sull'icona del nav.
+     */
+    public static function count(): string
+    {
+        $token = self::token(false);
+        $customerId = self::customerId();
+        $carts = array_filter([
+            self::guest($token),
+            $customerId > 0 ? self::customerCart($customerId) : null,
+        ]);
+        $items = [];
+
+        foreach ($carts as $cart) {
+            array_push($items, ...Cart::contents((int) $cart['id'])['items']);
+        }
+
+        return CartPresenter::count($items);
+    }
+
     public static function user(): object
     {
         return \infoUser((int) ($_SESSION['user_id'] ?? 0), 'id');

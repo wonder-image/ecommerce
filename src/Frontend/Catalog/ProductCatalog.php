@@ -15,6 +15,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
 use Wonder\Plugin\Gestionale\Models\Locations\Location;
 use Wonder\Plugin\Gestionale\Models\Stock\Stock as StockRow;
 use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
+use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 use Wonder\Plugin\Gestionale\Support\Stock\Levels;
@@ -141,8 +142,13 @@ final class ProductCatalog
         $stockManaged = self::stockManaged();
         $optionGroups = self::optionGroups($model, $products);
 
+        // Un multiprodotto non ha giacenza propria: si vende finché i suoi
+        // pezzi bastano per almeno una confezione.
+        $bundle = ($model['type'] ?? 'simple') === 'bundle';
+        $bundleQuantity = $bundle && $stockManaged ? Bundles::available($modelId) : 0.0;
+
         foreach ($products as $product) {
-            $quantity = self::onHand((int) $product['id']);
+            $quantity = $bundle ? $bundleQuantity : self::onHand((int) $product['id']);
 
             $sku = trim((string) ($product['sku'] ?? ''));
             $offers[] = [
@@ -210,11 +216,32 @@ final class ProductCatalog
             'images' => $images,
             'offers' => $offers,
             'option_groups' => $optionGroups,
+            'bundle' => $bundle ? self::bundle($modelId) : [],
             'preferred_product_id' => OptionQuery::match($optionGroups, $offers, $query) ?? 0,
             'stock_managed' => $stockManaged,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
             'details' => self::details($model),
         ]);
+    }
+
+    /**
+     * Cosa contiene il multiprodotto e cosa si sceglie: i componenti contano
+     * solo fuori da `choice`, i gruppi solo fuori da `fixed`, come in
+     * {@see Bundles::resolve()}.
+     *
+     * @return array<string, mixed>
+     */
+    private static function bundle(int $modelId): array
+    {
+        $bundle = Bundles::forModel($modelId);
+        $mode = (string) $bundle['mode'];
+
+        return [
+            'mode' => $mode,
+            'components' => $mode === 'choice' ? [] : $bundle['components'],
+            'groups' => $mode === 'fixed' ? [] : $bundle['groups'],
+            'value' => $bundle['show_value'] ? (float) Bundles::componentsValue($modelId) : null,
+        ];
     }
 
     /** @return list<array<string, mixed>> */

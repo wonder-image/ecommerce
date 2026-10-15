@@ -24,14 +24,18 @@
                     </div>
                 </div>
             </div>
-            <div class="w-100 d-grid col-1 gap-2 mt-5">
-                <div class="w-100 d-grid col-2 gap-2">
-                    <button class="btn btn-secondary w-100 a-c" type="button" data-cart-close><?=e(__t('ecommerce.cart.mini.continue_shopping'))?></button>
-                    <a class="btn btn-secondary w-100 a-c" href="<?=e(__r('ecommerce.cart.index'))?>"><?=e(__t('ecommerce.cart.mini.view_cart'))?></a>
+            <?php // Col carrello vuoto le azioni non servono: le nasconde mini-cart.js. ?>
+            <div class="w-100 mt-5 d-none" data-cart-actions>
+                <div class="w-100 d-grid col-1 gap-2 mb-3">
+                    <button class="btn btn-dark-o w-100 a-c" type="button" data-cart-close>
+                        <i class="bi bi-arrow-left mr-2" aria-hidden="true"></i><?=e(__t('ecommerce.cart.mini.continue_shopping'))?>
+                    </button>
+                    <a class="btn btn-dark-o w-100 a-c" href="<?=e(__r('ecommerce.cart.index'))?>">
+                        <i class="bi bi-bag mr-2" aria-hidden="true"></i><?=e(__t('ecommerce.cart.mini.view_cart'))?>
+                    </a>
                 </div>
-                <?php // Col carrello vuoto il checkout non serve: lo nasconde mini-cart.js. ?>
-                <a class="btn btn-primary btn-lg w-100 a-c" href="<?=e(__r('ecommerce.checkout.index'))?>" data-cart-checkout>
-                    <span class="subtitle"><?=e(__t('ecommerce.cart.mini.checkout'))?></span>
+                <a class="btn btn-primary btn-lg btn-arrow w-100 a-c fw-600" href="<?=e(__r('ecommerce.checkout.index'))?>" data-cart-checkout>
+                    <?=e(__t('ecommerce.cart.mini.checkout'))?><i class="bi bi-arrow-right" aria-hidden="true"></i>
                 </a>
             </div>
         </div>

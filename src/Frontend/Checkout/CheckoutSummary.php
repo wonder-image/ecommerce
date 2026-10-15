@@ -52,6 +52,7 @@ final class CheckoutSummary
         foreach ($preview['items'] as $i => $riga) {
             $preview['items'][$i]['line_total_display'] = CartPresenter::money($riga['line_total'] ?? 0, $valuta);
             $preview['items'][$i]['quantity_display'] = CartPresenter::quantity($riga['quantity'] ?? 1);
+            $preview['items'][$i]['parts'] = CartPresenter::parts($riga);
         }
 
         foreach ($preview['shipping_methods']['options'] as $i => $opzione) {

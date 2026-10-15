@@ -3,6 +3,15 @@
         "name": "Negozio online"
     },
     "catalog": {
+        "bundle": {
+            "contents": "Cosa contiene",
+            "value": "Valore dei prodotti: {{price}}",
+            "value_from": "Valore dei prodotti da {{price}}",
+            "surcharge": "{{name}} (+{{price}})",
+            "choose_exactly": "scegli {{count}}",
+            "choose_up_to": "fino a {{max}}",
+            "choose_between": "da {{min}} a {{max}}"
+        },
         "breadcrumb_label": "Percorso della pagina",
         "breadcrumb_home": "Home",
         "breadcrumb_products": "Prodotti",
@@ -69,12 +78,14 @@
         "seo": "Controlla i prodotti nel carrello prima di procedere al checkout.",
         "count": "{{count}} articoli",
         "count_one": "1 articolo",
+        "in_cart": "Hai {{items}} nel carrello",
         "empty_title": "Il carrello è vuoto",
         "empty_text": "Aggiungi un prodotto per iniziare il tuo acquisto.",
         "sku": "Codice: {{sku}}",
         "decrease": "Diminuisci la quantità",
         "increase": "Aumenta la quantità",
         "quantity": "Quantità",
+        "each": "{{price}} cad.",
         "update": "Aggiorna",
         "remove": "Rimuovi",
         "remove_confirm_title": "Rimuovere il prodotto?",

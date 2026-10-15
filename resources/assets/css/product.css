@@ -50,3 +50,13 @@ main .wi-quantity input::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
+/* Gruppi di scelta del multiprodotto: la label ha la misura di «Cosa contiene». */
+main [data-bundle-groups] .wi-input-container.checkbox .wi-label {
+    height: auto;
+    color: inherit;
+    font-family: var(--text-small-font-family);
+    font-size: var(--text-small-font-size);
+    font-weight: 600;
+    line-height: var(--text-small-line-height);
+}

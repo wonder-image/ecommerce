@@ -61,6 +61,25 @@ HttpOnly di 30 giorni) e “Potrebbero piacerti”, basato sui tag in comune e p
 sul marchio. Ogni slider invia un `view_item_list`; `view_product` resta il
 primo evento ecommerce della pagina.
 
+Quando un'aggiunta al carrello via mini-carrello riesce, la risposta JSON di
+`/cart/add/` porta `event`: un `add_to_cart` GA4 costruito dal server sulla
+riga appena scritta (prezzo unitario con i sovrapprezzi, quantità aggiunta).
+`mini-cart.js` azzera `ecommerce` e lo spinge nel `dataLayer`. L'invio senza
+JavaScript (redirect) non genera l'evento.
+
+## Multiprodotti
+
+Un multiprodotto `choice` o `mixed` mostra i suoi gruppi di scelta
+(`Bundles::forModel()`): radio se il gruppo chiede esattamente uno, checkbox
+altrimenti, con il sovrapprezzo accanto all'opzione. Il form manda le opzioni
+in `choices_{gruppo}`; `CartController` le appiattisce e le passa a
+`Cart::add()`, che le valida. Sulla pagina lo script blocca le checkbox oltre
+il massimo, tiene disabilitato «Aggiungi» finché manca un minimo e somma i
+sovrapprezzi al prezzo mostrato. I pezzi fissi stanno in «Cosa contiene»; con
+`show_value` compare il valore dei pezzi (`Bundles::componentsValue()`, «da»
+se ci sono gruppi). Lo schema `Offer` resta sul prezzo base. I bottoni di
+pagamento rapido non compaiono: il checkout rapido non porta le scelte.
+
 # Head e breadcrumb condivisi
 
 Catalogo e prodotto passano lo schema come array a `$SEO->schemaOrg`.

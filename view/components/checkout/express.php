@@ -22,7 +22,8 @@ if (($style = module_asset('ecommerce', 'css/express.css')) !== '') {
 }
 ?>
 <div class="w-100 wi-express<?=$source === 'checkout' ? '' : ' mt-5'?>" data-express="<?=e(json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))?>"<?php if ($wait !== ''): ?> data-express-wait="<?=e($wait)?>"<?php endif; ?> data-express-loading>
-    <h2 class="text-small a-c mb-3"><?=e($title)?></h2>
+    <?php // Nel carrello i bottoni stanno nel riepilogo, sopra «Vai al checkout»: si spiegano da soli, niente titolo. ?>
+    <?php if ($source !== 'cart'): ?><h2 class="text-small a-c mb-3"><?=e($title)?></h2><?php endif; ?>
     <div class="w-100" data-express-element></div><?php if (!empty($captcha)): ?><div class="wi-recaptcha-cell w-100 mt-3" data-wi-recaptcha-standalone><?=FormField::key('recaptcha')->recaptcha('ecommerce_express')?></div><?php endif; ?>
     <p class="text-xsmall a-c mt-3"><?=e($termsText)?> <?php if ($terms !== ''): ?><a href="<?=e($terms)?>" target="_blank" rel="noopener"><?=e($termsLink)?></a><?php else: ?><?=e($termsLink)?><?php endif; ?> <?=e($privacyJoin.$privacyGap)?><?php if ($privacy !== ''): ?><a href="<?=e($privacy)?>" target="_blank" rel="noopener"><?=e($privacyLink)?></a><?php else: ?><?=e($privacyLink)?><?php endif; ?>.</p>
     <p class="text-small a-c mt-2" data-express-message role="status" hidden></p>
