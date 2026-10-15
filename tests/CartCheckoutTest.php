@@ -379,7 +379,7 @@ check('checkout: avviso di spedizione piccolissimo, griglie dei campi con gap 3 
     $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
 
     return str_contains($view, 'text-xsmall" data-checkout-notice') && !str_contains($view, 'gap-p-2')
-        && substr_count($view, 'd-grid col-4 gap-4 gap-p-3') === 5 && substr_count($view, 'mt-4 mt-p-3') >= 3;
+        && substr_count($view, 'd-grid col-4 col-p-5 gap-4 gap-p-3') === 5 && substr_count($view, 'mt-4 mt-p-3') >= 3;
 });
 
 check('i testi della pagina unica ci sono in italiano e in inglese, quelli dei passi no', function (): bool {
@@ -596,10 +596,21 @@ check('indirizzi e fattura stanno su 4 colonne con la larghezza di ogni campo', 
     }
     $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
 
-    return !str_contains($v, 'col-2 col-p-1')
-        && substr_count($v, 'd-grid col-4 gap-4') === 5
-        && substr_count($v, 'col-<?=CheckoutFields::span($key)?>') >= 3
-        && str_contains($v, "col-<?=CheckoutFields::span('shipping_name')?>");
+    // Da telefono 5 colonne: l'indirizzo da solo, poi civico e provincia, città e CAP, prefisso e telefono.
+    $phone = ['shipping_street' => 5, 'billing_number' => 2, 'shipping_province' => 3, 'billing_city' => 3,
+        'shipping_cap' => 2, 'shipping_phone_prefix' => 2, 'shipping_phone' => 3, 'shipping_name' => 5,
+        'billing_business_name' => 3, 'billing_sdi' => 2, 'billing_pec' => 5];
+    foreach ($phone as $key => $span) {
+        if (CheckoutFields::phoneSpan($key) !== $span) {
+            return false;
+        }
+    }
+
+    return CheckoutFields::cols('shipping_street') === 'col-3 col-p-5'
+        && !str_contains($v, 'col-2 col-p-1')
+        && substr_count($v, 'd-grid col-4 col-p-5 gap-4 gap-p-3') === 5
+        && substr_count($v, '<?=CheckoutFields::cols($key)?>') >= 3
+        && str_contains($v, "<?=CheckoutFields::cols('shipping_name')?>");
 });
 
 check('la fattura mette in fila ragione sociale e SDI, poi partita IVA, codice fiscale e PEC', function (): bool {
