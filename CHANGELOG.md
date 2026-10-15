@@ -31,6 +31,19 @@ versionamento semantico.
     pagamenti, cambio piano, disdetta e aggiornamento della carta sul portale
     di Stripe.
 
+- **Abbonamenti con più servizi** (G10b, con il gestionale dello stesso ramo):
+  - dalla pagina dei piani si compone una selezione in sessione: quantità,
+    personalizzazioni e servizio a cui si lega (`/abbonamenti/{ppr_…}/`);
+    togliere una madre toglie le figlie; `add_to_cart` e `remove_from_cart`;
+  - riepilogo con importi del primo addebito e coupon, poi un solo Stripe
+    Checkout con una riga per servizio; `begin_checkout` e `purchase` con un
+    item per servizio;
+  - area cliente → Abbonamenti: i servizi di ogni abbonamento, **Aggiungi
+    servizio** con la quota pro-rata mostrata prima della conferma, **Togli**
+    a fine periodo (con le figlie) e **Cambia** subito, pro-rata. Il vecchio
+    *Cambia piano* dell'abbonamento non c'è più;
+  - al limite di abbonamenti la pagina dei piani porta ad Aggiungi servizio.
+
   Documentazione in `docs/subscriptions.md`.
 
 - Scheletro del modulo: manifest, entrypoint `Ecommerce`, configurazione,
