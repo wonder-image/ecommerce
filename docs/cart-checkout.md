@@ -18,7 +18,8 @@ cliente. Un semplice GET su `/cart/` non crea né cookie né righe nel database.
 ## Componenti pubblici
 
 - `view/components/cart/add.php`: form POST riutilizzabile per aggiungere un
-  prodotto. Richiede `product_id`; accetta `quantity`, `label` e `continue`.
+  prodotto. Richiede `product_id`; accetta `quantity`, `label`, `continue`,
+  `stepper` (−/+), `fields` e `id` (vuoto se il form si ripete, come nelle card).
   CSRF e id del form GTM sono gestiti dal componente.
 - `/cart/`: riepilogo, modifica quantità e rimozione, nel layout del negozio.
 - `/checkout/`: una pagina sola con riepilogo a destra (vedi sotto).

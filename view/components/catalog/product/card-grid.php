@@ -1,9 +1,20 @@
 <?php
+
+use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\View\View;
+
 $product = is_array($product ?? null) ? $product : [];
 $url = (string) ($product['url'] ?? '');
 $tag = $url !== '' ? 'a' : 'div';
 $link = $url !== '' ? ' href="'.e($url).'"' : '';
-$variants = array_slice((array) ($product['variants'] ?? []), 0, 5);
+// Una sola variante non è una scelta: la fila compare da due in su.
+$variants = (array) ($product['variants'] ?? []);
+$variants = count($variants) > 1 ? $variants : [];
+// Al massimo cinque, e quella della card resta sempre in fila.
+$active = array_values(array_filter($variants, static fn (mixed $variant): bool => !empty($variant['active'])));
+$variants = array_slice($variants, 0, 5);
+if ($active !== [] && !in_array($active[0], $variants, true)) $variants[4] = $active[0];
+$cart = is_array($product['cart'] ?? null) ? $product['cart'] : null;
 ?>
 <article class="product-card product-card--grid w-100 h-100">
     <<?=$tag?> class="product-card__media p-r d-block f-1-1 bg-light o-hidden"<?=$link?>>
@@ -16,30 +27,46 @@ $variants = array_slice((array) ($product['variants'] ?? []), 0, 5);
             <span class="product-card__badge badge badge-primary p-a top start m-2"><?=e($product['badge'])?></span>
         <?php endif; ?>
     </<?=$tag?>>
-    <div class="product-card__body pt-2">
-        <<?=$tag?> class="product-card__name d-block text fw-500 tx-black max-line-2"<?=$link?>><?=e($product['name'] ?? '')?></<?=$tag?>>
+    <div class="product-card__body w-100 pt-2">
+        <<?=$tag?> class="product-card__name d-block text fw-500 tx-black tx-none max-line-2"<?=$link?>><?=e($product['name'] ?? '')?></<?=$tag?>>
         <div class="product-card__price d-flex gap-2 mt-1 text-small">
             <span class="fw-700"><?=e($product['price'] ?? '')?></span>
             <?php if (($product['compare_at_price'] ?? '') !== ''): ?>
-                <s class="tx-secondary"><?=e($product['compare_at_price'])?></s>
+                <s class="fw-400 tx-dark"><?=e($product['compare_at_price'])?></s>
             <?php endif; ?>
         </div>
         <?php if ($variants !== []): ?>
-            <div class="product-card__variants d-flex gap-1 mt-2" aria-label="Varianti">
+            <div class="product-card__variants d-flex flex-wrap gap-1 mt-2" aria-label="<?=e(__t('ecommerce.catalog.variants'))?>">
                 <?php foreach ($variants as $variant): ?>
                     <?php $variantTag = ($variant['url'] ?? '') !== '' ? 'a' : 'span'; ?>
                     <<?=$variantTag?>
-                        class="product-card__variant p-r d-block w-15 f-1-1 b-1 b-r o-hidden<?=!empty($variant['active']) ? ' tx-primary' : ' tx-secondary'?>"
+                        class="product-card__variant d-block b-1 o-hidden tx-dark tx-none"
                         title="<?=e($variant['name'] ?? '')?>"
                         <?php if ($variantTag === 'a'): ?>href="<?=e($variant['url'])?>"<?php endif; ?>
+                        <?php if (!empty($variant['active'])): ?>aria-current="true"<?php endif; ?>
                     >
                         <?php if (($variant['image'] ?? '') !== ''): ?>
-                            <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" class="bg bg-cover" loading="lazy">
+                            <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" width="32" height="32" class="d-block w-100 h-100 o-cover" loading="lazy">
                         <?php else: ?>
-                            <span class="center text-small"><?=e(mb_substr((string) ($variant['name'] ?? ''), 0, 1))?></span>
+                            <span class="d-block text-xsmall p-1"><?=e($variant['name'] ?? '')?></span>
                         <?php endif; ?>
                     </<?=$variantTag?>>
                 <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($cart !== null): ?>
+            <div class="product-card__cart w-100 mt-3">
+                <?php if ($cart['product_id'] > 0 && $cart['available']): ?>
+                    <?=View::component(Ecommerce::viewPath('components/cart/add.php'), [
+                        'product_id' => $cart['product_id'],
+                        'stepper' => $cart['quantity'],
+                        'id' => '',
+                    ])?>
+                <?php elseif ($cart['product_id'] > 0): ?>
+                    <button class="btn btn-primary w-100" type="button" disabled><?=e(__t('ecommerce.catalog.availability.out_of_stock'))?></button>
+                <?php elseif ($url !== ''): ?>
+                    <a class="btn btn-black-o w-100" href="<?=e($url)?>"><?=e(__t('ecommerce.catalog.choose_options'))?></a>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
     </div>

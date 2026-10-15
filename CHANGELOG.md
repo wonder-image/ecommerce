@@ -7,6 +7,12 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Pronto per le IA e i motori**: `/llms.txt` e `/llms-full.txt` (negozio,
+  categorie e prodotti in Markdown), `/shared/catalogo.json` (feed del catalogo) e
+  `/shared/sitemap/catalogo.xml`, dichiarata in robots.txt tramite `module.json`.
+  Open Graph `product` sulla pagina prodotto. Testi in
+  `lang/{it,en}/discovery.json`.
+
 - Area cliente, dettaglio dell'ordine: le informazioni tre per riga, la riga
   **Evasione**, il pagamento col solo nome del metodo (senza le icone delle
   carte) e **Scarica la proforma** (`account.orders.proforma`, il PDF

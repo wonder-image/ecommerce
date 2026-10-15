@@ -82,6 +82,7 @@ final class ProductCard
             'compare_at_price' => $compareAtPrice,
             'badge' => $badge,
             'variants' => self::variants((array) ($row['variants'] ?? [])),
+            'cart' => self::cart($row['cart'] ?? null),
             'meta' => is_array($row['meta'] ?? null) ? $row['meta'] : [],
         ];
     }
@@ -107,6 +108,26 @@ final class ProductCard
         }
 
         return $normalized;
+    }
+
+    /**
+     * L'acquisto dalla card, se il catalogo lo offre: `product_id` 0 porta alla scheda.
+     *
+     * @return array{product_id:int, available:bool, quantity:bool}|null
+     */
+    private static function cart(mixed $cart): ?array
+    {
+        $cart = is_object($cart) ? get_object_vars($cart) : $cart;
+
+        if (!is_array($cart)) {
+            return null;
+        }
+
+        return [
+            'product_id' => max(0, (int) ($cart['product_id'] ?? 0)),
+            'available' => (bool) ($cart['available'] ?? true),
+            'quantity' => (bool) ($cart['quantity'] ?? false),
+        ];
     }
 
     private static function moneyLabel(array $row, string $formattedKey, string $numericKey): string

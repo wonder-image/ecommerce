@@ -51,12 +51,21 @@ main .wi-quantity input::-webkit-outer-spin-button {
     margin: 0;
 }
 
-/* Gruppi di scelta del multiprodotto: la label ha la misura di «Cosa contiene». */
-main [data-bundle-groups] .wi-input-container.checkbox .wi-label {
-    height: auto;
-    color: inherit;
-    font-family: var(--text-small-font-family);
-    font-size: var(--text-small-font-size);
-    font-weight: 600;
-    line-height: var(--text-small-line-height);
+/* Multiprodotto: i pezzi fissi sono righe `wi-choice` senza input. */
+main [data-bundle-contents] .wi-choice {
+    cursor: default;
+}
+
+/* Miniatura dell'articolo a sinistra del nome, fissa a 48px. */
+main .wi-choice > [data-bundle-thumb] {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+}
+
+/* Nome senza grassetto, dettagli sotto più piccoli. */
+main [data-bundle-groups] .wi-choice__title,
+main [data-bundle-contents] .wi-choice__title,
+main [data-bundle-groups] .wi-choice__aside {
+    font-weight: 400;
 }

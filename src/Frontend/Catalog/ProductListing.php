@@ -8,6 +8,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductImage;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
+use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 
 /** Carica i modelli reali e li presenta nel formato condiviso delle card. */
@@ -184,7 +185,7 @@ final class ProductListing
         }
 
         $showVariants = !in_array(
-            Ecommerce::config('catalog.card_show_variants', true),
+            Ecommerce::config('catalog.card.variants', true),
             [false, 0, '0', 'false', 'off'],
             true
         );
@@ -206,6 +207,7 @@ final class ProductListing
             'sale_price' => $onSale ? $price : 0,
             'short_description' => (string) ($model['short_description'] ?? ''),
             'variants' => $showVariants ? $variantCards : [],
+            'cart' => self::enabled('catalog.card.add_to_cart', false) ? self::cart($model, $products) : null,
             'meta' => [
                 'item_id' => (string) $cardId,
                 'item_name' => $name,
@@ -213,6 +215,36 @@ final class ProductListing
                 'item_variant' => is_array($selectedVariant) ? $variantName : '',
             ],
         ];
+    }
+
+    /**
+     * L'acquisto dalla card. Si compra lì solo ciò che non chiede scelte: un
+     * prodotto e, se è un multiprodotto, senza gruppi di opzioni. Altrimenti
+     * `product_id` è 0 e la card porta alla scheda.
+     *
+     * @param list<array<string, mixed>> $products
+     * @return array{product_id:int, available:bool, quantity:bool}
+     */
+    private static function cart(array $model, array $products): array
+    {
+        $bundle = ($model['type'] ?? 'simple') === 'bundle';
+        $choices = false;
+        if ($bundle) {
+            $definition = Bundles::forModel((int) ($model['id'] ?? 0));
+            $choices = $definition['mode'] !== 'fixed' && $definition['groups'] !== [];
+        }
+        $product = count($products) === 1 && !$choices ? $products[0] : null;
+
+        return [
+            'product_id' => $product !== null ? (int) ($product['id'] ?? 0) : 0,
+            'available' => $product === null || ProductCatalog::purchasable($product, $bundle),
+            'quantity' => self::enabled('catalog.card.quantity', false),
+        ];
+    }
+
+    private static function enabled(string $key, bool $default): bool
+    {
+        return !in_array(Ecommerce::config($key, $default), [false, 0, '0', 'false', 'off'], true);
     }
 
     public static function variantName(string $model, string $variant): string

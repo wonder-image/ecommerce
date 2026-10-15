@@ -30,7 +30,7 @@ check('il catalogo espone tutte le route richieste e un solo handler', function 
         && !str_contains($routes, '/ecommerce/product-cards/');
 });
 
-check('la lista usa filtri dinamici, pagination del core e griglia a quattro colonne', function () {
+check('la lista usa filtri dinamici, pagination del core e colonne dalla configurazione', function () {
     $root = dirname(__DIR__);
     $controller = (string) file_get_contents($root.'/src/Frontend/Catalog/CatalogController.php');
     $filter = (string) file_get_contents($root.'/src/Frontend/Catalog/CatalogFilter.php');
@@ -42,7 +42,7 @@ check('la lista usa filtri dinamici, pagination del core e griglia a quattro col
         && str_contains($filter, "'prezzo'")
         && str_contains($filter, "'ordina'")
         && str_contains($filter, "'is_filterable' => 'true'")
-        && str_contains($view, '->columns(4, 3, 2)')
+        && !str_contains($view, '->columns(')
         && str_contains($view, 'view_item_list')
         && str_contains($view, "'@type' => 'ItemList'")
         && substr_count($view, '<h1') === 1;
@@ -55,7 +55,11 @@ check('il catalogo puo mostrare modelli o varianti e nascondere le miniature del
     $view = (string) file_get_contents($root.'/view/pages/frontend/catalog.php');
 
     return ($config['catalog']['listing_entity'] ?? null) === 'model'
-        && ($config['catalog']['card_show_variants'] ?? null) === true
+        && ($config['catalog']['card']['variants'] ?? null) === true
+        && ($config['catalog']['card']['add_to_cart'] ?? null) === false
+        && ($config['catalog']['card']['quantity'] ?? null) === false
+        && !isset($config['catalog']['card_show_variants'], $config['catalog']['product_quantity'], $config['catalog']['option_selector'])
+        && str_contains($listing, "self::enabled('catalog.card.add_to_cart', false) ? self::cart(\$model, \$products) : null")
         && str_contains($listing, "=== 'variant'")
         && str_contains($listing, "trim(\$model.' '.\$variant)")
         && str_contains($listing, "'variants' => \$showVariants ? \$variantCards : []")

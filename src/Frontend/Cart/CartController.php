@@ -228,7 +228,7 @@ final class CartController
 
     private static function route(string $name, array $parameters = []): string
     {
-        return \__r($name, $parameters) ?: '/cart/';
+        return \__r($name, $parameters) ?: '/carrello/';
     }
 
     private static function redirect(string $url): never

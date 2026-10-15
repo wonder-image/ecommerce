@@ -211,3 +211,12 @@ main .wi-cart__foot .wi-cart__remove {
         gap: 8px;
     }
 }
+/* Riepilogo un po' più largo (420px, mai oltre il 40%): ci stanno due bottoni rapidi affiancati. Sotto i 1000px la lib va a una colonna. */
+@media (min-width: 1001px) {
+    main .d-grid[data-checkout-cart] {
+        grid-template-columns: minmax(0, 1fr) min(420px, 40%);
+    }
+    main [data-checkout-cart] > .col-2 {
+        grid-column: auto;
+    }
+}

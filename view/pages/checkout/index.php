@@ -165,7 +165,7 @@ View::head(DataLayer::script([
 
         <div id="pagamento" class="w-100">
             <h2 class="subtitle"><?=e(__t('ecommerce.checkout.payment'))?></h2>
-            <p class="text-small tx-secondary mt-1 mb-3"><?=e(__t('ecommerce.checkout.secure'))?></p>
+            <p class="text-small tx-dark mt-1 mb-3"><?=e(__t('ecommerce.checkout.secure'))?></p>
             <div class="w-100" data-checkout-payments>
                 <?php if ($payments === []): ?>
                     <p class="text"><?=e(__t('ecommerce.checkout.no_payment_methods'))?></p>

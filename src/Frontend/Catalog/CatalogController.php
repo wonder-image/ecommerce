@@ -50,11 +50,18 @@ final class CatalogController
         $SEO->description = $filter->description();
         $SEO->url = $canonical;
         $SEO->robots = 'INDEX,FOLLOW';
+        $SEO->searchUrl = self::searchUrl();
         $SEO->breadcrumb = [];
         foreach ($breadcrumbs as $item) {
             $url = (string) $item['url'];
             $SEO->breadcrumb[preg_match('~^https?://~', $url) ? $url : $site.'/'.ltrim($url, '/')] = (string) $item['name'];
         }
+    }
+
+    /** URL della ricerca con il segnaposto della SearchAction di schema.org. */
+    public static function searchUrl(): string
+    {
+        return __r('ecommerce.catalog.search').'?q={search_term_string}';
     }
 
     private static function breadcrumbs(CatalogFilter $filter): array

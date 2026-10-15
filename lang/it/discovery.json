@@ -1,0 +1,21 @@
+{
+    "llms": {
+        "summary": "Negozio online di {{site}}: catalogo dei prodotti con prezzi in {{currency}}, varianti e categorie.",
+        "intro": "Ogni scheda prodotto contiene dati strutturati schema.org (Product con Offer o AggregateOffer). Per leggere il catalogo intero usa il feed JSON, che ha gli stessi prezzi mostrati sul sito.",
+        "catalog": "Catalogo",
+        "catalog_all": "Tutti i prodotti",
+        "catalog_offers": "Offerte",
+        "catalog_new": "Novità",
+        "categories": "Categorie",
+        "data": "Dati",
+        "data_feed": "Catalogo in JSON",
+        "data_feed_note": "paginato, {{per_page}} prodotti per pagina; parametro page",
+        "data_sitemap": "Sitemap del catalogo",
+        "data_full": "Catalogo completo in testo",
+        "products": "Prodotti",
+        "price": "Prezzo: {{price}}",
+        "price_sale": "Prezzo: {{price}} (invece di {{regular}})",
+        "variants": "Varianti: {{list}}",
+        "truncated": "Elenco limitato ai primi {{count}} prodotti: il catalogo completo è nel feed JSON."
+    }
+}

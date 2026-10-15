@@ -73,15 +73,31 @@ restano attivi nei link generati da `pagination()` di `wonder-image/app`.
 Formati prezzo accettati: `20-100`, `50+`, `-80` oppure un prezzo esatto.
 Gli ordinamenti sono `recenti`, `prezzo_asc`, `prezzo_desc`, `nome_asc` e
 `nome_desc`.
-La griglia usa 4 colonne desktop, 3 tablet e 2 mobile; `catalog.per_page`
-stabilisce il numero di prodotti per pagina (12 per impostazione predefinita).
+Card per riga e limiti vengono dalla configurazione del sito; `columns()` e
+`swiperLimits()` di `ProductList` li superano per una singola lista:
 
-La granularita delle card si sceglie in `config/module.php`:
+```php
+'catalog' => [
+    'per_page' => 12,                                          // prodotti per pagina
+    'columns' => ['desktop' => 4, 'tablet' => 3, 'phone' => 2], // griglia, 1-12
+    'swiper' => [
+        'min' => 1,   // sotto questo numero lo slider non compare
+        'max' => 12,  // card al massimo
+        'columns' => ['desktop' => 4, 'tablet' => 2, 'phone' => 1.2],
+    ],
+],
+```
+
+La granularita e il contenuto delle card si scelgono in `config/module.php`:
 
 ```php
 'catalog' => [
     'listing_entity' => 'variant', // `model` oppure `variant`
-    'card_show_variants' => true,  // miniature delle altre varianti in card
+    'card' => [
+        'variants' => true,     // miniature delle altre varianti in card
+        'add_to_cart' => false, // «Aggiungi al carrello» nella card
+        'quantity' => false,    // −/+ accanto al bottone della card
+    ],
 ],
 ```
 
@@ -89,8 +105,32 @@ Con `model` il catalogo mostra una card per modello. Con `variant` ogni
 variante visibile e acquistabile riceve la propria card, immagine, prezzo e
 URL; il nome unisce modello e variante con uno spazio (`Dinosauro Verde`) e
 senza trattini. Paginazione, schema `ItemList` e `view_item_list` usano la
-stessa granularita. Impostando `card_show_variants` a `false` la riga di
-miniature sotto la card non viene renderizzata.
+stessa granularita. Le miniature delle varianti compaiono da due varianti in
+su, al massimo cinque, con quella della card selezionata (bordo più spesso,
+`aria-current`); lo stile è in `resources/assets/css/card.css`, registrato da
+`ProductList`. Impostando `card.variants` a `false` la riga di miniature
+sotto la card non viene renderizzata.
+
+Con `card.add_to_cart` la card compra direttamente quando corrisponde a un
+solo prodotto (`gst_products`) e, se è un multiprodotto, senza gruppi di
+scelta: usa `components/cart/add.php`, intercettato dal mini-carrello, con
+−/+ se `card.quantity` è attivo. Un prodotto esaurito mostra «Non
+disponibile» disabilitato; una card con più prodotti (taglie, scelte) mostra
+«Scegli le opzioni» verso la scheda. Il dato arriva in `cart`
+(`product_id`, `available`, `quantity`): `product_id` 0 porta alla scheda.
+
+La scheda prodotto ha una sezione propria:
+
+```php
+'product' => [
+    'quantity' => false, // −/+ accanto ad «Aggiungi al carrello»
+    'express' => true,   // Apple Pay, Google Pay, Link sotto il bottone
+    'option_selector' => ['default' => 'auto', 'attributes' => []],
+],
+'cart' => [
+    'express' => true,   // pagamento rapido nel riepilogo del carrello
+],
+```
 
 # Ricerca nell'header e catalogo filtrato
 

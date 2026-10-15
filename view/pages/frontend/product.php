@@ -5,6 +5,7 @@ use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
@@ -78,13 +79,13 @@ if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (st
 
 $productStyle = module_asset('ecommerce', 'css/product.css');
 if ($productStyle !== '') View::head('<link rel="stylesheet" href="'.e($productStyle).'">');
-if ((bool) Ecommerce::config('express.product', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+if ((bool) Ecommerce::config('product.express', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
     View::head('<script src="'.e($checkoutJs).'" defer></script>');
 }
 
 // Il sito decide se la scheda ha la quantità con −/+ e se mostra i bottoni rapidi.
-$stepper = (bool) Ecommerce::config('catalog.product_quantity', false);
-$expressHere = (bool) Ecommerce::config('express.product', true);
+$stepper = (bool) Ecommerce::config('product.quantity', false);
+$expressHere = (bool) Ecommerce::config('product.express', true);
 
 // Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
 $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
@@ -95,31 +96,44 @@ $bundle = $data['bundle'];
 $bundleGroups = $bundle['groups'];
 if ($bundleGroups !== []) $expressHere = false;
 $quantityLabel = static fn (float $quantity): string => rtrim(rtrim(number_format($quantity, 3, ',', '.'), '0'), ',');
+// Pezzi e opzioni sono righe `wi-choice` della lib, come i metodi di pagamento:
+// foto a sinistra se c'è, il modello e sotto la sua opzione («Blu · XL»), il
+// supplemento in alto a destra. I pezzi fissi non hanno input.
+$bundleRow = static function (string $tag, string $input, string $image, string $name, array $details, string $aside = ''): string {
+    [$title, $option] = CartPresenter::split($name);
+    array_unshift($details, $option);
+    $picture = $image !== ''
+        ? '<img src="'.e($image).'" alt="" width="48" height="48" loading="lazy" class="o-cover" data-bundle-thumb>'
+        : '';
+    $details = array_values(array_filter($details, 'strlen'));
+
+    return '<'.$tag.' class="wi-choice">'.$input.$picture
+        .'<span class="wi-choice__body"><span class="wi-choice__title">'.e($title).'</span>'
+        .($details !== [] ? '<span class="wi-choice__text">'.e(implode(' · ', $details)).'</span>' : '')
+        .'</span>'
+        .($aside !== '' ? '<span class="wi-choice__aside">'.e($aside).'</span>' : '')
+        .'</'.$tag.'>';
+};
 $bundleFields = '';
 foreach ($bundleGroups as $group) {
-    $choices = [];
-    foreach ($group['options'] as $option) {
-        $choices[(string) $option['id']] = $option['surcharge'] > 0
-            ? (string) __t('ecommerce.catalog.bundle.surcharge', ['name' => $option['name'], 'price' => $money($option['surcharge'], $data['currency'])])
-            : $option['name'];
-    }
     $hint = match (true) {
         $group['min'] === $group['max'] => __t('ecommerce.catalog.bundle.choose_exactly', ['count' => $group['min']]),
         $group['min'] === 0 => __t('ecommerce.catalog.bundle.choose_up_to', ['max' => $group['max']]),
         default => __t('ecommerce.catalog.bundle.choose_between', ['min' => $group['min'], 'max' => $group['max']]),
     };
     // Una sola scelta obbligata è un radio; il resto checkbox, col tetto dal JS.
-    // La label della lib, così l'asterisco del campo obbligatorio le sta accanto.
-    $label = $group['name'].' · '.(string) $hint;
-    $field = FormField::key('choices_'.$group['id'])->label($label);
-    $field = $group['min'] === 1 && $group['max'] === 1
-        ? $field->radio($choices)->required()
-        : $field->checkbox()->options($choices);
-    $bundleFields .= '<fieldset class="b-0 p-0 m-0" aria-label="'.e($label).'" data-bundle-group="'.e((string) $group['id']).'" data-min="'.$group['min'].'" data-max="'.$group['max'].'">'
-        .$field
+    $single = $group['min'] === 1 && $group['max'] === 1;
+    $rows = '';
+    foreach ($group['options'] as $option) {
+        $input = '<input type="'.($single ? 'radio' : 'checkbox').'" name="choices_'.$group['id'].($single ? '' : '[]').'" value="'.$option['id'].'"'.($single ? ' required' : '').'>';
+        $rows .= $bundleRow('label', $input, $option['image'], $option['name'], [], $option['surcharge'] > 0 ? '+'.$money($option['surcharge'], $data['currency']) : '');
+    }
+    $bundleFields .= '<fieldset class="wi-choice-group wi-choice-group--list" data-bundle-group="'.e((string) $group['id']).'" data-min="'.$group['min'].'" data-max="'.$group['max'].'">'
+        .'<legend class="wi-choice-group__legend text-small fw-400 mb-2">'.e($group['name'].' · '.(string) $hint).($group['min'] > 0 ? ' *' : '').'</legend>'
+        .'<div class="wi-choice-group__list">'.$rows.'</div>'
         .'</fieldset>';
 }
-if ($bundleFields !== '') $bundleFields = '<div class="d-grid col-1 gap-4 mb-3" data-bundle-groups>'.$bundleFields.'</div>';
+if ($bundleFields !== '') $bundleFields = '<div class="w-100 d-grid col-1 gap-4 mb-3" data-bundle-groups>'.$bundleFields.'</div>';
 
 Dependencies::swiper();
 Dependencies::fancyapps();
@@ -179,23 +193,23 @@ Ecommerce::layout('shop');
         <div>
             <p class="subtitle fw-600 mt-2"><span data-product-price><?=e($priceLabel)?></span> <s class="text fw-400 tx-dark ml-2" data-product-regular<?=$regularPrice > 0 ? '' : ' hidden'?>><?=$regularPrice > 0 ? e($money($regularPrice, $data['currency'])) : ''?></s></p>
 
+            <?php if ($bundle['value'] !== null): ?>
+                <p class="text-small tx-dark mt-2"><?=e(__t($bundleGroups !== [] ? 'ecommerce.catalog.bundle.value_from' : 'ecommerce.catalog.bundle.value', ['price' => $money($bundle['value'], $data['currency'])]))?></p>
+            <?php endif; ?>
         </div>
 
         <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants']])?>
 
-        <?php if ($bundle['components'] !== [] || $bundle['value'] !== null): ?>
-            <div class="w-100 text-small" data-bundle-contents>
-                <?php if ($bundle['components'] !== []): ?>
-                    <h2 class="text-small fw-600 mb-2"><?=e(__t('ecommerce.catalog.bundle.contents'))?></h2>
-                    <ul class="d-grid col-1 gap-1 m-0 pl-4">
-                        <?php foreach ($bundle['components'] as $component): ?>
-                            <li><?=e($quantityLabel($component['quantity']))?> × <?=e($component['name'])?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-                <?php if ($bundle['value'] !== null): ?>
-                    <p class="mt-2"><?=e(__t($bundleGroups !== [] ? 'ecommerce.catalog.bundle.value_from' : 'ecommerce.catalog.bundle.value', ['price' => $money($bundle['value'], $data['currency'])]))?></p>
-                <?php endif; ?>
+        <?php if ($bundle['components'] !== []): ?>
+            <div class="w-100 wi-choice-group wi-choice-group--list" data-bundle-contents>
+                <h2 class="wi-choice-group__legend text-small fw-400 mb-2"><?=e(__t('ecommerce.catalog.bundle.contents'))?></h2>
+                <div class="wi-choice-group__list">
+                    <?php foreach ($bundle['components'] as $component): ?>
+                        <?=$bundleRow('div', '', $component['image'], $component['name'], [
+                            (string) __t('ecommerce.catalog.bundle.quantity', ['count' => $quantityLabel($component['quantity'])]),
+                        ])?>
+                    <?php endforeach; ?>
+                </div>
             </div>
         <?php endif; ?>
 
@@ -210,7 +224,7 @@ Ecommerce::layout('shop');
                         'fields' => $bundleFields,
                     ])?>
                 <?php else: ?>
-                    <button class="btn btn-primary w-100" type="button" disabled><?=e(__t('ecommerce.catalog.availability.out_of_stock'))?></button>
+                    <button class="btn btn-primary w-100 wi-input-submit" type="button" disabled><?=e(__t('ecommerce.catalog.availability.out_of_stock'))?></button>
                 <?php endif; ?>
             <?php elseif ($data['offers'] !== []): ?>
                 <form id="add_to_cart_product" method="post" action="<?=e(__r('ecommerce.cart.add'))?>" data-ecommerce-add-to-cart>
@@ -247,7 +261,7 @@ Ecommerce::layout('shop');
                     <?=$bundleFields?>
                     <div class="w-100 d-flex gap-3 mt-3">
                         <?php if ($stepper): ?><?=View::component(Ecommerce::viewPath('components/cart/quantity.php'))?><?php endif; ?>
-                        <button class="btn btn-primary w-100" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
+                        <button class="btn btn-primary w-100 wi-input-submit" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
                     </div>
                 </form>
             <?php endif; ?>

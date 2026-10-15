@@ -269,7 +269,7 @@ final class ProductDetail
      * Componenti e gruppi di scelta di un multiprodotto, coi sovrapprezzi in
      * numeri. Un gruppo senza opzioni non si mostra: non si potrebbe scegliere.
      *
-     * @return array{components: list<array{name: string, quantity: float}>, groups: list<array{id: int, name: string, min: int, max: int, options: list<array{id: int, name: string, surcharge: float}>}>, value: float|null}
+     * @return array{components: list<array{name: string, quantity: float, image: string}>, groups: list<array{id: int, name: string, min: int, max: int, options: list<array{id: int, name: string, surcharge: float, image: string}>}>, value: float|null}
      */
     private static function bundle(array $bundle): array
     {
@@ -277,7 +277,7 @@ final class ProductDetail
         foreach ((array) ($bundle['components'] ?? []) as $component) {
             $name = self::string($component['name'] ?? '');
             if ($name !== '') {
-                $components[] = ['name' => $name, 'quantity' => (float) ($component['quantity'] ?? 1)];
+                $components[] = ['name' => $name, 'quantity' => (float) ($component['quantity'] ?? 1), 'image' => self::string($component['image'] ?? '')];
             }
         }
 
@@ -290,6 +290,7 @@ final class ProductDetail
                         'id' => (int) $option['id'],
                         'name' => self::string($option['name'] ?? ''),
                         'surcharge' => max(0.0, round((float) ($option['surcharge'] ?? 0), 2)),
+                        'image' => self::string($option['image'] ?? ''),
                     ];
                 }
             }

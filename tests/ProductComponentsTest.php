@@ -9,6 +9,10 @@ require __DIR__.'/harness.php';
 defined('APP_URL') || define('APP_URL', '');
 defined('RESPONSIVE_IMAGE_SIZES') || define('RESPONSIVE_IMAGE_SIZES', [240, 480, 960, 1440]);
 
+// Le frecce dello swiper hanno etichette tradotte: si leggono dal lang/ del modulo.
+\Wonder\Localization\LanguageContext::addLangPath(__DIR__.'/../lang');
+\Wonder\Localization\TranslationProvider::init();
+
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductCard;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 
@@ -83,7 +87,8 @@ check('le card usano solo componenti e utility del design system', function () u
     $html = ProductList::make($products)->renderGrid().ProductList::make($products)->renderList();
 
     return str_contains($html, 'badge badge-primary')
-        && str_contains($html, 'product-card__variant p-r d-block w-15 f-1-1 b-1 b-r')
+        && str_contains($html, 'product-card__variant d-block b-1 o-hidden')
+        && str_contains($html, 'product-card__name d-block text fw-500 tx-black tx-none')
         && !str_contains($html, 'style=')
         && !str_contains($html, 'px-')
         && !str_contains($html, 'py-');
@@ -125,7 +130,9 @@ check('la vista swiper rende card e configurazione responsive del core', functio
         && str_contains($html, 'swiper-slide')
         && str_contains($html, 'slidesPerView: 1.25')
         && str_contains($html, '720')
-        && str_contains($html, 'navigation');
+        && str_contains($html, 'data-product-list-nav=')
+        && str_contains($html, 'data-product-list-prev')
+        && str_contains($html, 'data-product-list-next');
 });
 
 check('la pagina dimostrativa non e esposta dalle route pubbliche', function () {
@@ -136,6 +143,45 @@ check('la pagina dimostrativa non e esposta dalle route pubbliche', function () 
     return !is_file($root.'/view/pages/frontend/product-cards.php')
         && !str_contains($routes, '/ecommerce/product-cards/')
         && str_contains($docs, 'demo/product-cards.php');
+});
+
+check('le varianti compaiono da due in su, con quella della card selezionata', function () use ($products) {
+    $two = ProductList::make([$products[0]])->renderGrid();
+    $one = ProductList::make([['name' => 'Cappello', 'variants' => [['name' => 'Unico', 'active' => true]]]])->renderGrid();
+
+    return substr_count($two, 'product-card__variant ') === 2
+        && substr_count($two, 'aria-current="true"') === 1
+        && str_contains($two, '<s class="fw-400 tx-dark">39,90 €</s>')
+        && !str_contains($one, 'product-card__variants');
+});
+
+check('lo slider rispetta il minimo e il massimo di card', function () use ($products) {
+    $many = array_fill(0, 5, $products[1]);
+
+    return ProductList::make($many)->swiperLimits(6, 8)->renderSwiper() === ''
+        && substr_count(ProductList::make($many)->swiperLimits(1, 3)->renderSwiper(), 'product-card--grid') === 3;
+});
+
+check('la card compra un solo prodotto, con −/+ se richiesto, e altrimenti porta alla scheda', function () use ($products) {
+    $card = static fn (array $cart): string => ProductList::make([['name' => 'Ombrello', 'url' => '/shop/ombrello/', 'cart' => $cart]])->renderGrid();
+    $stepper = $card(['product_id' => 7, 'available' => true, 'quantity' => true]);
+    $plain = $card(['product_id' => 7, 'available' => true]);
+    $soldOut = $card(['product_id' => 7, 'available' => false]);
+    $choose = $card(['product_id' => 0]);
+    $none = ProductList::make([$products[0]])->renderGrid();
+
+    return str_contains($stepper, 'data-ecommerce-add-to-cart')
+        && str_contains($stepper, 'name="product_id"')
+        && str_contains($stepper, 'value="7"')
+        && str_contains($stepper, 'data-quantity-step="-1"')
+        && !str_contains($stepper, 'id="add_to_cart_')
+        && str_contains($plain, 'data-ecommerce-add-to-cart')
+        && !str_contains($plain, 'data-quantity-step')
+        && str_contains($soldOut, 'disabled')
+        && !str_contains($soldOut, 'data-ecommerce-add-to-cart')
+        && str_contains($choose, 'href="/shop/ombrello/"')
+        && !str_contains($choose, '<form')
+        && !str_contains($none, 'product-card__cart');
 });
 
 check('il catalogo non contiene compatibilita con i campi legacy', function () {

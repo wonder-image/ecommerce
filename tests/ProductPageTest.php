@@ -190,7 +190,7 @@ check('i gruppi di un multiprodotto escono normalizzati, coi limiti dentro le op
         ],
     ])->data()['bundle'];
 
-    return $data['components'] === [['name' => 'Pane', 'quantity' => 2.0]]
+    return $data['components'] === [['name' => 'Pane', 'quantity' => 2.0, 'image' => '']]
         && count($data['groups']) === 2
         && $data['groups'][0]['options'][1]['surcharge'] === 5.0
         && $data['groups'][1]['min'] === 1 && $data['groups'][1]['max'] === 1
@@ -202,7 +202,8 @@ check('la scheda mostra i gruppi di scelta, ne fa rispettare min/max e toglie i 
     $add = (string) file_get_contents(dirname(__DIR__).'/view/components/cart/add.php');
 
     return str_contains($view, 'data-bundle-groups')
-        && str_contains($view, "FormField::key('choices_'.")
+        && str_contains($view, 'name="choices_\'.$group[\'id\']')
+        && str_contains($view, 'wi-choice-group--list')
         && str_contains($view, 'data-min=')
         && str_contains($view, 'data-max=')
         && str_contains($view, '$expressHere = false;')

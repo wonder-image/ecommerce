@@ -19,7 +19,7 @@ La griglia dei dati usa righe dimensionate sul contenuto.
 Le varianti mostrano esclusivamente il proprio nome e, quando disponibile,
 una miniatura quadrata. Le opzioni seguono gli assi del modello (per esempio
 Taglia e Materiale) e mostrano soltanto il valore dell'asse. La configurazione
-`catalog.option_selector` puo forzare `buttons` o `select` per slug; in
+`product.option_selector` puo forzare `buttons` o `select` per slug; in
 modalita `auto` usa bottoni per valori visuali o fino a quattro elementi e
 select per le liste piu lunghe.
 

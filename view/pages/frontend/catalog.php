@@ -116,7 +116,6 @@ Ecommerce::layout('shop', ['overlay' => $catalogOverlay]);
         <div id="catalog-products" class="w-100">
             <p class="text-small tx-secondary mb-4"><?=e(__t('ecommerce.catalog.listing.results', ['count' => (int) $pagination->max_row]))?></p>
             <?=ProductList::make($products)
-                ->columns(4, 3, 2)
                 ->emptyMessage((string) __t('ecommerce.catalog.listing.empty'))
                 ->renderGrid()?>
         </div>

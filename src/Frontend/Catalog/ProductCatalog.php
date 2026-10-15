@@ -236,12 +236,38 @@ final class ProductCatalog
         $bundle = Bundles::forModel($modelId);
         $mode = (string) $bundle['mode'];
 
+        $withImage = static fn (array $row): array => $row + ['image' => self::productImage((int) ($row['product_id'] ?? 0))];
+        $groups = $mode === 'fixed' ? [] : $bundle['groups'];
+        foreach ($groups as $i => $group) {
+            $groups[$i]['options'] = array_map($withImage, (array) ($group['options'] ?? []));
+        }
+
         return [
             'mode' => $mode,
-            'components' => $mode === 'choice' ? [] : $bundle['components'],
-            'groups' => $mode === 'fixed' ? [] : $bundle['groups'],
+            'components' => $mode === 'choice' ? [] : array_map($withImage, $bundle['components']),
+            'groups' => $groups,
             'value' => $bundle['show_value'] ? (float) Bundles::componentsValue($modelId) : null,
         ];
+    }
+
+    /**
+     * La prima foto di un articolo: la sua, se ne ha, se no del suo colore o
+     * del modello ({@see ProductImages::for()}). Vuota se non ce n'è.
+     */
+    private static function productImage(int $productId): string
+    {
+        $product = $productId > 0 ? Product::find(['id' => $productId], 1) : null;
+        if (!is_array($product)) {
+            return '';
+        }
+
+        $images = ProductImages::for(
+            self::rows(ProductImage::find(['product_model_id' => (int) ($product['product_model_id'] ?? 0)], null, 'position', 'ASC')),
+            (int) ($product['product_variant_id'] ?? 0),
+            $productId
+        );
+
+        return isset($images[0]) && is_array($images[0]) ? self::absolute(ProductImages::url($images[0])) : '';
     }
 
     /** @return list<array<string, mixed>> */
@@ -273,8 +299,8 @@ final class ProductCatalog
 
             if ($values === []) continue;
             $slug = trim((string) ($attribute['slug'] ?? ''));
-            $override = (string) Ecommerce::config('catalog.option_selector.attributes.'.$slug, '');
-            $default = (string) Ecommerce::config('catalog.option_selector.default', 'auto');
+            $override = (string) Ecommerce::config('product.option_selector.attributes.'.$slug, '');
+            $default = (string) Ecommerce::config('product.option_selector.default', 'auto');
             $selector = in_array($override, ['buttons', 'select'], true) ? $override : $default;
             if ($selector === 'auto') {
                 $hasVisuals = array_filter($values, static fn (array $value): bool => isset($value['image']) || isset($value['color'])) !== [];
@@ -317,10 +343,30 @@ final class ProductCatalog
         return $options;
     }
 
+    /**
+     * Si può comprare adesso? Con le giacenze attive serve merce o la vendita
+     * in arretrato; un multiprodotto si vende finché i pezzi bastano.
+     *
+     * @param array<string, mixed> $product la riga di `gst_products`
+     */
+    public static function purchasable(array $product, bool $bundle = false): bool
+    {
+        if (!self::stockManaged()) return true;
+
+        $quantity = $bundle
+            ? Bundles::available((int) ($product['product_model_id'] ?? 0))
+            : self::onHand((int) ($product['id'] ?? 0));
+
+        return $quantity > 0 || Stock::allowsBackorder($product);
+    }
+
     private static function stockManaged(): bool
     {
+        static $managed = null;
+        if ($managed !== null) return $managed;
+
         $location = Location::find(['has_stock' => 'true', 'active' => 'true', 'deleted' => 'false'], 1);
-        return is_array($location) && $location !== [];
+        return $managed = is_array($location) && $location !== [];
     }
 
     /** @return list<array<string, mixed>> */

@@ -31,9 +31,12 @@ final class ProductList
     private int $swiperSpaceBetween = 12;
     private bool $swiperNavigation = true;
     private bool $swiperPagination = false;
+    private int $swiperMin = 1;
+    private int $swiperMax = 12;
 
     public function __construct(iterable $products = [])
     {
+        $this->configure();
         $this->items($products);
     }
 
@@ -146,6 +149,55 @@ final class ProductList
         return $this;
     }
 
+    /**
+     * Card per riga e limiti degli slider dalla configurazione del sito
+     * (`catalog.columns`, `catalog.swiper`). `columns()` e `swiper()` la superano.
+     */
+    private function configure(): void
+    {
+        $grid = (array) Ecommerce::config('catalog.columns', []);
+        $this->desktopColumns = self::columnCount($grid['desktop'] ?? null, $this->desktopColumns);
+        $this->tabletColumns = self::columnCount($grid['tablet'] ?? null, $this->tabletColumns);
+        $this->phoneColumns = self::columnCount($grid['phone'] ?? null, $this->phoneColumns);
+
+        $swiper = (array) Ecommerce::config('catalog.swiper', []);
+        $this->swiperMin = max(1, (int) ($swiper['min'] ?? $this->swiperMin));
+        $this->swiperMax = max($this->swiperMin, (int) ($swiper['max'] ?? $this->swiperMax));
+
+        $slides = (array) ($swiper['columns'] ?? []);
+        $phone = self::slideCount($slides['phone'] ?? null, (float) $this->swiperSlidesPerView);
+        $tablet = self::slideCount($slides['tablet'] ?? null, (float) $this->swiperBreakpoints[640]['slidesPerView']);
+        $desktop = self::slideCount($slides['desktop'] ?? null, (float) $this->swiperBreakpoints[1024]['slidesPerView']);
+        $this->swiperSlidesPerView = $phone;
+        $this->swiperBreakpoints[640]['slidesPerView'] = $tablet;
+        $this->swiperBreakpoints[1024]['slidesPerView'] = $desktop;
+    }
+
+    private static function columnCount(mixed $value, int $default): int
+    {
+        return is_numeric($value) && (int) $value >= 1 && (int) $value <= 12 ? (int) $value : $default;
+    }
+
+    private static function slideCount(mixed $value, float $default): int|float
+    {
+        $count = is_numeric($value) && (float) $value > 0 ? (float) $value : $default;
+
+        return floor($count) === $count ? (int) $count : $count;
+    }
+
+    /** Lo slider compare da `$min` card in su e ne mostra al massimo `$max`. */
+    public function swiperLimits(int $min, int $max): static
+    {
+        if ($min < 1 || $max < $min) {
+            throw new InvalidArgumentException('I limiti dello slider richiedono 1 <= min <= max.');
+        }
+
+        $this->swiperMin = $min;
+        $this->swiperMax = $max;
+
+        return $this;
+    }
+
     /** @return list<int|string> */
     public function shownIds(): array
     {
@@ -161,9 +213,28 @@ final class ProductList
             $this->view($view);
         }
 
+        // Uno slider con meno card del minimo non compare, nemmeno il titolo.
+        if ($this->view === 'swiper') {
+            if (count($this->cards) < $this->swiperMin) {
+                return '';
+            }
+
+            $this->cards = array_slice($this->cards, 0, $this->swiperMax);
+        }
+
+        $cardStyle = function_exists('module_asset') ? module_asset('ecommerce', 'css/card.css') : '';
+        if ($cardStyle !== '') View::head('<link rel="stylesheet" href="'.e($cardStyle).'">');
+
+        // Le frecce dello swiper stanno nell'intestazione, accanto al titolo:
+        // lo stesso id lega i bottoni allo swiper che comandano.
+        $navigation = $this->view === 'swiper' && $this->swiperNavigation && $this->cards !== []
+            ? 'product-list-'.bin2hex(random_bytes(4))
+            : null;
+
         $header = View::component(Ecommerce::viewPath('components/catalog/product/header.php'), [
             'title' => $this->title,
             'subtitle' => $this->subtitle,
+            'navigation' => $navigation,
         ]);
 
         if ($this->cards === []) {
@@ -180,7 +251,7 @@ final class ProductList
 
         return $header.View::component(
             Ecommerce::viewPath('components/catalog/product/'.$this->view.'.php'),
-            $this->viewData($cards)
+            $this->viewData($cards) + ['navigation' => $navigation]
         );
     }
 

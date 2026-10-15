@@ -8,6 +8,7 @@
             "value": "Valore dei prodotti: {{price}}",
             "value_from": "Valore dei prodotti da {{price}}",
             "surcharge": "{{name}} (+{{price}})",
+            "quantity": "Quantità {{count}}",
             "choose_exactly": "scegli {{count}}",
             "choose_up_to": "fino a {{max}}",
             "choose_between": "da {{min}} a {{max}}"
@@ -54,10 +55,13 @@
         "pagination": { "label": "Pagine dei prodotti" },
         "variants": "Varianti",
         "options": "Opzioni",
+        "choose_options": "Scegli le opzioni",
         "sliders": {
             "similar": "Articoli simili",
             "recent": "Visti di recente",
-            "suggested": "Potrebbero piacerti"
+            "suggested": "Potrebbero piacerti",
+            "previous": "Precedenti",
+            "next": "Successivi"
         },
         "description": "Descrizione",
         "price_range": "Da {{min}} a {{max}}",

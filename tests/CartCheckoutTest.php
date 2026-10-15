@@ -757,7 +757,7 @@ check('nel carrello i bottoni rapidi stanno nel riepilogo, sopra «Procedi»', f
     $express = strpos($aside, '<?=$express');
     $button = strpos($aside, '<?=$button');
 
-    return str_contains($cart, "'express' => Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', \$order) : ''")
+    return str_contains($cart, "'express' => Ecommerce::config('cart.express', true) ? ExpressCheckout::render('cart', \$order) : ''")
         && !str_contains($cart, 'id="rapido"')
         && $express !== false && $button !== false && $express < $button;
 });
@@ -799,12 +799,13 @@ check('il sito sceglie dove stanno i bottoni rapidi e se il prodotto ha −/+: d
     $cart = (string) file_get_contents($root.'/view/pages/cart/index.php');
     $product = (string) file_get_contents($root.'/view/pages/frontend/product.php');
 
-    return ($config['express']['cart'] ?? null) === true
-        && ($config['express']['product'] ?? null) === true
-        && ($config['catalog']['product_quantity'] ?? null) === false
-        && str_contains($cart, "Ecommerce::config('express.cart', true) ? ExpressCheckout::render('cart', \$order) : ''")
-        && str_contains($product, "Ecommerce::config('express.product', true)")
-        && str_contains($product, "Ecommerce::config('catalog.product_quantity', false)");
+    return ($config['cart']['express'] ?? null) === true
+        && ($config['product']['express'] ?? null) === true
+        && ($config['product']['quantity'] ?? null) === false
+        && !isset($config['express'])
+        && str_contains($cart, "Ecommerce::config('cart.express', true) ? ExpressCheckout::render('cart', \$order) : ''")
+        && str_contains($product, "Ecommerce::config('product.express', true)")
+        && str_contains($product, "Ecommerce::config('product.quantity', false)");
 });
 
 check('il mini-carrello non dice «Prodotto aggiunto» e porta anche al checkout, finché non è vuoto', function () use ($root): bool {

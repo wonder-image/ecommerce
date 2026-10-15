@@ -1,0 +1,58 @@
+/* Miniature delle varianti sotto la card: quadrate e fisse, quella della card col bordo più spesso. */
+.product-card__variants {
+    --card-variant-size: 32px;
+}
+.product-card__variant {
+    box-sizing: border-box;
+    min-width: var(--card-variant-size);
+    height: var(--card-variant-size);
+    line-height: calc(var(--card-variant-size) - 2px);
+    text-align: center;
+}
+.product-card__variant:has(img) {
+    width: var(--card-variant-size);
+}
+.product-card__variant[aria-current] {
+    border-width: 2px !important;
+    border-color: currentColor !important;
+    line-height: calc(var(--card-variant-size) - 4px);
+}
+
+/* Aggiungi al carrello nella card: −/+ su tutta la riga, il bottone sotto.
+   `min-width: 0` tiene le colonne della griglia alla loro misura. */
+.product-card {
+    min-width: 0;
+}
+.product-card__cart form > .d-flex {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.product-card__cart .wi-quantity {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+.product-card__cart .wi-quantity .btn {
+    min-width: 40px;
+    padding-inline: 0;
+    justify-content: center;
+}
+.product-card__cart .wi-quantity input {
+    width: 3rem;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-weight: 600;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.product-card__cart .wi-quantity input::-webkit-inner-spin-button,
+.product-card__cart .wi-quantity input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

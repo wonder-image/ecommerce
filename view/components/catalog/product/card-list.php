@@ -16,14 +16,14 @@ $link = $url !== '' ? ' href="'.e($url).'"' : '';
         <?php if (($product['badge'] ?? '') !== ''): ?>
             <div><span class="badge badge-primary"><?=e($product['badge'])?></span></div>
         <?php endif; ?>
-        <<?=$tag?> class="product-card__name d-block text fw-600 tx-black mt-2"<?=$link?>><?=e($product['name'] ?? '')?></<?=$tag?>>
+        <<?=$tag?> class="product-card__name d-block text fw-600 tx-black tx-none mt-2"<?=$link?>><?=e($product['name'] ?? '')?></<?=$tag?>>
         <?php if (($product['description'] ?? '') !== ''): ?>
             <p class="text-small tx-secondary mt-2 max-line-2"><?=e($product['description'])?></p>
         <?php endif; ?>
         <div class="product-card__price d-flex gap-2 mt-2 text-small">
             <span class="fw-700"><?=e($product['price'] ?? '')?></span>
             <?php if (($product['compare_at_price'] ?? '') !== ''): ?>
-                <s class="tx-secondary"><?=e($product['compare_at_price'])?></s>
+                <s class="fw-400 tx-dark"><?=e($product['compare_at_price'])?></s>
             <?php endif; ?>
         </div>
     </div>

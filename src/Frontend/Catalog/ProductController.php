@@ -26,7 +26,7 @@ final class ProductController
         self::seo($product);
 
         $data = $product->data();
-        $limit = max(1, (int) Ecommerce::config('catalog.recommendations_limit', 12));
+        $limit = max(1, (int) Ecommerce::config('catalog.swiper.max', 12));
         $recentIds = array_values(array_diff(ProductHistory::read(), [(int) $data['id']]));
         $similarIds = ProductRecommendations::similar((int) $data['id'], $limit);
         $suggestedIds = array_values(array_diff(
@@ -37,6 +37,12 @@ final class ProductController
         $similar = ProductListing::byModelIds($similarIds, $limit);
         $recent = ProductListing::byModelIds($recentIds, $limit);
         $suggested = ProductListing::byModelIds($suggestedIds, $limit);
+        // Sotto il minimo dello slider la sezione non compare, e nemmeno il suo evento.
+        $min = max(1, (int) Ecommerce::config('catalog.swiper.min', 1));
+        [$similar, $recent, $suggested] = array_map(
+            static fn (array $cards): array => count($cards) >= $min ? $cards : [],
+            [$similar, $recent, $suggested]
+        );
         ProductHistory::remember((int) $data['id'], $recentIds);
 
         View::make(Ecommerce::viewPath('pages/frontend/product.php'), [
@@ -58,10 +64,40 @@ final class ProductController
         $SEO->url = $data['url'];
         $SEO->image = $data['images'][0]['url'] ?? '';
         $SEO->robots = 'INDEX,FOLLOW';
+        $SEO->searchUrl = CatalogController::searchUrl();
+        $SEO->ogType = 'product';
+        $SEO->ogMeta = self::openGraph($data);
         $SEO->breadcrumb = [];
 
         foreach ($data['breadcrumbs'] as $item) {
             $SEO->breadcrumb[(string) ($item['url'] ?? '')] = (string) ($item['name'] ?? '');
         }
+    }
+
+    /**
+     * Meta Open Graph del prodotto: prezzo della variante mostrata e, solo
+     * se la giacenza è gestita, disponibilità (come nel JSON-LD).
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, string>
+     */
+    public static function openGraph(array $data): array
+    {
+        if (($data['offers'] ?? []) === []) {
+            return [];
+        }
+
+        $meta = [
+            'product:price:amount' => number_format((float) $data['price'], 2, '.', ''),
+            'product:price:currency' => (string) $data['currency'],
+        ];
+        if (!empty($data['stock_managed'])) {
+            $meta['product:availability'] = !empty($data['available']) ? 'in stock' : 'out of stock';
+        }
+        if (($data['brand'] ?? '') !== '') {
+            $meta['product:brand'] = (string) $data['brand'];
+        }
+
+        return $meta;
     }
 }

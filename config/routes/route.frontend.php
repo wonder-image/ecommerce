@@ -2,7 +2,23 @@
 
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Discovery\CatalogFeed;
+use Wonder\Plugin\Ecommerce\Frontend\Discovery\CatalogSitemap;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
+
+// File per motori e assistenti AI, fuori dalle lingue: llms.txt alla radice
+// del sito come vuole la convenzione, i dati sotto /shared/.
+Route::area('frontend')
+    ->response('html')
+    ->translatable(false)
+    ->name('ecommerce.discovery.')
+    ->group(function () {
+        $discovery = Ecommerce::handlerPath('frontend/discovery.php');
+        Route::get('/llms.txt', $discovery, ['discovery_action' => 'llms'])->name('llms');
+        Route::get('/llms-full.txt', $discovery, ['discovery_action' => 'llms-full'])->name('llms_full');
+        Route::get(CatalogFeed::PATH, $discovery, ['discovery_action' => 'feed'])->name('feed');
+        Route::get(CatalogSitemap::PATH, $discovery, ['discovery_action' => 'sitemap'])->name('sitemap');
+    });
 
 // Rotte pubbliche del negozio. Le demo dei componenti non sono esposte dal modulo.
 Route::area('frontend')
@@ -58,7 +74,7 @@ Route::area('frontend')
             });
 
         Route::name('ecommerce.cart.')
-            ->prefix('/cart')
+            ->prefix('/carrello')
             ->group(function () {
                 $handler = Ecommerce::handlerPath('frontend/cart.php');
 
