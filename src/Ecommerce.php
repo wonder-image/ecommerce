@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce;
 
 use Wonder\App\Module\ConfigRepository;
 use Wonder\App\Module\Contracts\ModuleInterface;
+use Wonder\App\Permission\Access;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Settings\OnlineShopSettings;
@@ -95,13 +96,50 @@ final class Ecommerce implements ModuleInterface, ProvidesSettings, ProvidesOrde
         View::layout(self::viewPath('layout/frontend/ecommerce.'.$name.'.php'), $data);
     }
 
+    /**
+     * Nome completo di un'area permessi dell'ecommerce (`ecommerce:impersonazione`).
+     *
+     * Le aree sono in `permissions` di config/module.php; il core le carica dai
+     * moduli attivi. Se il modulo non è nel registro (test, comandi) le definisce
+     * qui dalla configurazione.
+     */
+    public static function area(string $key): string
+    {
+        $area = self::SLUG.':'.$key;
+
+        if (!Access::has($area)) {
+            Access::defineMany((array) self::config('permissions', []), self::SLUG);
+        }
+
+        return $area;
+    }
+
+    /**
+     * Ruoli del backend che possono entrare nell'account di un cliente.
+     *
+     * `impersonation.actor_authorities` nel sito vale ancora (deprecato): se è
+     * impostato vince sull'area `impersonazione`.
+     */
+    public static function impersonationAuthorities(): array
+    {
+        $legacy = self::config('impersonation.actor_authorities');
+
+        if (is_array($legacy) && $legacy !== []) {
+            return array_values(array_unique(['admin', ...array_map('strval', $legacy)]));
+        }
+
+        return Access::roles(self::area('impersonazione'), 'edit');
+    }
+
     /** Configurazione del modulo, con l'override del sito. */
     public static function config(?string $key = null, mixed $default = null): mixed
     {
         if (self::$config === null) {
             $defaults = require self::root().'/config/module.php';
             $site = class_exists(ConfigRepository::class) ? ConfigRepository::for(self::SLUG) : [];
-            self::$config = array_replace_recursive((array) $defaults, (array) $site);
+            self::$config = method_exists(ConfigRepository::class, 'merge')
+                ? ConfigRepository::merge((array) $defaults, (array) $site)
+                : array_replace_recursive((array) $defaults, (array) $site);
         }
 
         if ($key === null) {

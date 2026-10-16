@@ -6,7 +6,7 @@ use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
 use Wonder\View\View;
 
 $service = new Impersonation(
-    (array) Ecommerce::config('impersonation.actor_authorities', ['admin']),
+    Ecommerce::impersonationAuthorities(),
     (int) Ecommerce::config('impersonation.token_ttl', 120),
 );
 

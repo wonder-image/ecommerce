@@ -85,7 +85,17 @@ return [
     ],
     'impersonation' => [
         'enabled' => true,
-        'actor_authorities' => ['admin', 'administrator'],
+        // Chi può entrare nell'account di un cliente: area `impersonazione` in
+        // `permissions`. `actor_authorities` qui è deprecato: se un sito lo
+        // imposta vince sull'area.
         'token_ttl' => 120,
+    ],
+    // Aree permessi dell'ecommerce (Wonder\App\Permission\Access). `admin`
+    // (Wonder Image) è sempre incluso. Per cambiarle nel sito: `permissions` in
+    // custom/config/modules/ecommerce.php; ogni area indicata sostituisce
+    // per intero quella di default.
+    'permissions' => [
+        // Conta l'azione `edit`: con una mappa per azione indicare `edit` o `*`.
+        'impersonazione' => ['administrator'],
     ],
 ];
