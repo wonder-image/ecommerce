@@ -55,7 +55,7 @@ check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua 
         && !str_contains($routes, "Route::name('ecommerce.account.')")
         // account.index, account.personal, account.payment-methods, account.orders, account.orders.show e account.coupons, con i percorsi italiani
         && str_contains($coreRoutes, "Route::get('/', \$handler, ['account_action' => 'index'])->name('index')")
-        && str_contains($coreRoutes, "\$page('/dati-personali/', 'personal')")
+        && str_contains($coreRoutes, "Route::get('/dati-personali/', \$handler, ['account_action' => 'personal'])->name('personal')")
         && str_contains($coreRoutes, '->guarded()->permit(self::panel()->authorities())')
         && str_contains($extension, "Route::get('/metodi-di-pagamento/'")
         && str_contains($extension, "->name('payment-methods')")

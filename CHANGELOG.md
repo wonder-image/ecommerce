@@ -7,6 +7,11 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Registrazione con i campi di `signup.fields` di
+  wonder-image/customer-account (data di nascita, fatturazione, primo
+  indirizzo di spedizione): `EcommerceAuthProfile` estende
+  `CustomerAuthProfile` e tiene il cellulare obbligatorio come default.
+
 - **Pronto per le IA e i motori**: `/llms.txt` e `/llms-full.txt` (negozio,
   categorie e prodotti in Markdown), `/shared/catalogo.json` (feed del catalogo) e
   `/shared/sitemap/catalogo.xml`, dichiarata in robots.txt tramite `module.json`.
@@ -137,6 +142,15 @@ versionamento semantico.
   che mette i wallet fra le scelte.
 
 ### Modificato
+
+- **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
+  fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
+  modulo, dipendenza dichiarata in `module.json`; l'ecommerce tiene solo la parte
+  commerciale (cellulare obbligatorio alla registrazione, ordini, checkout).
+  Gli import di `Wonder\App\Models\Contacts\*` e
+  `Wonder\Auth\Frontend\ContactAccount` passano a
+  `Wonder\Plugin\CustomerAccount\…`. Abilitare `customer-account` in
+  `modules.php` prima di gestionale ed ecommerce ed eseguire `forge update`.
 
 - Area cliente: ogni ordine dell'elenco è una riga di `frontend.account.row`
   come «Dati personali» (Ordine, Data, Totale, **Visualizza**), al posto della

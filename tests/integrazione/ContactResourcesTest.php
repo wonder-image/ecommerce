@@ -9,8 +9,8 @@ require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 \Wonder\App\Theme::set('bootstrap');
 
-use Wonder\App\Models\Contacts\{Contact, ContactAddress};
-use Wonder\App\Resources\Contacts\{ContactResource, ContactAddressResource};
+use Wonder\Plugin\CustomerAccount\Models\{Contact, ContactAddress};
+use Wonder\Plugin\CustomerAccount\Resources\{ContactResource, ContactAddressResource};
 use Wonder\App\ResourceRegistry;
 use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Backend\Support\{ResourcePagePresenter, ResourceFormLayoutRenderer};

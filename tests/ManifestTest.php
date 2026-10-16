@@ -34,10 +34,10 @@ check('richiede il core 2.4.0-beta.2 e PHP 8.2', fn () =>
     && ($manifest->frameworkCompatibility()['php'] ?? '') === '^8.2'
 );
 
-// Il negozio legge i dati del gestionale: senza quel modulo non ha senso, e il
-// core pretende che la dipendenza sia abilitata per nome (Registry::enabled()).
-check('dipende dal modulo gestionale', fn () =>
-    $manifest->dependencySlugs() === ['gestionale']
+// Il negozio legge i dati del gestionale e la scheda cliente di customer-account: il
+// core pretende che le dipendenze siano abilitate per nome (Registry::enabled()).
+check('dipende da customer-account e dal gestionale', fn () =>
+    $manifest->dependencySlugs() === ['customer-account', 'gestionale']
 );
 
 check('dichiara frontend, backend di impersonificazione e API di ricerca', fn () =>

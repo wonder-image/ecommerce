@@ -12,7 +12,7 @@ require __DIR__.'/dns-fixture.php';
 use Wonder\Auth\Frontend\AuthController;
 use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Auth\Frontend\AccountAddressForm;
-use Wonder\App\Models\Contacts\ContactAddress;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;

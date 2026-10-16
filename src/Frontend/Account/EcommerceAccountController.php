@@ -6,6 +6,7 @@ use Throwable;
 use Wonder\Auth\Frontend\AccountController;
 use Wonder\Auth\Frontend\AccountPagination;
 use Wonder\Http\Route;
+use Wonder\Plugin\CustomerAccount\Account\Concerns\ManagesContact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
@@ -24,6 +25,8 @@ use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionItems;
 /** Le pagine del core più quelle dell'ecommerce: metodi di pagamento, ordini, dettaglio dell'ordine, abbonamenti e coupon. */
 class EcommerceAccountController extends AccountController
 {
+    use ManagesContact;
+
     /** L'errore di un'azione sugli abbonamenti, mostrato al GET che segue. */
     private const SUBSCRIPTION_ERROR = 'ecommerce_account_subscription_error';
 

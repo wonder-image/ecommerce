@@ -15,6 +15,7 @@
     },
     "dependencies": {
         "modules": [
+            "customer-account",
             "gestionale"
         ]
     },

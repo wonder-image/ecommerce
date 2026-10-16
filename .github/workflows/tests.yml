@@ -29,6 +29,13 @@ jobs:
           repository: wonder-image/gestionale
           path: gestionale
 
+      # La scheda cliente e il collegamento all'utente stanno in customer-account.
+      - name: Checkout di wonder-image/customer-account
+        uses: actions/checkout@v4
+        with:
+          repository: wonder-image/customer-account
+          path: customer-account
+
       - name: PHP 8.2
         uses: shivammathur/setup-php@v2
         with:

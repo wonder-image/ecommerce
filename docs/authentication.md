@@ -20,9 +20,18 @@ Il flusso locale è diviso in due passaggi:
 1. nome, cognome, email, privacy e condizioni ecommerce;
 2. dopo la verifica email: prefisso, cellulare obbligatorio e password.
 
-La registrazione non raccoglie né valida fatturazione e non richiede il
-regolamento di gioco. La scheda cliente viene collegata o creata senza quei
+Di serie la registrazione non raccoglie né valida fatturazione e non richiede
+il regolamento di gioco. La scheda cliente viene collegata o creata senza quei
 dati; fatturazione e indirizzi saranno raccolti nell'area cliente o checkout.
+
+`EcommerceAuthProfile` estende `CustomerAuthProfile` di
+`wonder-image/customer-account`: il sito aggiunge al secondo passaggio data di
+nascita, fatturazione e primo indirizzo di spedizione con `signup.fields` in
+`custom/config/modules/customer-account.php` (`off`, `optional`,
+`required`). Il cellulare è `required` per `signupDefaults()`; la config del
+sito può renderlo `optional`. I dati si salvano nella scheda in
+`afterUserSaved()`, nella transazione della conferma. Un campo `required` che
+manca fa passare dal completamento anche l'accesso Google.
 
 Google verifica l'ID token nel server. Per un nuovo account richiede un'email
 verificata, ma non i checkbox del flusso locale: il collegamento alle policy
@@ -168,11 +177,15 @@ come «Dati personali» (`AccountOrder::row()`, la stessa dell'ultimo ordine in 
 con `frontend.account.pagination` in fondo. I Coupon restano una tabella a righe
 (`.wi-row-table`) della lib, e il dettaglio dell'ordine usa le righe dati (`.wi-data-row`).
 
-La fatturazione unica, le spedizioni multiple e i riferimenti esterni sono
-modelli del core `Wonder\App\Models\Contacts` / `Models\System`.
+La fatturazione unica, le spedizioni multiple e la pagina «Indirizzi» sono del
+modulo `wonder-image/customer-account` (`Wonder\Plugin\CustomerAccount\Models`,
+`CustomerAccountExtension`), che l'ecommerce registra prima della propria estensione;
+i riferimenti esterni restano nel core (`Models\System`).
 I nomi SQL sono `contacts`, `contact_addresses`, `external_references`, con
-migrazione conservativa dei vecchi nomi `gst_*`; i namespace del gestionale sono
-subclass compatibili e conservano le sole estensioni commerciali.
+migrazione conservativa dei vecchi nomi `gst_*` (del modulo); i namespace del
+gestionale sono subclass compatibili e conservano le sole estensioni commerciali.
+I controller dell'ecommerce leggono la scheda del cliente con il trait
+`ManagesContact` del modulo.
 Gli indirizzi usano `AccountAddressForm` del core per label tradotte, default paese e
 prefisso, e griglia responsive con i Container del framework. I POST falliti
 mantengono anche i campi svuotati.
@@ -195,10 +208,10 @@ inert quando il dialogo è chiuso. I POST sono protetti da CSRF e ownership. Le
 route editor (`account.addresses.create` e `.edit`) rimangono come fallback senza
 JavaScript. I modal sono passati alla pagina in `modals` e resi dopo il `main` dal
 layout del core, non dentro la colonna dei contenuti o un altro form.
-Il core offre Resource generiche `ContactResource` / `ContactAddressResource`
+Il modulo `wonder-image/customer-account` offre Resource generiche `ContactResource` / `ContactAddressResource`
 su `/backend/contacts/` e `/backend/contact-addresses/`, riservate agli
 amministratori. Il gestionale conserva il suo pannello più completo e la
-precedenza nei link per tabella. Vedi la documentazione contatti del core.
+precedenza nei link per tabella. Vedi il README di customer-account.
 
 ## Impersonificazione
 
