@@ -203,6 +203,12 @@ Si unisce su `main` dopo la `1.0.0`.
 - [ ] E3.5 Prova nel browser con Stripe in modalità test (aspetta le chiavi di
   prova sul sito di prova): carta, carta con autenticazione, prova gratuita,
   cambio piano, disdetta, portale.
+- [x] E3.6 Abbonamenti con più servizi (G10b §7, ramo `abbonamenti-con-servizi`,
+  NON unito): selezione, riepilogo, un Checkout per più servizi, area cliente
+  con Aggiungi, Togli e Cambia per riga (`SubscriptionSelectionTest`,
+  `AccountSubscriptionsTest`).
+- [ ] E3.7 Prova nel browser di E3.6 sul sito `ecommerce-site-servizi`: la
+  lista è nel TODO del gestionale, voce G10b.
 
 ## Infrastruttura e rilascio
 

@@ -1,7 +1,9 @@
 <?php
 
 /**
- * Area cliente → Abbonamenti (G10.14). Pagina privata del pannello: robots,
+ * Area cliente → Abbonamenti (G10.14, G10b §7): per ogni abbonamento i suoi
+ * servizi, con Togli (a fine periodo, con le figlie) e Cambia (subito, pro-rata)
+ * per riga, e Aggiungi servizio. Pagina privata del pannello: robots,
  * breadcrumb e dataLayer di pagina li dà il pannello del core; nessun dato
  * strutturato.
  *
@@ -9,6 +11,7 @@
  * @var string $plans_url
  */
 
+use Wonder\App\ResourceSchema\FormField;
 use Wonder\Elements\Components\Button;
 use Wonder\Http\Csrf;
 use Wonder\View\View;
@@ -55,34 +58,60 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                     </div>
                 <?php endif; ?>
 
-                <?php if ($subscription['can_change']): ?>
-                    <form id="subscription_change" class="d-flex f-wrap gap-3 a-end" method="post" action="<?=e($subscription['change_url'])?>">
-                        <?=Csrf::fieldFor('post')?>
-                        <label class="d-flex d-column gap-1 text-small">
-                            <span><?=e((string) __t('ecommerce.account.subscriptions.change_label'))?></span>
-                            <select name="price" class="wi-input" required>
-                                <?php foreach ($subscription['change_options'] as $code => $label): ?>
-                                    <option value="<?=e($code)?>"><?=e($label)?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-                        <?=Button::make((string) __t('ecommerce.account.subscriptions.change'))->type('submit')->variant('black')?>
+                <?php if ($subscription['items'] !== []): ?>
+                    <div class="d-flex d-column gap-2">
+                        <h3 class="text-small tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.items'))?></h3>
+                        <ul class="d-flex d-column gap-3">
+                            <?php foreach ($subscription['items'] as $item): ?>
+                                <li class="d-flex d-column gap-2<?=$item['child'] ? ' pl-4' : ''?>">
+                                    <div class="d-flex f-wrap gap-2 a-center j-between">
+                                        <p class="text">
+                                            <strong><?=e($item['label'])?></strong>
+                                            <span class="text-small tx-secondary">· <?=e((string) __t('ecommerce.account.subscriptions.quantity', ['count' => (string) $item['quantity']]))?> · <?=e($item['total'])?></span>
+                                        </p>
+                                        <?php if ($item['can_remove']): ?>
+                                            <?=Button::post($item['remove_url'], (string) __t('ecommerce.account.subscriptions.remove'))->variant('danger')->outline()->size('sm')->confirm($item['remove_confirm'])?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($item['starts'] !== ''): ?>
+                                        <p class="text-small tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.item_starts', ['date' => $item['starts']]))?></p>
+                                    <?php endif; ?>
+                                    <?php if ($item['ends'] !== ''): ?>
+                                        <p class="text-small tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.item_ends', ['date' => $item['ends']]))?></p>
+                                    <?php endif; ?>
+                                    <?php if ($item['scheduled'] !== ''): ?>
+                                        <p class="text-small tx-secondary"><?=e($item['scheduled'])?></p>
+                                    <?php endif; ?>
+                                    <?php if ($item['can_change']): ?>
+                                        <details>
+                                            <summary class="text-small tx-underline"><?=e((string) __t('ecommerce.account.subscriptions.change'))?></summary>
+                                            <form id="subscription_change_<?=e((string) $item['id'])?>" class="d-flex d-column gap-3 mt-3" method="post" action="<?=e($item['change_url'])?>">
+                                                <?=Csrf::fieldFor('post')?>
+                                                <?=FormField::key('price_'.$item['id'])->inputName('price')->select($item['change_options'])->label((string) __t('ecommerce.account.subscriptions.change_label'))->required(true)?>
+                                                <p class="text-small tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.change_note'))?></p>
+                                                <div><?=Button::make((string) __t('ecommerce.account.subscriptions.change'))->type('submit')->variant('black')?></div>
+                                            </form>
+                                        </details>
+                                    <?php endif; ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($subscription['can_add']): ?>
+                    <form id="subscription_pick_<?=e($subscription['code'])?>" class="d-flex d-column gap-3" method="get" action="<?=e($subscription['add_url'])?>">
+                        <?=FormField::key('price_'.$subscription['code'])->inputName('price')->select($subscription['add_options'])->label((string) __t('ecommerce.account.subscriptions.add_label'))->required(true)?>
+                        <div><?=Button::make((string) __t('ecommerce.account.subscriptions.add'))->type('submit')->variant('black')->outline()?></div>
                     </form>
-                    <p class="text-small tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.change_note'))?></p>
                 <?php endif; ?>
 
                 <div class="d-flex f-wrap gap-3">
                     <?php if ($subscription['can_update_card']): ?>
-                        <form method="post" action="<?=e($subscription['card_url'])?>">
-                            <?=Csrf::fieldFor('post')?>
-                            <?=Button::make((string) __t('ecommerce.account.subscriptions.card'))->type('submit')->variant('black')->outline()?>
-                        </form>
+                        <?=Button::post($subscription['card_url'], (string) __t('ecommerce.account.subscriptions.card'))->variant('black')->outline()?>
                     <?php endif; ?>
                     <?php if ($subscription['can_cancel']): ?>
-                        <form method="post" action="<?=e($subscription['cancel_url'])?>" onsubmit="return confirm(<?=e((string) json_encode((string) __t('ecommerce.account.subscriptions.cancel_confirm'), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP))?>);">
-                            <?=Csrf::fieldFor('post')?>
-                            <?=Button::make((string) __t('ecommerce.account.subscriptions.cancel'))->type('submit')->variant('danger')->outline()?>
-                        </form>
+                        <?=Button::post($subscription['cancel_url'], (string) __t('ecommerce.account.subscriptions.cancel'))->variant('danger')->outline()->confirm((string) __t('ecommerce.account.subscriptions.cancel_confirm'))?>
                     <?php endif; ?>
                 </div>
             </section>

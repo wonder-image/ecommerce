@@ -29,7 +29,12 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             Route::get('/coupon/', $handler, ['account_action' => 'coupons'])->name('coupons');
             // Abbonamenti (G10): come i coupon, con la funzionalità spenta il controller dà 404.
             Route::get('/abbonamenti/', $handler, ['account_action' => 'subscriptions'])->name('subscriptions');
-            Route::post('/abbonamenti/{code}/cambia/', $handler, ['account_action' => 'subscriptions.change'])->name('subscriptions.change');
+            // I servizi (G10b §7): aggiungi con la quota mostrata prima (GET la pagina, POST l'anteprima, poi la conferma), togli e cambia per riga.
+            Route::get('/abbonamenti/{code}/aggiungi/', $handler, ['account_action' => 'subscriptions.add'])->name('subscriptions.add');
+            Route::post('/abbonamenti/{code}/aggiungi/', $handler, ['account_action' => 'subscriptions.add.preview'])->name('subscriptions.add.preview');
+            Route::post('/abbonamenti/{code}/aggiungi/conferma/', $handler, ['account_action' => 'subscriptions.add.confirm'])->name('subscriptions.add.confirm');
+            Route::post('/abbonamenti/{code}/righe/{item}/togli/', $handler, ['account_action' => 'subscriptions.item.remove'])->name('subscriptions.item.remove')->where('item', '[0-9]+');
+            Route::post('/abbonamenti/{code}/righe/{item}/cambia/', $handler, ['account_action' => 'subscriptions.item.change'])->name('subscriptions.item.change')->where('item', '[0-9]+');
             Route::post('/abbonamenti/{code}/disdici/', $handler, ['account_action' => 'subscriptions.cancel'])->name('subscriptions.cancel');
             Route::post('/abbonamenti/{code}/carta/', $handler, ['account_action' => 'subscriptions.card'])->name('subscriptions.card');
         });

@@ -6,7 +6,9 @@
  * SEO: `INDEX,FOLLOW`, un solo titolo h1, piani resi lato server. schema.org:
  * `ItemList` di `Product` con gli stessi importi in pagina. Breadcrumb:
  * Home › Abbonamenti, a video e in JSON-LD (dal core). dataLayer:
- * `view_item_list` alla vista, `select_item` al clic su un prezzo.
+ * gli eventi rimasti in sospeso (`remove_from_cart` quando la selezione si
+ * è svuotata), poi `view_item_list` alla vista e `select_item` al clic su
+ * «Aggiungi».
  *
  * @var list<array<string, mixed>> $plans
  * @var string $title
@@ -14,6 +16,7 @@
  * @var list<array{url: string, name: string}> $breadcrumbs
  * @var bool $include_tax
  * @var string $currency
+ * @var list<array<string, mixed>> $events
  */
 
 use Wonder\Elements\Components\Breadcrumb;
@@ -34,14 +37,14 @@ View::head(DataLayer::script([
     'type' => 'subscription_plans',
     'language' => __l(),
     'currency' => $currency,
-], [
+], [...(is_array($events ?? null) ? $events : []), [
     'event' => 'view_item_list',
     'ecommerce' => [
         'item_list_name' => $listName,
         'currency' => $currency,
         'items' => PlanCatalog::trackingItems($plans),
     ],
-], (int) ($_SESSION['user_id'] ?? 0)));
+]], (int) ($_SESSION['user_id'] ?? 0)));
 
 Ecommerce::layout('shop');
 ?>
@@ -96,7 +99,7 @@ Ecommerce::layout('shop');
                                 <span class="text-small"><?=e(__t('ecommerce.subscriptions.commitment', ['months' => $price['commitment_months']]))?></span>
                             <?php endif; ?>
                             <a class="btn btn-black mt-2" href="<?=e($price['url'])?>"
-                               data-select-item="<?=e((string) json_encode(['event' => 'select_item', 'ecommerce' => ['item_list_name' => $listName, 'items' => [$item]]], $flags))?>"><?=e(__t('ecommerce.subscriptions.choose'))?></a>
+                               data-select-item="<?=e((string) json_encode(['event' => 'select_item', 'ecommerce' => ['item_list_name' => $listName, 'items' => [$item]]], $flags))?>"><?=e(__t('ecommerce.subscriptions.add'))?></a>
                         </li>
                     <?php endforeach; ?>
                 </ul>
