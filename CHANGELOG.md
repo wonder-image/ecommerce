@@ -7,6 +7,11 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Registrazione con i campi di `signup.fields` di
+  wonder-image/customer-account (data di nascita, fatturazione, primo
+  indirizzo di spedizione): `EcommerceAuthProfile` estende
+  `CustomerAuthProfile` e tiene il cellulare obbligatorio come default.
+
 - **Pronto per le IA e i motori**: `/llms.txt` e `/llms-full.txt` (negozio,
   categorie e prodotti in Markdown), `/shared/catalogo.json` (feed del catalogo) e
   `/shared/sitemap/catalogo.xml`, dichiarata in robots.txt tramite `module.json`.

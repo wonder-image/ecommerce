@@ -20,9 +20,18 @@ Il flusso locale è diviso in due passaggi:
 1. nome, cognome, email, privacy e condizioni ecommerce;
 2. dopo la verifica email: prefisso, cellulare obbligatorio e password.
 
-La registrazione non raccoglie né valida fatturazione e non richiede il
-regolamento di gioco. La scheda cliente viene collegata o creata senza quei
+Di serie la registrazione non raccoglie né valida fatturazione e non richiede
+il regolamento di gioco. La scheda cliente viene collegata o creata senza quei
 dati; fatturazione e indirizzi saranno raccolti nell'area cliente o checkout.
+
+`EcommerceAuthProfile` estende `CustomerAuthProfile` di
+`wonder-image/customer-account`: il sito aggiunge al secondo passaggio data di
+nascita, fatturazione e primo indirizzo di spedizione con `signup.fields` in
+`custom/config/modules/customer-account.php` (`off`, `optional`,
+`required`). Il cellulare è `required` per `signupDefaults()`; la config del
+sito può renderlo `optional`. I dati si salvano nella scheda in
+`afterUserSaved()`, nella transazione della conferma. Un campo `required` che
+manca fa passare dal completamento anche l'accesso Google.
 
 Google verifica l'ID token nel server. Per un nuovo account richiede un'email
 verificata, ma non i checkbox del flusso locale: il collegamento alle policy
