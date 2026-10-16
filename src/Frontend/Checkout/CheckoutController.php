@@ -12,6 +12,7 @@ use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
@@ -23,6 +24,9 @@ final class CheckoutController
 {
     private const FORM_STATE = 'ecommerce_checkout_form_state';
     private const COMPLETED = 'ecommerce_checkout_completed';
+    // Dieci codici sbagliati in dieci minuti: abbastanza per un errore di battitura, poco per indovinarne uno.
+    private const COUPON_LIMIT = 10;
+    private const COUPON_WINDOW = 600;
 
     public static function handle(string $action): void
     {
@@ -214,9 +218,21 @@ final class CheckoutController
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
         $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
 
+        $status = 200;
+
         try {
-            // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
-            $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user(), !$json);
+            if ($action === 'apply' && !self::couponAllowed($cartId)) {
+                // Troppi codici sbagliati: niente tentativo, il riepilogo torna com'è.
+                $status = 429;
+                $payload = CheckoutSummary::payload($cartId, $_POST, CartSession::user(), !$json)
+                    + ['error' => (string) __t('ecommerce.checkout.errors.too_many_coupons')];
+            } else {
+                // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
+                $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user(), !$json);
+                if ($action === 'apply' && $payload['error'] !== '') {
+                    self::couponFailed($cartId);
+                }
+            }
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.coupon');
 
@@ -228,7 +244,7 @@ final class CheckoutController
         }
 
         if ($json) {
-            self::json(['success' => $payload['error'] === ''] + $payload);
+            self::json(['success' => $payload['error'] === ''] + $payload, $status);
         }
 
         $errors = $payload['error'] !== '' ? [$payload['error']] : [];
@@ -240,6 +256,19 @@ final class CheckoutController
             FlashMessage::error(implode("\n", $errors), $title);
         }
         self::redirect($back);
+    }
+
+    /** I codici sbagliati si contano per indirizzo e per carrello: chi cambia carrello o rete trova l'altro limite. */
+    private static function couponAllowed(int $cartId): bool
+    {
+        return Throttle::allowed('coupon_ip', Throttle::ip(), self::COUPON_LIMIT, self::COUPON_WINDOW)
+            && Throttle::allowed('coupon_cart', (string) $cartId, self::COUPON_LIMIT, self::COUPON_WINDOW);
+    }
+
+    private static function couponFailed(int $cartId): void
+    {
+        Throttle::hit('coupon_ip', Throttle::ip(), self::COUPON_WINDOW);
+        Throttle::hit('coupon_cart', (string) $cartId, self::COUPON_WINDOW);
     }
 
     /** Le guardie delle rotte JSON: POST, CSRF, login; ridà l'id del carrello. */

@@ -40,6 +40,18 @@ if (class_exists(\Stripe\ApiRequestor::class)) {
     }
 }
 
+// I limiti di tentativi contano su file, fuori dalla transazione: ogni processo ha i suoi e li butta alla fine.
+if (class_exists(\Wonder\Plugin\Ecommerce\Support\Throttle::class)) {
+    $contatori = sys_get_temp_dir().'/wi-throttle-'.getmypid();
+    \Wonder\Plugin\Ecommerce\Support\Throttle::useDirectory($contatori);
+    register_shutdown_function(static function () use ($contatori): void {
+        foreach (glob($contatori.'/*') ?: [] as $file) {
+            unlink($file);
+        }
+        @rmdir($contatori);
+    });
+}
+
 $GLOBALS['__tests'] = 0;
 $GLOBALS['__failures'] = 0;
 

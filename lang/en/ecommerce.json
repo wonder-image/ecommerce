@@ -179,7 +179,9 @@
             "pickup_location": "Choose a pickup location.",
             "billing": "Complete the billing details.",
             "invoice": "An invoice needs a tax code, or a company name and VAT number.",
-            "consents": "Accept the required documents to place the order."
+            "consents": "Accept the required documents to place the order.",
+            "too_many_coupons": "You have tried too many discount codes. Please try again in a few minutes.",
+            "too_many_orders": "You have placed too many orders in a short time. Please try again in a few minutes."
         },
         "completed": {
             "title": "Order received",

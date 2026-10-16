@@ -9,7 +9,10 @@ use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 /** Collega il cookie anonimo al carrello del gestionale e all'eventuale cliente. */
 final class CartSession
 {
+    /** Il nome in http, che vale solo in locale. */
     public const COOKIE = 'ecommerce_cart';
+    /** In https: il prefisso vieta Domain e chiede Secure, così un sottodominio non può fissare il carrello. */
+    public const SECURE_COOKIE = '__Host-ecommerce_cart';
     private const COOKIE_TTL = 2592000;
 
     /** @return array{order: array<string, mixed>, items: list<array<string, mixed>>, removed: list<string>} */
@@ -111,7 +114,9 @@ final class CartSession
 
     public static function token(bool $create = true): string
     {
-        $token = strtolower(trim((string) ($_COOKIE[self::COOKIE] ?? '')));
+        // In https si legge solo il cookie __Host-: quello semplice può arrivare da un sottodominio.
+        $name = self::cookieName();
+        $token = strtolower(trim((string) ($_COOKIE[$name] ?? '')));
 
         if (preg_match('/^[a-f0-9]{64}$/', $token) === 1) {
             return $token;
@@ -122,8 +127,8 @@ final class CartSession
         }
 
         $token = bin2hex(random_bytes(32));
-        $_COOKIE[self::COOKIE] = $token;
-        setcookie(self::COOKIE, $token, [
+        $_COOKIE[$name] = $token;
+        setcookie($name, $token, [
             'expires' => time() + self::COOKIE_TTL,
             'path' => '/',
             'secure' => self::secureCookie(),
@@ -161,6 +166,11 @@ final class CartSession
         ], 1);
 
         return is_array($row) && !empty($row['id']) ? $row : null;
+    }
+
+    private static function cookieName(): string
+    {
+        return self::secureCookie() ? self::SECURE_COOKIE : self::COOKIE;
     }
 
     private static function secureCookie(): bool
