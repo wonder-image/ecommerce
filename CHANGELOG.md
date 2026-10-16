@@ -125,6 +125,15 @@ versionamento semantico.
 
 ### Modificato
 
+- **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
+  fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
+  modulo, dipendenza dichiarata in `module.json`; l'ecommerce tiene solo la parte
+  commerciale (cellulare obbligatorio alla registrazione, ordini, checkout).
+  Gli import di `Wonder\App\Models\Contacts\*` e
+  `Wonder\Auth\Frontend\ContactAccount` passano a
+  `Wonder\Plugin\CustomerAccount\…`. Abilitare `customer-account` in
+  `modules.php` prima di gestionale ed ecommerce ed eseguire `forge update`.
+
 - Area cliente: ogni ordine dell'elenco è una riga di `frontend.account.row`
   come «Dati personali» (Ordine, Data, Totale, **Visualizza**), al posto della
   tabella `.wi-row-table`; la riga la costruisce `AccountOrder::row()`. In

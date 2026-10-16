@@ -199,10 +199,10 @@ inert quando il dialogo è chiuso. I POST sono protetti da CSRF e ownership. Le
 route editor (`account.addresses.create` e `.edit`) rimangono come fallback senza
 JavaScript. I modal sono passati alla pagina in `modals` e resi dopo il `main` dal
 layout del core, non dentro la colonna dei contenuti o un altro form.
-Il core offre Resource generiche `ContactResource` / `ContactAddressResource`
+Il modulo `wonder-image/customer-account` offre Resource generiche `ContactResource` / `ContactAddressResource`
 su `/backend/contacts/` e `/backend/contact-addresses/`, riservate agli
 amministratori. Il gestionale conserva il suo pannello più completo e la
-precedenza nei link per tabella. Vedi la documentazione contatti del core.
+precedenza nei link per tabella. Vedi il README di customer-account.
 
 ## Impersonificazione
 
