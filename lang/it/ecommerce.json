@@ -196,7 +196,9 @@
             "pickup_location": "Scegli una sede per il ritiro.",
             "billing": "Completa i dati di fatturazione.",
             "invoice": "Per la fattura servono il codice fiscale, oppure ragione sociale e partita IVA.",
-            "consents": "Accetta i documenti richiesti per ordinare."
+            "consents": "Accetta i documenti richiesti per ordinare.",
+            "too_many_coupons": "Hai provato troppi codici sconto. Riprova tra qualche minuto.",
+            "too_many_orders": "Hai inviato troppi ordini in poco tempo. Riprova tra qualche minuto."
         },
         "completed": {
             "title": "Ordine ricevuto",

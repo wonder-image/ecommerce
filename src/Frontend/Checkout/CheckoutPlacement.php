@@ -5,6 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use RuntimeException;
 use Throwable;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
@@ -18,6 +19,10 @@ use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
  */
 final class CheckoutPlacement
 {
+    // Cinque ordini in quindici minuti: c'è posto per chi riprova dopo una carta rifiutata.
+    private const ORDER_LIMIT = 5;
+    private const ORDER_WINDOW = 900;
+
     private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note'];
 
     /**
@@ -28,6 +33,13 @@ final class CheckoutPlacement
     public static function place(int $cartId, array $post, ?object $user, array $options): array
     {
         $json = !empty($options['json']);
+
+        // Il cliente entrato non ha il reCAPTCHA dell'ospite: lo ferma un limite di ordini.
+        $limited = CartSession::authenticated() ? (int) ($user->id ?? 0) : 0;
+        $customerKey = $limited > 0 ? (string) $limited : '';
+        if (!Throttle::allowed('orders', $customerKey, self::ORDER_LIMIT, self::ORDER_WINDOW)) {
+            throw new RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'));
+        }
 
         // L'anteprima scrive contatti e consegna sul carrello; poi si rilegge.
         $preview = CheckoutSummary::payload($cartId, $post, $user);
@@ -99,6 +111,7 @@ final class CheckoutPlacement
             'user_id' => $userId,
             'customer_email' => $passwordLink === '' ? [] : ['account_url' => $passwordLink],
         ]);
+        Throttle::hit('orders', $customerKey, self::ORDER_WINDOW);
 
         // Solo chi è entrato: l'ospite non scrive nell'account che trova dalla sua email.
         if (!$guest && $customerId > 0) {

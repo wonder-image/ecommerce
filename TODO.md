@@ -212,7 +212,7 @@ Si unisce su `main` dopo la `1.0.0`.
 
 ## Infrastruttura e rilascio
 
-- [ ] I1 Configurare il secret CI `MODULI_TOKEN` per il gestionale privato.
+- [x] I1 Configurare il secret CI `MODULI_TOKEN` per il gestionale privato: **superato** (2026-10-16), i repository ecommerce, gestionale e customer-account sono pubblici e la CI li scarica senza token.
 - [ ] I2 Eseguire la matrice CI con i tre pacchetti su PHP 8.2 e versione runtime
   corrente prima del rilascio.
 - [ ] I3 Documentare configurazione provider e mail del sito di produzione senza
