@@ -63,7 +63,14 @@ sono mostrati nell'alert di pagina.
 - `account.panel`, `account.navigation` e `account.payment_methods`: il pannello
   account, vedi «Pannello account»;
 - `auth.federated.google` e `auth.federated.apple`;
-- `impersonation.enabled`, `actor_authorities` e `token_ttl`;
+- `impersonation.enabled` e `token_ttl`. Chi può entrare nell'account di un
+  cliente è l'area permessi `ecommerce:impersonazione` (default
+  `administrator`, più `admin` sempre): si cambia con `permissions` in
+  `custom/config/modules/ecommerce.php`. Conta l'azione `edit` dell'area (una
+  lista semplice di ruoli vale per tutte le azioni). `impersonation.actor_authorities` è
+  deprecato ma, se il sito lo imposta, vince sull'area;
+- `permissions`: aree permessi del modulo, vedi «Aree di accesso» nella doc del
+  core (`docs/app/concetti/utenti/aree-di-accesso.md`);
 - `checkout.guest_enabled`, disabilitato per default: accende il checkout
   ospite, vedi `cart-checkout.md`, «Account e ospite».
 

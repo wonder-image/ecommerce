@@ -10,9 +10,9 @@ if (Ecommerce::config('impersonation.enabled', true)) {
         ->group(function () {
             Route::get('/ecommerce/impersonate/', Ecommerce::handlerPath('backend/impersonation.php'))
                 ->name('impersonation.confirm')
-                ->permit((array) Ecommerce::config('impersonation.actor_authorities', ['admin']));
+                ->permit(Ecommerce::impersonationAuthorities());
             Route::post('/ecommerce/impersonate/', Ecommerce::handlerPath('backend/impersonation.php'))
                 ->name('impersonation.issue')
-                ->permit((array) Ecommerce::config('impersonation.actor_authorities', ['admin']));
+                ->permit(Ecommerce::impersonationAuthorities());
         });
 }

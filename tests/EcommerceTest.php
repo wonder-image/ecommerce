@@ -200,6 +200,16 @@ check('i form espongono id semantici per Google Tag Manager', function () use ($
         && str_contains($federated, "'google_login'");
 });
 
+check('impersonazione: di default admin e administrator, il sito la cambia con Access::set', static function (): bool {
+    \Wonder\App\Permission\Access::reset(false);
+    $default = Ecommerce::impersonationAuthorities();
+    \Wonder\App\Permission\Access::set('ecommerce:impersonazione', []);
+    $soloAdmin = Ecommerce::impersonationAuthorities();
+    \Wonder\App\Permission\Access::reset();
+
+    return $default === ['admin', 'administrator'] && $soloAdmin === ['admin'];
+});
+
 check('i test accendono WONDER_NO_MAIL: sendMail del core non spedisce', static fn (): bool =>
     defined('WONDER_NO_MAIL') && WONDER_NO_MAIL === true
 );

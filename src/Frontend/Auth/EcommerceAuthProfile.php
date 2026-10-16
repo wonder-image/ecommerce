@@ -17,7 +17,7 @@ class EcommerceAuthProfile extends CustomerAuthProfile
     public function resetTtl(): int { return (int) Ecommerce::config('auth.password_reset_ttl', 1800); }
     public function googleEnabled(): bool { return (bool) Ecommerce::config('auth.federated.google', true); }
     public function impersonationEnabled(): bool { return (bool) Ecommerce::config('impersonation.enabled', true); }
-    public function impersonationAuthorities(): array { return (array) Ecommerce::config('impersonation.actor_authorities', ['admin']); }
+    public function impersonationAuthorities(): array { return Ecommerce::impersonationAuthorities(); }
     public function impersonationTtl(): int { return (int) Ecommerce::config('impersonation.token_ttl', 120); }
 
     protected function signupDefaults(): array { return ['phone' => 'required']; }
