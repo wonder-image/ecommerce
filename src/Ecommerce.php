@@ -3,8 +3,10 @@
 namespace Wonder\Plugin\Ecommerce;
 
 use Wonder\App\Module\ConfigRepository;
+use Wonder\App\Module\Contracts\ModuleGoogleApis;
 use Wonder\App\Module\Contracts\ModuleInterface;
 use Wonder\App\Permission\Access;
+use Wonder\App\Support\GoogleCloud\GoogleApi;
 use Wonder\Http\Route;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Settings\OnlineShopSettings;
@@ -20,7 +22,7 @@ use Wonder\View\View;
  * Il modulo non porta header e footer: le sue pagine passano dai layout
  * sottili in `view/layout/frontend/`, che chainano su quelli del sito.
  */
-final class Ecommerce implements ModuleInterface, ProvidesSettings, ProvidesOrderEmailExtras
+final class Ecommerce implements ModuleInterface, ModuleGoogleApis, ProvidesSettings, ProvidesOrderEmailExtras
 {
     public const SLUG = 'ecommerce';
 
@@ -71,6 +73,21 @@ final class Ecommerce implements ModuleInterface, ProvidesSettings, ProvidesOrde
     public static function settingsSections(): iterable
     {
         yield new OnlineShopSettings();
+    }
+
+    /**
+     * Le API Google del negozio: reCAPTCHA sul checkout dell'ospite e sul
+     * check-out rapido, autocompletamento degli indirizzi di spedizione e
+     * fatturazione, e Accedi con Google quando `auth.federated.google` è acceso.
+     */
+    public static function googleApis(): iterable
+    {
+        return [
+            GoogleApi::make('recaptcha_enterprise')->required()->usedBy(self::SLUG),
+            GoogleApi::make('maps_javascript')->required()->usedBy(self::SLUG),
+            GoogleApi::make('places')->required()->usedBy(self::SLUG),
+            GoogleApi::make('google_oauth')->required((bool) self::config('auth.federated.google', true))->usedBy(self::SLUG),
+        ];
     }
 
     public static function assetPath(string $path = ''): string

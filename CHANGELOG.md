@@ -7,6 +7,11 @@ versionamento semantico.
 
 ### Aggiunto
 
+- API Google dichiarate al registro del core (`ModuleGoogleApis`, richiede
+  wonder-image/app#97): reCAPTCHA Enterprise, Maps JavaScript, Places e
+  Accedi con Google, quest'ultima obbligatoria solo con
+  `auth.federated.google` acceso.
+
 - Registrazione con i campi di `signup.fields` di
   wonder-image/customer-account (data di nascita, fatturazione, primo
   indirizzo di spedizione): `EcommerceAuthProfile` estende
