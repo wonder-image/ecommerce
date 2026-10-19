@@ -258,6 +258,33 @@ check('fatturazione: incompleta, azienda senza partita IVA, consensi mancanti', 
         && CheckoutRules::paymentErrors(['accept_privacy_policy' => '1'], $piena, ['privacy_policy']) === [];
 });
 
+check('dal modulo servono anche civico e provincia (se il paese ne ha); il wallet resta senza civico', function (): bool {
+    $via = ['shipping_country' => 'IT', 'shipping_province' => 'MI', 'shipping_city' => 'Milano', 'shipping_cap' => '20100', 'shipping_street' => 'Via', 'shipping_number' => '1'];
+    $piena = ['billing_name' => 'Ada', 'billing_surname' => 'L', 'billing_country' => 'IT', 'billing_province' => 'MI', 'billing_city' => 'Milano', 'billing_cap' => '20100', 'billing_street' => 'Via', 'billing_number' => '1'];
+
+    return CheckoutRules::addressComplete($via, true)
+        && !CheckoutRules::addressComplete(['shipping_number' => ''] + $via, true)
+        && !CheckoutRules::addressComplete(['shipping_province' => ''] + $via, true)
+        && CheckoutRules::addressComplete(['shipping_number' => ''] + $via)
+        && CheckoutRules::paymentErrors([], $piena, [], true) === []
+        && CheckoutRules::paymentErrors([], ['billing_number' => ''] + $piena, [], true) === ['billing']
+        && CheckoutRules::paymentErrors([], ['billing_province' => ''] + $piena, [], true) === ['billing']
+        && CheckoutRules::paymentErrors([], ['billing_number' => ''] + $piena, []) === [];
+});
+
+check('dopo un errore il carrello ricorda «fatturazione diversa» e la fattura', function (): bool {
+    $spedizione = ['shipping_name' => 'Ada', 'shipping_surname' => 'L', 'shipping_country' => 'IT', 'shipping_province' => 'MI', 'shipping_city' => 'Milano', 'shipping_cap' => '20100', 'shipping_street' => 'Via', 'shipping_number' => '1'];
+    $uguale = $spedizione;
+    foreach ($spedizione as $key => $value) {
+        $uguale['billing'.substr($key, 8)] = $value;
+    }
+
+    return CheckoutRules::choices($uguale) === []
+        && CheckoutRules::choices(['billing_street' => 'Corso Roma'] + $uguale) === ['same_as_shipping' => '0']
+        && CheckoutRules::choices(['fulfillment_type' => 'pickup', 'billing_street' => 'Corso Roma'] + $uguale) === []
+        && CheckoutRules::choices(['billing_type' => 'business'] + $uguale) === ['invoice' => '1'];
+});
+
 check('l\'ospite deve accettare tutti e due i documenti', fn () =>
     CheckoutRules::askedConsents(0) === ['privacy_policy', 'terms_conditions']
 );

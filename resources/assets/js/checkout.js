@@ -511,8 +511,24 @@ class Checkout {
             });
         });
 
+        this.provinces();
+
         // La lib accende «Ordina» guardando i campi visibili: va ricontrollato dopo aver mosso i pannelli.
         if (typeof check === 'function') { check(); }
+        checkoutLabels(this.root);
+    }
+
+    // La provincia serve se il paese ne ha: la lib ricarica la lista al cambio di paese, required e asterisco la seguono.
+    provinces() {
+        this.root.querySelectorAll('select[data-wi-input-state="true"]').forEach((field) => {
+            const required = [...field.options].some((option) => option.value !== '');
+            const label = field.closest('.wi-input-container')?.querySelector('.wi-label');
+
+            field.required = required;
+            if (label) {
+                label.textContent = label.textContent.replace(/\*$/, '') + (required ? '*' : '');
+            }
+        });
     }
 
     matches(part) {
@@ -561,6 +577,8 @@ class Checkout {
                 target.dataset.mirrored = source.value;
             }
         });
+
+        checkoutLabels(this.form);
     }
 
     // L'opzione scelta: il radio spuntato (vale la chiave della scelta), o quella dell'anteprima prima del primo disegno.
@@ -940,7 +958,10 @@ class Checkout {
             this.render(payload.summary);
             this.say([payload.message]);
         } else {
-            this.say(payload.errors || [payload.message || payload.error || this.labels.summary_error]);
+            // L'ordine non nasce (giacenza finita, dati mancanti): lo dice un alert della lib, non una riga sotto la carta.
+            const errors = (payload.errors || [payload.message || payload.error || this.labels.summary_error]).filter(Boolean);
+
+            this.say([payAlert(errors.join(' '), '[data-checkout-alert]')]);
         }
 
         // Punteggio basso: la lib apre la casella nel riquadro del modulo; altrimenti il token usato si butta.
@@ -1289,10 +1310,11 @@ function cartSpinner(on) {
 // la sua finestra sta sopra lo spinner. Riuscito il pagamento, lo spinner resta fino alla pagina di ritorno.
 // Un rifiuto di Stripe (la carta, il 3DS) si legge in un alert della lib, che resta finché il cliente non lo chiude
 // o non riprova. Restituisce il messaggio che non ha potuto mostrare, così torna sotto la carta.
-function payAlert(message) {
+// Lo stesso alert serve agli errori dell'ordine, con il titolo del suo template.
+function payAlert(message, template = '[data-checkout-pay-alert]') {
     document.querySelectorAll('[data-pay-alert]').forEach((node) => node.remove());
 
-    const alert = document.querySelector('[data-checkout-pay-alert]')?.content.firstElementChild?.cloneNode(true);
+    const alert = document.querySelector(template)?.content.firstElementChild?.cloneNode(true);
 
     if (!message || !alert || typeof alertContainer !== 'function') {
         return message;
@@ -1307,6 +1329,14 @@ function payAlert(message) {
     requestAnimationFrame(() => requestAnimationFrame(() => alert.classList.add('wi-show')));
 
     return '';
+}
+
+// Un valore scritto dal JS o un pannello appena aperto: la label della lib sale sui campi pieni, come fa
+// `labelPosition` della lib (resta su anche nel campo vuoto dove si sta scrivendo).
+function checkoutLabels(root = document) {
+    root.querySelectorAll("[data-wi-label='true']").forEach((field) => {
+        field.parentElement?.classList.toggle('compiled', field.value !== '' || field === document.activeElement);
+    });
 }
 
 function paySpinner(on, text = '') {

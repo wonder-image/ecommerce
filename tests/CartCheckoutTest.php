@@ -622,12 +622,12 @@ check('la fattura mette in fila ragione sociale e SDI, poi partita IVA, codice f
 });
 
 check('i campi che il server vuole sono required, e così la label ha l\'asterisco', function (): bool {
-    foreach (['shipping_country', 'shipping_city', 'shipping_cap', 'shipping_street', 'billing_name', 'billing_surname', 'billing_country', 'billing_city', 'billing_cap', 'billing_street', 'billing_business_name', 'billing_pi'] as $key) {
+    foreach (['shipping_country', 'shipping_city', 'shipping_cap', 'shipping_street', 'shipping_number', 'billing_number', 'billing_name', 'billing_surname', 'billing_country', 'billing_city', 'billing_cap', 'billing_street', 'billing_business_name', 'billing_pi'] as $key) {
         if (!CheckoutFields::required($key)) {
             return false;
         }
     }
-    foreach (['shipping_province', 'shipping_number', 'shipping_more', 'billing_sdi', 'billing_pec', 'billing_cf'] as $key) {
+    foreach (['shipping_province', 'shipping_more', 'billing_sdi', 'billing_pec', 'billing_cf'] as $key) {
         if (CheckoutFields::required($key)) {
             return false;
         }
@@ -635,6 +635,45 @@ check('i campi che il server vuole sono required, e così la label ha l\'asteris
     $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
 
     return str_contains($c, 'CheckoutFields::required($key)');
+});
+
+check('la provincia è obbligatoria solo se il paese ne ha, e il JS segue le opzioni caricate', function (): bool {
+    $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return CheckoutFields::stateRequired('shipping_province') && CheckoutFields::stateRequired('billing_province')
+        && !CheckoutFields::stateRequired('shipping_city')
+        && str_contains($c, "context('required_when_states_available', true)")
+        && str_contains($js, 'select[data-wi-input-state="true"]');
+});
+
+check('le label flottanti dei campi già pieni salgono quando il blocco si apre', function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($js, 'function checkoutLabels(')
+        && substr_count($js, 'checkoutLabels(this.') >= 2;
+});
+
+check('l\'errore del pagamento (giacenza compresa) esce in un alert, non nel testo inline', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+
+    return str_contains($v, '<template data-checkout-alert>')
+        && str_contains($js, "payAlert(errors.join(' '), '[data-checkout-alert]')");
+});
+
+check('il carrello vuoto usa lo stato vuoto della lib con il rimando al catalogo', function (): bool {
+    $v = (string) file_get_contents(dirname(__DIR__).'/view/pages/cart/index.php');
+    foreach (['it', 'en'] as $lang) {
+        $cart = (array) (json_decode((string) file_get_contents(dirname(__DIR__).'/lang/'.$lang.'/ecommerce.json'), true)['cart'] ?? []);
+        if (($cart['empty_cta'] ?? '') === '' || ($cart['empty_title'] ?? '') === '') {
+            return false;
+        }
+    }
+
+    return str_contains($v, 'wi-empty-state"')
+        && str_contains($v, "__r('ecommerce.catalog.index')")
+        && str_contains($v, "__t('ecommerce.cart.empty_cta')");
 });
 
 check('il codice fiscale è obbligatorio solo per il privato, e il JS lo cambia col tipo', function (): bool {

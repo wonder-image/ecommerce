@@ -14,6 +14,8 @@ final class CheckoutRules
 
     private const KEEP = ['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'];
     public const ADDRESS = ['country', 'city', 'cap', 'street'];
+    /** Il modulo del checkout vuole anche il civico, e la provincia se il paese ne ha. La barra rapida no: i wallet scrivono il civico nella via. */
+    public const FORM_ADDRESS = [...self::ADDRESS, 'number'];
     private const FISCAL = ['business_name', 'cf', 'pi', 'sdi', 'pec'];
     private const SAME = ['name', 'surname', 'country', 'province', 'city', 'cap', 'street', 'number', 'more', 'phone_prefix', 'phone'];
 
@@ -24,7 +26,7 @@ final class CheckoutRules
      * @param array<string, mixed> $preview
      * @return list<string> chiavi di ecommerce.checkout.errors.*
      */
-    public static function deliveryErrors(array $order, array $preview, bool $shipping): array
+    public static function deliveryErrors(array $order, array $preview, bool $shipping, bool $form = false): array
     {
         $errors = [];
         $text = static fn (string $key): string => trim((string) ($order[$key] ?? ''));
@@ -45,7 +47,7 @@ final class CheckoutRules
             return $errors;
         }
 
-        if (!self::addressComplete($order)) {
+        if (!self::addressComplete($order, $form)) {
             $errors[] = 'address';
         }
 
@@ -57,16 +59,40 @@ final class CheckoutRules
         return $errors;
     }
 
-    /** @param array<string, mixed> $order */
-    public static function addressComplete(array $order): bool
+    /**
+     * `$form`: l'indirizzo viene dal modulo del checkout, che chiede anche
+     * civico e provincia.
+     *
+     * @param array<string, mixed> $order
+     */
+    public static function addressComplete(array $order, bool $form = false): bool
     {
-        foreach (self::ADDRESS as $field) {
-            if (trim((string) ($order['shipping_'.$field] ?? '')) === '') {
+        return self::filled($order, 'shipping_', $form ? self::FORM_ADDRESS : self::ADDRESS, $form);
+    }
+
+    /**
+     * I campi pieni; con `$province` anche la provincia, quando il paese ne ha
+     * (lo stesso criterio di `required_when_states_available` del core).
+     *
+     * @param array<string, mixed> $values
+     * @param list<string> $fields
+     */
+    private static function filled(array $values, string $prefix, array $fields, bool $province): bool
+    {
+        $text = static fn (string $field): string => trim((string) ($values[$prefix.$field] ?? ''));
+
+        foreach ($fields as $field) {
+            if ($text($field) === '') {
                 return false;
             }
         }
 
-        return true;
+        return !$province || $text('province') !== '' || !self::hasStates($text('country'));
+    }
+
+    private static function hasStates(string $country): bool
+    {
+        return $country !== '' && function_exists('states') && states($country) !== [];
     }
 
     /**
@@ -266,20 +292,49 @@ final class CheckoutRules
     }
 
     /**
+     * Le scelte della fatturazione rilette dal carrello, quando la pagina
+     * riparte senza il POST (ricarica, ritorno dal pagamento): una
+     * fatturazione scritta e diversa dalla spedizione è «indirizzo diverso»,
+     * il tipo azienda o il codice fiscale sono «Mi serve la fattura».
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, string>
+     */
+    public static function choices(array $order): array
+    {
+        $text = static fn (string $key): string => trim((string) ($order[$key] ?? ''));
+        $choices = [];
+
+        // Il cellulare si copia sempre dai contatti: non dice niente della scelta.
+        if ($text('fulfillment_type') !== 'pickup' && $text('billing_street') !== '') {
+            foreach (array_diff(self::SAME, ['phone_prefix', 'phone']) as $field) {
+                if ($text('billing_'.$field) !== $text('shipping_'.$field)) {
+                    $choices['same_as_shipping'] = '0';
+                    break;
+                }
+            }
+        }
+
+        if ($text('billing_type') === 'business' || $text('billing_cf') !== '') {
+            $choices['invoice'] = '1';
+        }
+
+        return $choices;
+    }
+
+    /**
      * @param array<string, mixed> $post
      * @param array<string, string> $billing
      * @param list<string> $asked
+     * @param bool $form la fatturazione viene dal modulo del checkout: servono anche civico e provincia
      * @return list<string> chiavi di ecommerce.checkout.errors.*
      */
-    public static function paymentErrors(array $post, array $billing, array $asked): array
+    public static function paymentErrors(array $post, array $billing, array $asked, bool $form = false): array
     {
         $errors = [];
 
-        foreach (array_merge(['name', 'surname'], self::ADDRESS) as $field) {
-            if (($billing['billing_'.$field] ?? '') === '') {
-                $errors[] = 'billing';
-                break;
-            }
+        if (!self::filled($billing, 'billing_', ['name', 'surname', ...($form ? self::FORM_ADDRESS : self::ADDRESS)], $form)) {
+            $errors[] = 'billing';
         }
 
         if (!empty($post['invoice'])) {
