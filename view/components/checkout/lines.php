@@ -8,7 +8,7 @@ $line = static function (array $item) use ($currency): string {
     $parts = (array) ($item['parts'] ?? CartPresenter::parts($item));
 
     return '<div class="w-100 d-flex gap-4">'
-        .'<span class="wi-thumb o-hidden" style="--wi-thumb-size: 64px">'
+        .'<span class="wi-thumb" style="--wi-thumb-size: 64px">'
         // Il template del JS ha un <img> semplice: checkout.js ne cambia solo il src.
         .match (true) {
             $image === '' => '',
