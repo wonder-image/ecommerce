@@ -20,6 +20,20 @@ use Wonder\Plugin\Gestionale\Support\Catalog\ProductPhotos;
 /** Il dettaglio di un ordine come lo vede il cliente: tutto testo semplice, salvo gli indirizzi. */
 final class AccountOrder
 {
+    /** Ordini che il cliente non vede: il pagamento non è arrivato (in corso o lasciato a metà). */
+    public const HIDDEN_STATUSES = ['awaiting_payment', 'abandoned'];
+
+    /** Gli ordini del cliente nell'area clienti: stage order, la sua scheda, senza quelli nascosti. */
+    public static function condition(int $contactId): string
+    {
+        return "`stage` = 'order' AND `customer_id` = ".$contactId." AND `status` NOT IN ('".implode("', '", self::HIDDEN_STATUSES)."')";
+    }
+
+    public static function hidden(array $order): bool
+    {
+        return in_array((string) ($order['status'] ?? ''), self::HIDDEN_STATUSES, true);
+    }
+
     /**
      * L'ordine come riga del pannello (`frontend.account.row`): numero, data e totale, con il link al dettaglio.
      * La usano l'elenco degli ordini e l'ultimo ordine in Panoramica.

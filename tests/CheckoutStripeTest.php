@@ -62,33 +62,40 @@ check('la vista ha il posto per la carta e l\'indirizzo per riaprire il modulo, 
     && str_contains($view, "\$labels['stripe_error']")
     && str_contains($view, "\$labels['pay_failed']"));
 
-check('dopo un rifiuto il modulo si riapre: l\'ordine si annulla e si può cambiare metodo', function () use ($js): bool {
-    $reopen = substr($js, (int) strpos($js, '    async reopen(keep = []) {'), 1200);
+check('dopo un rifiuto l\'ordine resta: si riprova sullo stesso, il primo cambio del modulo lo riapre', function () use ($js, $view): bool {
+    $reopen = substr($js, (int) strpos($js, '    reopen() {'), 900);
+    $changed = substr($js, (int) strpos($js, '    changed() {'), 200);
+    $thaw = substr($js, (int) strpos($js, '    thaw() {'), 300);
 
     return !str_contains($js, 'abandon')
-        && substr_count($js, 'await this.reopen(') === 4
+        && !str_contains($js, 'edit-order')
+        && !str_contains($view, 'edit-order')
+        && str_contains($changed, 'if (this.placed && !this.paying) {')
+        && str_contains($changed, 'this.reopen();')
+        && substr_count($js, 'this.thaw();') === 5
+        && str_contains($thaw, 'this.frozen = false;')
+        && str_contains($thaw, '(this.frozenFields || []).forEach((field) => { field.disabled = false; });')
         && str_contains($reopen, 'if (!this.placed)')
         && str_contains($reopen, 'this.placed = null;')
-        && str_contains($reopen, 'this.frozen = false;')
-        && str_contains($reopen, '(this.frozenFields || []).forEach((field) => { field.disabled = false; });')
         && str_contains($reopen, 'this.resetRecaptcha();')
         && str_contains($reopen, 'this.request(this.root.dataset.reopenUrl, this.body())')
         && str_contains($reopen, 'this.render(payload)')
+        && str_contains($js, 'await this.reopening;')
         && str_contains($js, '.filter((field) => !field.disabled)');
 });
 
-check('la pagina «Paga ora» offre «Cambia metodo di pagamento», che riapre il checkout', function () use ($pay, $root): bool {
+check('la pagina «Paga ora» torna al checkout, che riapre l\'ordine al primo cambio', function () use ($pay, $root): bool {
     $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
     $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
 
-    return str_contains($pay, "action=\"<?=e(__r('ecommerce.checkout.reopen'))?>\"")
-        && str_contains($pay, "__t('ecommerce.checkout.pay.change_method')")
+    return str_contains($pay, 'href="<?=e($back_url)?>"')
+        && !str_contains($pay, 'ecommerce.checkout.reopen')
+        && !str_contains($pay, 'change_method')
         && !str_contains($pay, 'abandon')
         && str_contains($routes, "Route::post('/reopen/', \$handler, ['checkout_action' => 'reopen'])->name('reopen')")
         && !str_contains($routes, 'abandon')
-        && ($it['checkout']['pay']['change_method'] ?? '') === 'Cambia metodo di pagamento'
-        && ($en['checkout']['pay']['change_method'] ?? '') === 'Change payment method'
+        && !isset($it['checkout']['pay']['change_method'], $en['checkout']['pay']['change_method'])
         && str_contains((string) ($it['checkout']['pay']['removed'] ?? ''), '{{names}}')
         && str_contains((string) ($en['checkout']['pay']['removed'] ?? ''), '{{names}}')
         && !isset($it['checkout']['pay']['abandon'], $it['checkout']['pay']['abandoned'], $en['checkout']['pay']['abandon'], $en['checkout']['pay']['abandoned']);
@@ -229,7 +236,7 @@ check('il rifiuto di Stripe (anche del 3DS) arriva come alert della lib, che res
         && str_contains($js, "'.wi-alert-body'")
         && str_contains($js, 'payAlert(error.message || this.labels.pay_failed)')
         && str_contains($js, 'payAlert(error.message || this.labels.failed)')
-        && substr_count($js, "payAlert('')") === 3;
+        && substr_count($js, "payAlert('')") === 4;
 });
 
 check('il rifiuto di Stripe sta solo nell\'alert: niente scritta sotto il box del pagamento', function () use ($js): bool {

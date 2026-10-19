@@ -97,6 +97,7 @@ View::head(DataLayer::script([
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-reopen-url="<?=e(__r('ecommerce.checkout.reopen'))?>"
+        data-declined-url="<?=e(__r('ecommerce.checkout.declined'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
@@ -228,6 +229,7 @@ View::head(DataLayer::script([
             <div class="w-100" data-checkout-wallet-slot hidden></div>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
+            <?php /* Dopo un rifiuto l'ordine resta: si riprova o lo si riapre (stessa riga, stesso numero). */ ?>
         </div>
 
         <template data-checkout-choice><?=Choice::make('', '')->type('radio')?></template>

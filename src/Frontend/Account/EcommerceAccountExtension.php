@@ -73,7 +73,7 @@ final class EcommerceAccountExtension extends BaseAccountExtension
         $contact = Contact::find(['user_id' => (int) ($user->id ?? 0)], 1);
         $contactId = is_array($contact) ? (int) ($contact['id'] ?? 0) : 0;
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
-        $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(['stage' => 'order', 'customer_id' => $contactId], 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
+        $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(AccountOrder::condition($contactId), 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
         $label = (string) __t('ecommerce.account.orders.last');
 
         $rows[] = $last !== null

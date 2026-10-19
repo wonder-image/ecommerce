@@ -9,6 +9,7 @@ use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 
 /**
@@ -91,16 +92,21 @@ final class CheckoutPlacement
             }
         }
 
-        // Un ordine online lasciato a metà non resta a tenere la merce. Se lo
-        // lascia la barra rapida e veniva dal checkout normale, le sue righe
-        // tornano nel carrello: l'express compra da un carrello a parte.
+        // Un ordine online lasciato a metà non resta a tenere la merce: si
+        // abbandona. Se lo lascia la barra rapida e veniva dal checkout normale,
+        // torna carrello: l'express compra da un carrello a parte. Con il
+        // pagamento già in corso non nasce un secondo ordine.
+        $outcome = 'none';
         try {
             $pending = OnlinePayment::sessionOrder();
-            !empty($options['express']) && $pending > 0 && !ExpressCart::owns($pending)
-                ? OnlinePayment::reopen()
+            $outcome = !empty($options['express']) && $pending > 0 && !ExpressCart::owns($pending)
+                ? OnlinePayment::reopen()['outcome']
                 : OnlinePayment::dropPending();
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.drop');
+        }
+        if (in_array($outcome, ['kept', 'succeeded', 'processing'], true)) {
+            throw UserError::make('order.payment_in_progress');
         }
 
         $result = Checkout::place($cartId, $data + [

@@ -177,20 +177,20 @@ check('settled: ordine estraneo non tocca niente', fn () => prova(static functio
     return righe($vero) === [[$a, 2.0]] && ExpressCart::id() === $express;
 }));
 
-check('reopen: ordine express annullato non torna nel carrello vero', fn () => prova(static function (): bool {
+check('reopen: ordine express abbandonato non torna nel carrello vero', fn () => prova(static function (): bool {
     $_COOKIE[CartSession::COOKIE] = bin2hex(random_bytes(32));
     $a = articolo(1.0, 20.0);
     $vero = (int) CartSession::current(true)['order']['id'];
     Cart::add($vero, ['product_id' => $a, 'quantity' => 1]);
     $express = ExpressCart::start($a, 2);
-    Order::update(['stage' => 'order', 'status' => 'pending', 'email' => 'cliente@example.com', 'total' => '40.00'], $express);
+    Order::update(['stage' => 'order', 'status' => 'awaiting_payment', 'email' => 'cliente@example.com', 'total' => '40.00'], $express);
     Ledger::open(['order_id' => $express, 'amount' => 40.0, 'provider' => 'stripe']);
     OnlinePayment::start($express);
     $esito = OnlinePayment::reopen();
 
-    return $esito['outcome'] === 'cancelled'
+    return $esito['outcome'] === 'abandoned'
         && $esito['removed'] === []
-        && (string) Order::findById($express)['status'] === 'cancelled'
+        && (string) Order::findById($express)['status'] === 'abandoned'
         && righe($vero) === [[$a, 1.0]]
         && ExpressCart::id() === 0
         && OnlinePayment::sessionOrder() === 0;

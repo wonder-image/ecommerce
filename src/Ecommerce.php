@@ -195,9 +195,9 @@ final class Ecommerce implements ModuleInterface, ModuleGoogleApis, ProvidesSett
 
     /**
      * Nelle email al cliente con un account, il link all'ordine nella sua area
-     * riservata. Nella conferma di un ordine fatto da ospite anche il link per
-     * scegliere la password: online la conferma arriva col pagamento, senza la
-     * sessione del checkout.
+     * riservata. Nella conferma e in «pagato» di un ordine fatto da ospite anche
+     * il link per scegliere la password: online le due email partono dal
+     * webhook o dal backend, senza la sessione del checkout.
      */
     public static function orderEmailExtras(string $key, array $order): array
     {
@@ -216,7 +216,7 @@ final class Ecommerce implements ModuleInterface, ModuleGoogleApis, ProvidesSett
             }
         }
 
-        $link = $key === 'confirmed' ? GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore')) : '';
+        $link = in_array($key, ['confirmed', 'processing', 'paid'], true) ? GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore')) : '';
 
         return $link === '' ? $extras : $extras + ['account_url' => $link];
     }

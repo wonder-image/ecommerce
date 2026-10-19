@@ -9,6 +9,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Providers\Payments\PaymentState;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Orders\Lifecycle;
 use Wonder\Plugin\Gestionale\Support\Payments\OnlinePayments;
@@ -19,8 +20,9 @@ use Wonder\Plugin\Gestionale\Support\Payments\PaymentProviders;
  * l'avvio dell'intento e l'esito al ritorno dal gateway. Niente risposte HTTP
  * qui dentro: le dà il controller.
  *
- * L'ordine nasce a «Paga» e il carrello diventa l'ordine; finché il denaro non
- * arriva, l'id resta in sessione per riprovare dalla pagina di pagamento.
+ * L'ordine nasce a «Paga» «In pagamento» e il carrello diventa l'ordine;
+ * finché il denaro non arriva l'id resta in sessione: si riprova a pagare o,
+ * alla prima modifica, l'ordine torna carrello sulla stessa riga.
  */
 final class OnlinePayment
 {
@@ -49,7 +51,10 @@ final class OnlinePayment
         return $id;
     }
 
-    /** L'ordine in sessione se è ancora da pagare; altrimenti lo dimentica. */
+    /**
+     * L'ordine in sessione se è «In pagamento»; altrimenti lo dimentica.
+     * L'abbandonato resta in sessione: `reopen()` lo riporta a carrello.
+     */
     public static function pending(): int
     {
         $id = self::sessionOrder();
@@ -57,14 +62,24 @@ final class OnlinePayment
             return 0;
         }
 
-        $order = Order::findById($id);
-        if (is_array($order) && ($order['stage'] ?? '') === 'order' && ($order['status'] ?? '') === 'pending') {
+        $status = self::status($id);
+        if ($status === 'awaiting_payment') {
             return $id;
         }
 
-        self::forget();
+        if ($status !== 'abandoned') {
+            self::forget();
+        }
 
         return 0;
+    }
+
+    /** Lo stato dell'ordine `$id` se è ancora un ordine, vuoto per un carrello o un id perso. */
+    private static function status(int $id): string
+    {
+        $order = Order::findById($id);
+
+        return is_array($order) && ($order['stage'] ?? '') === 'order' ? (string) ($order['status'] ?? '') : '';
     }
 
     public static function remember(int $orderId): void
@@ -155,8 +170,9 @@ final class OnlinePayment
 
     /**
      * Com'è andata, chiesto al gateway e non al browser: `succeeded`
-     * (incasso registrato), `processing` (arriverà col webhook), `retry`
-     * (rifiutato, si riprova) o `canceled`.
+     * (incasso registrato), `processing` (l'ordine passa al commerciante, il
+     * denaro arriverà col webhook), `retry` (rifiutato, si riprova) o
+     * `canceled`.
      */
     public static function settle(int $orderId, string $reference): string
     {
@@ -185,18 +201,19 @@ final class OnlinePayment
 
         return match ($state->status) {
             PaymentState::SUCCEEDED => self::confirm($provider->code(), $reference, $state),
-            PaymentState::PROCESSING => 'processing',
+            PaymentState::PROCESSING => self::processing($provider->code(), $reference, $state),
             PaymentState::CANCELED => 'canceled',
-            default => 'retry',
+            default => self::declined($provider->code(), $reference, $state),
         };
     }
 
     /**
-     * Lascia cadere l'ordine in sospeso della sessione: si annulla, intento
+     * Lascia cadere l'ordine in pagamento della sessione: si abbandona, intento
      * compreso, salvo che il denaro sia già arrivato o in arrivo. In quel caso
-     * l'ordine resta in sessione, così il ritorno dal gateway lo trova.
+     * l'ordine resta in sessione, così il ritorno dal gateway lo trova; resta
+     * anche quando l'intento non si chiude (`kept`).
      *
-     * @return 'none'|'cancelled'|'succeeded'|'processing'
+     * @return 'none'|'abandoned'|'kept'|'succeeded'|'processing'
      */
     public static function dropPending(): string
     {
@@ -214,48 +231,122 @@ final class OnlinePayment
             return $outcome;
         }
 
-        Lifecycle::cancel($id, ['reason' => 'Abbandonato dal cliente nel checkout', 'source' => 'ecommerce', 'notify' => false]);
+        if (!Lifecycle::abandon($id, ['reason' => 'Abbandonato dal cliente nel checkout', 'source' => 'ecommerce', 'user_id' => (int) ($_SESSION['user_id'] ?? 0)])) {
+            // Il pagamento è partito fra la lettura e l'abbandono, o Stripe non risponde.
+            self::remember($id);
 
-        return 'cancelled';
+            return 'kept';
+        }
+
+        return 'abandoned';
     }
 
     /**
-     * Dopo un pagamento non riuscito il checkout si riapre: l'ordine si annulla
-     * e righe, scelte, indirizzi e coupon tornano nel carrello della sessione.
-     * Se il denaro è arrivato non si riapre niente: `reference` porta al ritorno.
+     * Il cliente cambia qualcosa (carrello, campi del checkout, coupon) con un
+     * ordine in pagamento: l'ordine torna carrello sulla stessa riga
+     * (`Lifecycle::reopen`, che annulla prima l'intento), con righe, scelte e
+     * indirizzi; il prossimo «Paga» lo rifà ordine con un intento nuovo. Vale
+     * anche per l'abbandonato, così chi torna dopo la scadenza ritrova il
+     * carrello. Se il denaro è arrivato o è in arrivo non si riapre niente:
+     * `reference` porta al ritorno. L'ordine della barra rapida si abbandona,
+     * di quello annullato da altri si copiano le righe in un carrello.
      *
      * @return array{outcome: string, reference: string, removed: list<string>}
      */
     public static function reopen(): array
     {
         $id = self::sessionOrder();
+        $status = $id > 0 ? self::status($id) : '';
         $payment = $id > 0 ? (array) OnlinePayments::payment($id) : [];
         $reference = (string) ($payment['provider_reference'] ?? '');
-        $outcome = self::dropPending();
-        if ($outcome === 'none' && $id > 0 && (Order::findById($id)['status'] ?? '') === 'cancelled') {
-            // Annullato da altri (scadenza, webhook): le righe tornano lo stesso.
-            $outcome = 'cancelled';
+
+        if (in_array($status, ['awaiting_payment', 'abandoned'], true) && !ExpressCart::owns($id)) {
+            $outcome = $status === 'awaiting_payment' && $reference !== '' ? self::settle($id, $reference) : '';
+            if (in_array($outcome, ['succeeded', 'processing'], true)) {
+                return ['outcome' => $outcome, 'reference' => $reference, 'removed' => []];
+            }
+
+            // Prima di riaprire: dopo, la sessione vedrebbe due carrelli.
+            $existing = (int) (CartSession::current(false)['order']['id'] ?? 0);
+            $customerId = CartSession::customerId();
+            try {
+                Lifecycle::reopen($id, [
+                    // L'ospite ritrova il carrello dal gettone, con il cliente a zero.
+                    'customer_id' => $customerId,
+                    'cart_token' => CartSession::token(true),
+                    'user_id' => $customerId > 0 ? (int) ($_SESSION['user_id'] ?? 0) : 0,
+                    'source' => 'ecommerce',
+                    // Nella storia del pagamento si distingue da un rifiuto della banca.
+                    'reason' => 'Ordine modificato dal cliente',
+                ]);
+            } catch (UserError $error) {
+                // Il pagamento è partito fra la lettura e l'annullo: il ritorno dice com'è finita.
+                if ($error->key() === 'order.payment_in_progress') {
+                    return ['outcome' => 'processing', 'reference' => $reference, 'removed' => []];
+                }
+
+                throw $error;
+            }
+            self::forget();
+            unset($_SESSION[self::RECEIPT]);
+            self::rememberChoice($payment);
+            // Il carrello nato nel frattempo si unisce: resta la riga dell'ordine.
+            $cart = $existing > 0 && $existing !== $id ? Cart::merge($existing, $id) : Cart::recalculate($id);
+
+            return ['outcome' => 'reopened', 'reference' => $reference, 'removed' => array_values((array) ($cart['removed'] ?? []))];
         }
-        if ($outcome !== 'cancelled') {
+
+        $outcome = self::dropPending();
+        if ($outcome === 'none' && $id > 0 && in_array($status, ['cancelled', 'abandoned'], true)) {
+            // Chiuso da altri (scadenza, webhook): le righe tornano lo stesso.
+            $outcome = $status;
+        }
+        if (!in_array($outcome, ['abandoned', 'cancelled'], true)) {
             return ['outcome' => $outcome, 'reference' => $reference, 'removed' => []];
         }
 
+        self::forget();
         unset($_SESSION[self::RECEIPT]);
-        // L'express compra da un carrello a parte: annullato, si butta e basta.
+        // L'express compra da un carrello a parte: chiuso, si butta e basta.
         if (ExpressCart::owns($id)) {
             ExpressCart::forget();
 
-            return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => []];
+            return ['outcome' => 'abandoned', 'reference' => $reference, 'removed' => []];
         }
 
-        $method = (string) ($payment['provider_method'] ?? '');
-        if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
-            $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
-        }
+        self::rememberChoice($payment);
         $cart = CartSession::current(true);
         $restored = Cart::restore($id, (int) ($cart['order']['id'] ?? 0));
 
-        return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => array_values((array) ($restored['removed'] ?? []))];
+        return ['outcome' => 'abandoned', 'reference' => $reference, 'removed' => array_values((array) ($restored['removed'] ?? []))];
+    }
+
+    /**
+     * La riapertura dei punti che modificano il carrello: `reopen()` se c'è
+     * un ordine in pagamento (o abbandonato) del checkout normale, senza
+     * lasciar uscire un errore. `none` se non c'era niente da riaprire,
+     * `kept` se l'intento non si è chiuso (il messaggio è in `error`).
+     *
+     * @return array{outcome: string, reference: string, removed: list<string>, error?: string}
+     */
+    public static function resume(): array
+    {
+        $id = self::sessionOrder();
+        if ($id <= 0 || ExpressCart::owns($id) || !in_array(self::status($id), ['awaiting_payment', 'abandoned'], true)) {
+            return ['outcome' => 'none', 'reference' => '', 'removed' => []];
+        }
+
+        try {
+            return self::reopen();
+        } catch (UserError $error) {
+            // Stripe non ha annullato l'intento: l'ordine resta da pagare.
+            return ['outcome' => 'kept', 'reference' => '', 'removed' => [], 'error' => $error->getMessage()];
+        } catch (Throwable $error) {
+            // Senza riapertura l'ordine si abbandona da solo con le prenotazioni.
+            Errors::internal($error, 'ecommerce.checkout.reopen', ['order_id' => $id]);
+
+            return ['outcome' => 'none', 'reference' => '', 'removed' => []];
+        }
     }
 
     /** La scelta ricordata da `reopen()`, una volta sola; vuota se non c'è. */
@@ -265,6 +356,48 @@ final class OnlinePayment
         unset($_SESSION[self::CHOICE]);
 
         return $choice;
+    }
+
+    /** @param array<string, mixed> $payment */
+    private static function rememberChoice(array $payment): void
+    {
+        $method = (string) ($payment['provider_method'] ?? '');
+        if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
+            $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
+        }
+    }
+
+    /**
+     * Il rifiuto finisce nella storia del pagamento dell'ordine, col motivo
+     * della banca: una riga per tentativo, anche se il webhook non arriva.
+     */
+    private static function declined(string $provider, string $reference, PaymentState $state): string
+    {
+        if ($state->failure === '') {
+            // Intento nuovo o rifiuto senza motivo: non c'è un tentativo da scrivere.
+            return 'retry';
+        }
+
+        try {
+            OnlinePayments::fail($provider, $reference, $state->failure, $state->attempt);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.declined');
+        }
+
+        return 'retry';
+    }
+
+    /** In elaborazione (SEPA): l'ordine passa al commerciante, l'incasso arriverà col webhook. */
+    private static function processing(string $provider, string $reference, PaymentState $state): string
+    {
+        try {
+            OnlinePayments::processing($provider, $reference, $state->amount, $state->currency, $state->orderId, 'ecommerce');
+        } catch (Throwable $error) {
+            // Lo rifà il webhook `payment_intent.processing` o il riallineamento.
+            Errors::internal($error, 'ecommerce.checkout.processing');
+        }
+
+        return 'processing';
     }
 
     private static function confirm(string $provider, string $reference, PaymentState $state): string

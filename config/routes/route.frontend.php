@@ -105,6 +105,7 @@ Route::area('frontend')
                 Route::get('/return/', $handler, ['checkout_action' => 'return'])->name('return');
                 Route::get('/pay/', $handler, ['checkout_action' => 'pay'])->name('pay');
                 Route::post('/reopen/', $handler, ['checkout_action' => 'reopen'])->name('reopen');
+                Route::post('/declined/', $handler, ['checkout_action' => 'declined'])->name('declined');
 
                 $express = Ecommerce::handlerPath('frontend/express.php');
                 Route::post('/express/start/', $express, ['express_action' => 'start'])->name('express.start');

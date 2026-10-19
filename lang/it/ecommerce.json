@@ -205,21 +205,23 @@
         "completed": {
             "title": "Ordine ricevuto",
             "text": "Il tuo ordine {{number}} è stato registrato.",
+            "text_unnumbered": "Il tuo ordine è stato registrato.",
             "account": "Vai al tuo account",
             "email_sent": "Ti abbiamo mandato il riepilogo dell'ordine via email. Se non hai ancora una password, nell'email trovi il link per sceglierla e seguire i tuoi ordini.",
             "shop": "Torna al negozio",
-            "processing": "Il pagamento è in lavorazione: ti scriviamo appena arriva la conferma."
+            "processing": "Il pagamento è in lavorazione: ti scriviamo appena arriva la conferma.",
+            "paid": "Pagamento ricevuto. Controlliamo la disponibilità della merce e ti scriviamo appena confermiamo l'ordine."
         },
         "pay": {
             "title": "Pagamento dell'ordine",
-            "text": "Ordine {{number}}, totale {{total}}.",
+            "text": "Totale da pagare: {{total}}.",
             "submit": "Paga ora",
             "processing": "Elaborazione pagamento",
             "alert_title": "Pagamento non riuscito",
-            "change_method": "Cambia metodo di pagamento",
+            "back": "Torna al checkout",
             "removed": "Non più disponibili, tolti dal carrello: {{names}}.",
-            "failed": "Il pagamento non è andato a buon fine. Riprova o usa un altro metodo.",
-            "canceled": "Il pagamento è stato annullato. Puoi riprovare.",
+            "failed": "Il pagamento non è andato a buon fine. Riprova con un'altra carta o scegli un altro metodo.",
+            "canceled": "Il pagamento è stato annullato. Puoi riprovare o scegliere un altro metodo.",
             "error": "Il pagamento online non è disponibile in questo momento. Riprova tra poco."
         }
     },
