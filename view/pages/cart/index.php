@@ -30,11 +30,15 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
 ?>
 <?php if ($items === []): ?>
     <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
-    <div class="w-100 wi-box p-6 a-c">
-        <h2 class="subtitle"><?=e(__t('ecommerce.cart.empty_title'))?></h2>
-        <p class="text mt-3"><?=e(__t('ecommerce.cart.empty_text'))?></p>
-        <?=Button::to((string) (__r('ecommerce.catalog.index') ?: '/'), (string) __t('ecommerce.cart.back_to_shop'))->variant('primary')->class('mt-5')?>
-    </div>
+    <?php // Lo stato vuoto della lib, come ordini e coupon dell'area cliente. ?>
+    <section class="w-100 wi-box p-6">
+        <div class="w-100 wi-empty-state" role="status">
+            <i class="wi-empty-state__icon bi bi-bag" aria-hidden="true"></i>
+            <h2 class="subtitle"><?=e(__t('ecommerce.cart.empty_title'))?></h2>
+            <p class="text tx-secondary"><?=e(__t('ecommerce.cart.empty_text'))?></p>
+            <?=Button::to((string) (__r('ecommerce.catalog.index') ?: '/'), (string) __t('ecommerce.cart.empty_cta'))->variant('primary')->arrow()?>
+        </div>
+    </section>
 <?php else: ?>
     <div class="w-100 d-grid col-3 col-t-1 gap-6" data-checkout data-checkout-cart
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
