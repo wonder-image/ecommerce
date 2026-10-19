@@ -50,6 +50,8 @@ return [
         // Bottoni del pagamento rapido (Apple Pay, Google Pay, Link) sotto «Aggiungi al carrello».
         'express' => true,
         // `auto`: bottoni per opzioni visuali o fino a 4 valori, select oltre.
+        // `group`: btn-group a scelta singola, il default degli attributi di
+        // tipo «Bottone» del gestionale.
         // Un sito puo forzare il controllo per slug: ['taglia' => 'buttons'].
         'option_selector' => [
             'default' => 'auto',

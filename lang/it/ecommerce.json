@@ -67,7 +67,8 @@
         "price_range": "Da {{min}} a {{max}}",
         "availability": {
             "in_stock": "Disponibile",
-            "out_of_stock": "Non disponibile"
+            "out_of_stock": "Non disponibile",
+            "option_unavailable": "{{option}}, non disponibile"
         },
         "details": {
             "title": "Dettagli",

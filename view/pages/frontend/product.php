@@ -93,6 +93,18 @@ $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offe
 // cliente vede quella che il form invia, e se è esaurita non la compra.
 $selectedAttributes = (array) ($expressOffer['attributes'] ?? []);
 $selectedAvailable = (bool) ($expressOffer['available'] ?? false);
+// Un valore è esaurito se nessuna offerta disponibile lo combina con le altre scelte.
+$optionAvailable = static function (string $groupId, string $valueId) use ($data, $selectedAttributes): bool {
+    foreach ((array) ($data['offers'] ?? []) as $offer) {
+        $attributes = (array) ($offer['attributes'] ?? []);
+        if (empty($offer['available']) || (string) ($attributes[$groupId] ?? '') !== $valueId) continue;
+        foreach ($selectedAttributes as $key => $value) {
+            if ((string) $key !== $groupId && (string) ($attributes[$key] ?? '') !== (string) $value) continue 2;
+        }
+        return true;
+    }
+    return false;
+};
 
 // Multiprodotto: i gruppi di scelta vanno nel form d'acquisto. Il check-out
 // rapido manda solo il prodotto, senza scelte: con dei gruppi resta spento.
@@ -247,14 +259,27 @@ Ecommerce::layout('shop');
                                 <?php if (($group['selector'] ?? '') === 'select'): ?>
                                     <?php $choices = array_column((array) $group['values'], 'label', 'id'); ?>
                                     <?=FormField::key('option_'.($group['id'] ?? ''))->select($choices)->required()->value((string) ($selectedAttributes[$group['id'] ?? ''] ?? ''))?>
+                                <?php elseif (($group['selector'] ?? '') === 'group'): ?>
+                                    <div class="btn-group" role="radiogroup" aria-label="<?=e($group['name'] ?? '')?>" data-option-radios>
+                                        <?php foreach ((array) ($group['values'] ?? []) as $value): ?>
+                                            <?php $pressed = (string) ($value['id'] ?? '') === (string) ($selectedAttributes[$group['id'] ?? ''] ?? ''); ?>
+                                            <?php $unavailable = !$optionAvailable((string) ($group['id'] ?? ''), (string) ($value['id'] ?? '')); ?>
+                                            <?php $unavailableLabel = (string) __t('ecommerce.catalog.availability.option_unavailable', ['option' => (string) ($value['label'] ?? '')]); ?>
+                                            <button class="btn <?=$pressed ? 'btn-primary' : 'btn-light'?>" type="button" role="radio" data-option-value="<?=e($value['id'] ?? '')?>" aria-checked="<?=$pressed ? 'true' : 'false'?>" tabindex="<?=$pressed ? '0' : '-1'?>" data-unavailable-label="<?=e($unavailableLabel)?>"<?=$unavailable ? ' data-unavailable aria-label="'.e($unavailableLabel).'"' : ''?>>
+                                                <span data-option-label><?=e($value['label'] ?? '')?></span>
+                                            </button>
+                                        <?php endforeach; ?>
+                                    </div>
                                 <?php else: ?>
                                     <div class="d-flex f-wrap gap-2">
                                         <?php foreach ((array) ($group['values'] ?? []) as $value): ?>
                                             <?php $pressed = (string) ($value['id'] ?? '') === (string) ($selectedAttributes[$group['id'] ?? ''] ?? ''); ?>
-                                            <button class="btn <?=$pressed ? 'btn-primary' : 'btn-light'?> p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="<?=$pressed ? 'true' : 'false'?>">
+                                            <?php $unavailable = !$optionAvailable((string) ($group['id'] ?? ''), (string) ($value['id'] ?? '')); ?>
+                                            <?php $unavailableLabel = (string) __t('ecommerce.catalog.availability.option_unavailable', ['option' => (string) ($value['label'] ?? '')]); ?>
+                                            <button class="btn <?=$pressed ? 'btn-primary' : 'btn-light'?> p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="<?=$pressed ? 'true' : 'false'?>" data-unavailable-label="<?=e($unavailableLabel)?>"<?=$unavailable ? ' data-unavailable aria-label="'.e($unavailableLabel).'"' : ''?>>
                                                 <?php if (!empty($value['image'])): ?><img src="<?=e($value['image'])?>" alt="" width="48" height="48" class="f-1-1 o-cover mr-2"><?php endif; ?>
                                                 <?php if (!empty($value['color'])): ?><span aria-hidden="true" class="d-inline-block f-1-1 mr-2" style="width:1.25rem;height:1.25rem;background:<?=e($value['color'])?>"></span><?php endif; ?>
-                                                <?=e($value['label'] ?? '')?>
+                                                <span data-option-label><?=e($value['label'] ?? '')?></span>
                                             </button>
                                         <?php endforeach; ?>
                                     </div>
@@ -375,12 +400,27 @@ document.addEventListener('DOMContentLoaded', function () {
             if (select) {
                 selected[id] = select.value;
             }
+            // Esaurito: nessuna offerta disponibile con questo valore e le altre scelte.
+            const others = Object.entries(selected).filter(([key]) => key !== id);
             group.querySelectorAll('[data-option-value]').forEach(button => {
                 const active = button.dataset.optionValue === selected[id];
-                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                if (button.getAttribute('role') === 'radio') {
+                    button.setAttribute('aria-checked', active ? 'true' : 'false');
+                    button.tabIndex = active ? 0 : -1;
+                } else {
+                    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                }
                 button.classList.toggle('btn-primary', active);
                 button.classList.toggle('btn-light', !active);
+                const available = offers.some(item => item.available
+                    && String((item.attributes || {})[id] || '') === button.dataset.optionValue
+                    && others.every(([key, value]) => String((item.attributes || {})[key] || '') === String(value)));
+                button.toggleAttribute('data-unavailable', !available);
+                if (available) button.removeAttribute('aria-label');
+                else button.setAttribute('aria-label', button.dataset.unavailableLabel);
             });
+            const radios = group.querySelectorAll('[role="radio"]');
+            if (radios.length && !group.querySelector('[role="radio"][aria-checked="true"]')) radios[0].tabIndex = 0;
         });
         updateVariantLinks();
         const product = form.querySelector('[name="product_id"]');
@@ -423,6 +463,18 @@ document.addEventListener('DOMContentLoaded', function () {
         selected[button.closest('[data-option-group]').dataset.optionGroup] = button.dataset.optionValue;
         sync();
         remember();
+    }));
+    // Nel gruppo a scelta singola le frecce spostano la scelta, come nei radio.
+    form.querySelectorAll('[data-option-radios]').forEach(group => group.addEventListener('keydown', function (event) {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) return;
+        const buttons = Array.from(group.querySelectorAll('[data-option-value]'));
+        const index = buttons.indexOf(document.activeElement);
+        if (index < 0) return;
+        event.preventDefault();
+        const next = buttons[(index + step + buttons.length) % buttons.length];
+        next.focus();
+        next.click();
     }));
     // Al ritorno dalla cache del browser, riallinea link e controlli ripristinati.
     window.addEventListener('pageshow', function (event) {
