@@ -19,9 +19,13 @@ La griglia dei dati usa righe dimensionate sul contenuto.
 Le varianti mostrano esclusivamente il proprio nome e, quando disponibile,
 una miniatura quadrata. Le opzioni seguono gli assi del modello (per esempio
 Taglia e Materiale) e mostrano soltanto il valore dell'asse. La configurazione
-`product.option_selector` puo forzare `buttons` o `select` per slug; in
-modalita `auto` usa bottoni per valori visuali o fino a quattro elementi e
-select per le liste piu lunghe.
+`product.option_selector` puo forzare `buttons`, `select` o `group` per slug;
+in modalita `auto` usa bottoni per valori visuali o fino a quattro elementi e
+select per le liste piu lunghe. Un attributo di tipo «Bottone» del gestionale
+diventa `group`: un `btn-group` a scelta singola (`role="radiogroup"`, frecce da
+tastiera). Nei gruppi a bottoni un valore senza offerta disponibile, date le
+altre scelte, resta cliccabile ma barrato, con `aria-label` dalla chiave
+`ecommerce.catalog.availability.option_unavailable`.
 
 Disponibile/Non disponibile compare soltanto se esiste una sede attiva che
 gestisce la giacenza. La stessa regola governa `availability` nello schema;

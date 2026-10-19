@@ -57,7 +57,7 @@
         "sliders": { "similar": "Similar items", "recent": "Recently viewed", "suggested": "You may also like", "previous": "Previous", "next": "Next" },
         "description": "Description",
         "price_range": "From {{min}} to {{max}}",
-        "availability": { "in_stock": "Available", "out_of_stock": "Unavailable" },
+        "availability": { "in_stock": "Available", "out_of_stock": "Unavailable", "option_unavailable": "{{option}}, unavailable" },
         "details": { "title": "Details", "weight": "Weight", "length": "Length", "width": "Width", "height": "Height" }
     },
     "cart": {

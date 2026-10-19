@@ -22,6 +22,14 @@ main .product-variant:has(img) {
 main .product-variant[aria-current="page"] {
     border-width: var(--variant-selected-border-width) !important;
 }
+/* Opzione esaurita: resta cliccabile per raggiungere le altre combinazioni,
+   ma si legge barrata. `.btn` blocca text-decoration, quindi va sull'etichetta. */
+main [data-option-value][data-unavailable] {
+    opacity: .6;
+}
+main [data-option-value][data-unavailable] [data-option-label] {
+    text-decoration: line-through;
+}
 /* Quantità con −/+ accanto ad «Aggiungi al carrello», come nel carrello. */
 main .wi-quantity {
     display: flex;

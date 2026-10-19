@@ -250,4 +250,27 @@ check('in offerta il prezzo pieno compare barrato e segue opzione e sovrapprezzi
         && str_contains($view, 'Number(regulars[productId]) * 100) + cents');
 });
 
+check('un attributo «Bottone» diventa un gruppo a scelta singola con le opzioni esaurite barrate', function () {
+    $root = dirname(__DIR__);
+    $catalog = (string) file_get_contents($root.'/src/Frontend/Catalog/ProductCatalog.php');
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+    $css = (string) file_get_contents($root.'/resources/assets/css/product.css');
+    $labels = array_map(
+        static fn (string $lang): string => (string) (json_decode((string) file_get_contents($root.'/lang/'.$lang.'/ecommerce.json'), true)['catalog']['availability']['option_unavailable'] ?? ''),
+        ['it', 'en']
+    );
+
+    return str_contains($catalog, "=== 'button' ? 'group' : \$default")
+        && str_contains($catalog, "['buttons', 'select', 'group']")
+        && str_contains($view, "(\$group['selector'] ?? '') === 'group'")
+        && str_contains($view, 'class="btn-group" role="radiogroup"')
+        && str_contains($view, 'role="radio"')
+        && str_contains($view, "button.setAttribute('aria-checked'")
+        && str_contains($view, "button.toggleAttribute('data-unavailable', !available)")
+        && str_contains($view, "__t('ecommerce.catalog.availability.option_unavailable'")
+        && str_contains($css, '[data-unavailable] [data-option-label]')
+        && !in_array('', $labels, true)
+        && str_contains($labels[0], '{{option}}') && str_contains($labels[1], '{{option}}');
+});
+
 summary();

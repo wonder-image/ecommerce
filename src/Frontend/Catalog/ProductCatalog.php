@@ -301,7 +301,9 @@ final class ProductCatalog
             $slug = trim((string) ($attribute['slug'] ?? ''));
             $override = (string) Ecommerce::config('product.option_selector.attributes.'.$slug, '');
             $default = (string) Ecommerce::config('product.option_selector.default', 'auto');
-            $selector = in_array($override, ['buttons', 'select'], true) ? $override : $default;
+            // Un attributo di tipo «Bottone» chiede il gruppo di bottoni a scelta singola.
+            $fallback = (string) ($attribute['type'] ?? '') === 'button' ? 'group' : $default;
+            $selector = in_array($override, ['buttons', 'select', 'group'], true) ? $override : $fallback;
             if ($selector === 'auto') {
                 $hasVisuals = array_filter($values, static fn (array $value): bool => isset($value['image']) || isset($value['color'])) !== [];
                 $selector = $hasVisuals || count($values) <= 4 ? 'buttons' : 'select';
