@@ -136,6 +136,37 @@ check('l\'opzione chiesta dalla query vince sulla prima disponibile, se esiste',
     return $scheda(43) === 43 && $scheda(99) === 42 && $scheda(0) === 42;
 });
 
+check('senza query la scheda parte dalla prima opzione disponibile, non dalla prima esaurita', function () {
+    $scheda = static fn (int $preferita): int => ProductDetail::make([
+        'id' => 1,
+        'name' => 'Maglietta',
+        'url' => 'https://shop.test/prodotto/maglietta/',
+        'stock_managed' => true,
+        'offers' => [
+            ['product_id' => 42, 'item_id' => '42', 'name' => 'S', 'sku' => 'M-S', 'regular_price' => 10, 'stock_managed' => true, 'available' => false, 'attributes' => ['3' => '7']],
+            ['product_id' => 43, 'item_id' => '43', 'name' => 'M', 'sku' => 'M-M', 'regular_price' => 10, 'stock_managed' => true, 'available' => true, 'attributes' => ['3' => '8']],
+        ],
+        'preferred_product_id' => $preferita,
+    ])->data()['selected_product_id'];
+
+    // Chiesta dall'URL, l'opzione esaurita resta scelta: la vista la blocca.
+    return $scheda(0) === 43 && $scheda(42) === 42;
+});
+
+check('i select delle opzioni partono dall\'offerta caricata e il bottone segue la sua disponibilità', function () {
+    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
+
+    // Il select della lib mostra il testo giusto solo con il valore nell'HTML
+    // o dopo un «change»: impostare select.value in silenzio non basta.
+    return str_contains($view, "->select(\$choices)->required()->value(")
+        && str_contains($view, "select.dispatchEvent(new Event('change'));")
+        && str_contains($view, "aria-pressed=\"<?=\$pressed ? 'true' : 'false'?>\"")
+        && str_contains($view, "data-product-submit data-label-available=")
+        && str_contains($view, "\$selectedAvailable ? '' : ' disabled'")
+        && str_contains($view, "<?php if (count(\$data['offers']) > 1): ?>")
+        && str_contains($view, "offers.find(item => String(item.product_id) === String(product?.value || ''))");
+});
+
 check('la variante ha la sua route, il controller rimanda con un 301, gli indirizzi hanno un solo costruttore', function () {
     $root = dirname(__DIR__);
     $route = (string) file_get_contents($root.'/config/routes/route.frontend.php');

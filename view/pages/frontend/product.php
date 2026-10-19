@@ -89,6 +89,10 @@ $expressHere = (bool) Ecommerce::config('product.express', true);
 
 // Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
 $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
+// L'opzione caricata decide i controlli già nell'HTML: anche senza JS il
+// cliente vede quella che il form invia, e se è esaurita non la compra.
+$selectedAttributes = (array) ($expressOffer['attributes'] ?? []);
+$selectedAvailable = (bool) ($expressOffer['available'] ?? false);
 
 // Multiprodotto: i gruppi di scelta vanno nel form d'acquisto. Il check-out
 // rapido manda solo il prodotto, senza scelte: con dei gruppi resta spento.
@@ -242,11 +246,12 @@ Ecommerce::layout('shop');
                                 <legend class="text-small fw-600 mb-2"><?=e($group['name'] ?? '')?></legend>
                                 <?php if (($group['selector'] ?? '') === 'select'): ?>
                                     <?php $choices = array_column((array) $group['values'], 'label', 'id'); ?>
-                                    <?=FormField::key('option_'.($group['id'] ?? ''))->select($choices)->required()?>
+                                    <?=FormField::key('option_'.($group['id'] ?? ''))->select($choices)->required()->value((string) ($selectedAttributes[$group['id'] ?? ''] ?? ''))?>
                                 <?php else: ?>
                                     <div class="d-flex f-wrap gap-2">
                                         <?php foreach ((array) ($group['values'] ?? []) as $value): ?>
-                                            <button class="btn btn-light p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="false">
+                                            <?php $pressed = (string) ($value['id'] ?? '') === (string) ($selectedAttributes[$group['id'] ?? ''] ?? ''); ?>
+                                            <button class="btn <?=$pressed ? 'btn-primary' : 'btn-light'?> p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="<?=$pressed ? 'true' : 'false'?>">
                                                 <?php if (!empty($value['image'])): ?><img src="<?=e($value['image'])?>" alt="" width="48" height="48" class="f-1-1 o-cover mr-2"><?php endif; ?>
                                                 <?php if (!empty($value['color'])): ?><span aria-hidden="true" class="d-inline-block f-1-1 mr-2" style="width:1.25rem;height:1.25rem;background:<?=e($value['color'])?>"></span><?php endif; ?>
                                                 <?=e($value['label'] ?? '')?>
@@ -261,14 +266,14 @@ Ecommerce::layout('shop');
                     <?=$bundleFields?>
                     <div class="w-100 d-flex gap-3 mt-3">
                         <?php if ($stepper): ?><?=View::component(Ecommerce::viewPath('components/cart/quantity.php'))?><?php endif; ?>
-                        <button class="btn btn-primary w-100 wi-input-submit" type="submit" data-product-submit<?=$data['available'] ? '' : ' disabled'?>><?=e(__t('ecommerce.cart.add'))?></button>
+                        <button class="btn btn-primary w-100 wi-input-submit" type="submit" data-product-submit data-label-available="<?=e(__t('ecommerce.cart.add'))?>" data-label-unavailable="<?=e(__t('ecommerce.catalog.availability.out_of_stock'))?>"<?=$selectedAvailable ? '' : ' disabled'?>><?=e($selectedAvailable ? __t('ecommerce.cart.add') : __t('ecommerce.catalog.availability.out_of_stock'))?></button>
                     </div>
                 </form>
             <?php endif; ?>
         </div>
 
         <?php if ($expressHere): ?>
-            <div data-express-product<?=$data['available'] ? '' : ' hidden'?>>
+            <div data-express-product<?=$selectedAvailable ? '' : ' hidden'?>>
                 <?=ExpressCheckout::render('product', ['total' => $expressOffer['price'] ?? 0, 'currency' => $data['currency']], (int) $data['selected_product_id'])?>
             </div>
         <?php endif; ?>
@@ -302,7 +307,7 @@ Ecommerce::layout('shop');
 <?php if ($recent_products !== []): ?><section class="mt-10"><?=ProductList::make($recent_products)->title(__t('ecommerce.catalog.sliders.recent'))->renderSwiper()?></section><?php endif; ?>
 <?php if ($suggested_products !== []): ?><section class="mt-10"><?=ProductList::make($suggested_products)->title(__t('ecommerce.catalog.sliders.suggested'))->renderSwiper()?></section><?php endif; ?>
 
-<?php if (count($data['offers']) > 1 && $data['option_groups'] !== []): ?>
+<?php if (count($data['offers']) > 1): ?>
 <?php
 $optionSlugs = [];
 foreach ($data['option_groups'] as $group) {
@@ -321,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const slugs = <?=json_encode($optionSlugs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
     // Solo dopo una scelta del cliente: all'apertura la barra resta com'è.
     const remember = function () {
+        if (Object.keys(slugs).length === 0) return;
         const url = new URL(window.location.href);
         Object.entries(slugs).forEach(([id, group]) => {
             if (!group.slug) return;
@@ -332,6 +338,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     const variantLinks = Array.from(document.querySelectorAll('.product-variants a'));
     const updateVariantLinks = function () {
+        if (Object.keys(slugs).length === 0) return;
         variantLinks.forEach(link => {
             const url = new URL(link.href, window.location.href);
             Object.entries(slugs).forEach(([id, group]) => {
@@ -353,9 +360,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }));
     const initial = offers.find(offer => Number(offer.product_id) === <?=json_encode((int) $data['selected_product_id'], JSON_HEX_TAG)?>) || offers[0];
     Object.assign(selected, initial.attributes || {});
+    // Il select della lib aggiorna il testo mostrato solo al «change»: va
+    // lanciato qui, prima di agganciare i listener, così l'URL non cambia.
     form.querySelectorAll('[data-option-group]').forEach(group => {
         const select = group.querySelector('select');
-        if (select && selected[group.dataset.optionGroup]) select.value = selected[group.dataset.optionGroup];
+        if (!select || !selected[group.dataset.optionGroup]) return;
+        select.value = selected[group.dataset.optionGroup];
+        select.dispatchEvent(new Event('change'));
     });
     const sync = function () {
         form.querySelectorAll('[data-option-group]').forEach(group => {
@@ -372,13 +383,19 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
         updateVariantLinks();
-        const offer = offers.find(item => Object.entries(selected).every(([key, value]) => String((item.attributes || {})[key] || '') === String(value)));
         const product = form.querySelector('[name="product_id"]');
+        // Senza gruppi di opzioni il select del prodotto sceglie l'offerta.
+        const offer = form.querySelector('[data-option-group]')
+            ? offers.find(item => Object.entries(selected).every(([key, value]) => String((item.attributes || {})[key] || '') === String(value)))
+            : offers.find(item => String(item.product_id) === String(product?.value || ''));
         const submit = form.querySelector('[data-product-submit]');
         const price = document.querySelector('[data-product-price]');
         const availability = document.querySelector('[data-product-availability]');
-        if (product) product.value = offer ? offer.product_id : '';
-        if (submit) submit.disabled = !offer || !offer.available;
+        if (product && product.type === 'hidden') product.value = offer ? offer.product_id : '';
+        if (submit) {
+            submit.disabled = !offer || !offer.available;
+            submit.textContent = submit.disabled ? submit.dataset.labelUnavailable : submit.dataset.labelAvailable;
+        }
         const expressBox = document.querySelector('[data-express-product]');
         if (expressBox) expressBox.hidden = !offer || !offer.available;
         // Il foglio rapido si apre col prezzo della variante scelta.
