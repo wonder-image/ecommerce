@@ -178,6 +178,7 @@ View::head(DataLayer::script([
                 <div class="w-100" data-checkout-stripe-element></div>
                 <p class="text-small mt-3" data-checkout-stripe-notice role="status"></p>
                 <template data-checkout-pay-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.pay.alert_title'), '')?></template>
+                <template data-checkout-alert><?=alertTheme('custom', 'error', (string) __t('ecommerce.checkout.error_title'), '')?></template>
             </div>
         </div>
 

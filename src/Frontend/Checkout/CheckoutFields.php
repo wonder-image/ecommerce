@@ -46,14 +46,21 @@ final class CheckoutFields
 
     /**
      * I campi che le regole del checkout vogliono pieni: la label prende
-     * l'asterisco. Il codice fiscale dipende dal tipo e lo decide la pagina;
-     * i campi nascosti il JS non li controlla.
+     * l'asterisco. Il codice fiscale dipende dal tipo e lo decide la pagina,
+     * la provincia dipende dal paese (`stateRequired()`); i campi nascosti il
+     * JS non li controlla.
      */
     public static function required(string $key): bool
     {
         $field = preg_replace('/^(shipping|billing)_/', '', $key);
 
-        return in_array($field, [...['name', 'surname'], ...CheckoutRules::ADDRESS, 'business_name', 'pi'], true);
+        return in_array($field, [...['name', 'surname'], ...CheckoutRules::FORM_ADDRESS, 'business_name', 'pi'], true);
+    }
+
+    /** La provincia è obbligatoria se il paese ne ha: la decide il core, e il JS la segue al cambio di paese. */
+    public static function stateRequired(string $key): bool
+    {
+        return in_array($key, ['shipping_province', 'billing_province'], true);
     }
 
     /**

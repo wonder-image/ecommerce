@@ -47,9 +47,11 @@ final class CheckoutPlacement
         $userId = (int) ($user->id ?? 0);
         $asked = CheckoutRules::askedConsents($userId);
         $billing = CheckoutRules::billing($post, $order);
+        // Il modulo chiede civico e provincia; la barra rapida prende l'indirizzo del wallet com'è.
+        $form = empty($options['express']);
         $missing = array_values(array_unique(array_merge(
-            CheckoutRules::deliveryErrors($order, $preview, Gestionale::feature('shipping')),
-            CheckoutRules::paymentErrors($post, $billing, $asked)
+            CheckoutRules::deliveryErrors($order, $preview, Gestionale::feature('shipping'), $form),
+            CheckoutRules::paymentErrors($post, $billing, $asked, $form)
         )));
         if ($missing !== []) {
             throw new CheckoutRejected(array_map(static fn (string $key): string => (string) __t('ecommerce.checkout.errors.'.$key), $missing));

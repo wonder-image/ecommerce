@@ -58,7 +58,8 @@ final class CheckoutController
 
         $formState = self::pullFormState();
         $fromCart = array_filter(CheckoutPlacement::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
-        $values = $formState !== [] ? self::defaults($formState) : $fromCart + self::defaults([]);
+        // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
+        $values = $formState !== [] ? self::defaults($formState) : CheckoutRules::choices((array) ($cart['order'] ?? [])) + $fromCart + self::defaults([]);
         // Riaperto dopo un pagamento rifiutato: torna spuntata la scelta Stripe di prima (Klarna…), non la carta.
         $choice = OnlinePayment::pullChoice();
         if ($formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0)) {
@@ -601,6 +602,9 @@ final class CheckoutController
             }
             if (CheckoutFields::required($key) && method_exists($field, 'required')) {
                 $field->required();
+            }
+            if (CheckoutFields::stateRequired($key) && method_exists($field, 'context')) {
+                $field->context('required_when_states_available', true);
             }
             if (method_exists($field, 'value') && array_key_exists($key, $values)) {
                 $field->value((string) $values[$key]);
