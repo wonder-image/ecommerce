@@ -9,6 +9,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Providers\Payments\PaymentState;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Orders\Lifecycle;
 use Wonder\Plugin\Gestionale\Support\Payments\OnlinePayments;
@@ -187,7 +188,7 @@ final class OnlinePayment
             PaymentState::SUCCEEDED => self::confirm($provider->code(), $reference, $state),
             PaymentState::PROCESSING => 'processing',
             PaymentState::CANCELED => 'canceled',
-            default => 'retry',
+            default => self::declined($provider->code(), $reference, $state),
         };
     }
 
@@ -244,14 +245,23 @@ final class OnlinePayment
             // Prima di riaprire: dopo, la sessione vedrebbe due carrelli.
             $existing = (int) (CartSession::current(false)['order']['id'] ?? 0);
             $customerId = CartSession::customerId();
-            Lifecycle::reopen($id, [
-                // L'ospite ritrova il carrello dal gettone, con il cliente a zero.
-                'customer_id' => $customerId,
-                'cart_token' => CartSession::token(true),
-                'user_id' => $customerId > 0 ? (int) ($_SESSION['user_id'] ?? 0) : 0,
-                'source' => 'ecommerce',
-                'reason' => 'Modificato dal cliente nel checkout',
-            ]);
+            try {
+                Lifecycle::reopen($id, [
+                    // L'ospite ritrova il carrello dal gettone, con il cliente a zero.
+                    'customer_id' => $customerId,
+                    'cart_token' => CartSession::token(true),
+                    'user_id' => $customerId > 0 ? (int) ($_SESSION['user_id'] ?? 0) : 0,
+                    'source' => 'ecommerce',
+                    'reason' => 'Modificato dal cliente nel checkout',
+                ]);
+            } catch (UserError $error) {
+                // Il pagamento è partito fra la lettura e l'annullo: il ritorno dice com'è finita.
+                if ($error->key() === 'order.payment_in_progress') {
+                    return ['outcome' => 'processing', 'reference' => $reference, 'removed' => []];
+                }
+
+                throw $error;
+            }
             self::forget();
             unset($_SESSION[self::RECEIPT]);
             self::rememberChoice($payment);
@@ -301,6 +311,26 @@ final class OnlinePayment
         if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
             $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
         }
+    }
+
+    /**
+     * Il rifiuto finisce nella storia del pagamento dell'ordine, col motivo
+     * della banca: una riga per tentativo, anche se il webhook non arriva.
+     */
+    private static function declined(string $provider, string $reference, PaymentState $state): string
+    {
+        if ($state->failure === '') {
+            // Intento nuovo o rifiuto senza motivo: non c'è un tentativo da scrivere.
+            return 'retry';
+        }
+
+        try {
+            OnlinePayments::fail($provider, $reference, $state->failure, $state->attempt);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.declined');
+        }
+
+        return 'retry';
     }
 
     private static function confirm(string $provider, string $reference, PaymentState $state): string

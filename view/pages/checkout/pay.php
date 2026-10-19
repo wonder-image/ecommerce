@@ -27,6 +27,7 @@ $labels = [
             data-publishable-key="<?=e($stripe['publishable_key'])?>"
             data-account="<?=e($stripe['account'])?>"
             data-return-url="<?=e($return_url)?>"
+            data-declined-url="<?=e(__r('ecommerce.checkout.declined'))?>"
             data-billing-details="<?=e(json_encode($billing_details, $flags))?>"
             data-labels="<?=e(json_encode($labels, $flags))?>">
             <div class="w-100" data-checkout-pay-element></div>

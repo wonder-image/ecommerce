@@ -97,6 +97,7 @@ View::head(DataLayer::script([
         data-summary-url="<?=e(__r('ecommerce.checkout.summary'))?>"
         data-coupon-url="<?=e(__r('ecommerce.checkout.coupon'))?>"
         data-reopen-url="<?=e(__r('ecommerce.checkout.reopen'))?>"
+        data-declined-url="<?=e(__r('ecommerce.checkout.declined'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
         <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>

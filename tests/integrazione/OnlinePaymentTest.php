@@ -20,8 +20,13 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Payments\Payment;
+use Wonder\Plugin\Gestionale\Models\Payments\PaymentStatusLog;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
+use Wonder\Plugin\Gestionale\Providers\Payments\PaymentEvent;
+use Wonder\Plugin\Gestionale\Providers\Payments\PaymentProvider;
+use Wonder\Plugin\Gestionale\Providers\Payments\PaymentStart;
 use Wonder\Plugin\Gestionale\Providers\Payments\PaymentState;
+use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Plugin\Gestionale\Support\Orders\Lifecycle;
 use Wonder\Plugin\Gestionale\Support\Payments\Ledger;
@@ -291,6 +296,74 @@ check('reopen ricorda la scelta Stripe diversa dalla carta: il modulo la rispunt
 
     return $metodo === 891 && $prima === '891:klarna' && $dopo === '' && OnlinePayment::pullChoice() === '';
 }));
+
+check('settle scrive il rifiuto della banca nella storia del pagamento, una volta per tentativo', fn () => prova(static function () use ($finto): bool {
+    [$ordine, $pagamento, $intento] = avviato();
+    $rifiuto = static fn (string $tentativo): PaymentState => new PaymentState(PaymentState::REQUIRES_PAYMENT_METHOD, 5000, 'eur', $ordine, 'Pagamento rifiutato: fondi insufficienti (insufficient_funds)', $tentativo);
+    // Il browser chiede due volte dello stesso rifiuto, poi la seconda carta.
+    $finto->states[$intento] = $rifiuto('ch_1');
+    $esiti = [OnlinePayment::settle($ordine, $intento), OnlinePayment::settle($ordine, $intento)];
+    $finto->states[$intento] = $rifiuto('ch_2');
+    $esiti[] = OnlinePayment::settle($ordine, $intento);
+    // Un intento nuovo, senza tentativi: niente da scrivere.
+    $finto->states[$intento] = new PaymentState(PaymentState::REQUIRES_PAYMENT_METHOD, 5000, 'eur', $ordine);
+    $esiti[] = OnlinePayment::settle($ordine, $intento);
+    $righe = PaymentStatusLog::find(['payment_id' => $pagamento, 'to_value' => 'failed']);
+    $righe = is_array($righe) && isset($righe['id']) ? [$righe] : array_values((array) $righe);
+
+    return $esiti === ['retry', 'retry', 'retry', 'retry']
+        && count($righe) === 2
+        && (string) $righe[0]['message'] === 'Pagamento rifiutato: fondi insufficienti (insufficient_funds)'
+        && (Payment::findById($pagamento)['status'] ?? '') === 'failed'
+        && (Order::findById($ordine)['status'] ?? '') === 'pending';
+}));
+
+/** Stripe che non annulla perché nel frattempo il pagamento è partito: dopo, lo stato è `$dopo`. */
+final class AnnulloMancato implements PaymentProvider
+{
+    public function __construct(private FakePaymentProvider $finto, private string $dopo) {}
+
+    public function code(): string { return $this->finto->code(); }
+    public function environment(): string { return $this->finto->environment(); }
+    public function connected(): bool { return $this->finto->connected(); }
+    public function start(array $order, array $payment): PaymentStart { return $this->finto->start($order, $payment); }
+    public function status(string $reference): PaymentState { return $this->finto->status($reference); }
+    public function event(string $raw, string $signature): ?PaymentEvent { return $this->finto->event($raw, $signature); }
+    public function replay(array $payload, string $environment): ?PaymentEvent { return $this->finto->replay($payload, $environment); }
+
+    public function cancel(string $reference): void
+    {
+        $this->finto->states[$reference] = new PaymentState($this->dopo);
+
+        throw new RuntimeException('Stripe non annulla');
+    }
+}
+
+/** Riapre con Stripe che non annulla: l'esito, o la chiave dell'errore. */
+function riapriConAnnulloMancato(FakePaymentProvider $finto, string $dopo): array
+{
+    [$ordine, , $intento] = avviatoConRighe();
+    $finto->states[$intento] = new PaymentState(PaymentState::REQUIRES_PAYMENT_METHOD);
+    PaymentProviders::register(new AnnulloMancato($finto, $dopo));
+
+    try {
+        $esito = OnlinePayment::reopen()['outcome'];
+    } catch (UserError $errore) {
+        $esito = $errore->key();
+    } finally {
+        PaymentProviders::register($finto);
+    }
+
+    return [$esito, (string) (Order::findById($ordine)['stage'] ?? ''), OnlinePayment::pending() === $ordine];
+}
+
+check('reopen: se il pagamento parte mentre si annulla l\'ordine resta e si va al ritorno', fn () => prova(
+    static fn (): bool => riapriConAnnulloMancato($finto, PaymentState::PROCESSING) === ['processing', 'order', true]
+));
+
+check('reopen: se Stripe non annulla senza motivo l\'ordine resta e l\'errore arriva al controller', fn () => prova(
+    static fn (): bool => riapriConAnnulloMancato($finto, PaymentState::OTHER) === ['order.reopen_retry', 'order', true]
+));
 
 PaymentProviders::reset();
 summary();

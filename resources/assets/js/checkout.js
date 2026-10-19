@@ -911,6 +911,7 @@ class Checkout {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
                 this.editable();
+                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
@@ -1077,6 +1078,7 @@ class Checkout {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
                 this.editable();
+                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             if (!sent) {
@@ -1404,6 +1406,33 @@ function walletMethods(types) {
 // Klarna, PayPal e gli altri a reindirizzamento: Stripe mostra il loro logo in un riquadro che non si può togliere, almeno senza bordo né sfondo.
 const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };
 
+// Il rifiuto della carta nel modulo resta nella storia del pagamento anche senza webhook: il server
+// chiede l'esito a Stripe, il browser non porta niente. Se intanto risulta pagato si va al ritorno.
+async function reportDeclined(url, token, error) {
+    if (!url || !token || error?.type === 'validation_error') {
+        return;
+    }
+
+    const body = new FormData();
+    body.append('csrf_token', token);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+        });
+        const payload = await response.json();
+
+        if (payload.redirect) {
+            window.location.href = payload.redirect;
+        }
+    } catch (failure) {
+        // Il webhook e il riallineamento lo scrivono lo stesso.
+    }
+}
+
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {
     if (window.Stripe) {
@@ -1476,6 +1505,7 @@ class CheckoutPay {
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
                 payAlert(error.message || this.labels.failed);
+                reportDeclined(this.root.dataset.declinedUrl, document.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             this.say(this.labels.error);

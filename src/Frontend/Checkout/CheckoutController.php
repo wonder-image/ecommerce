@@ -18,6 +18,7 @@ use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
+use Wonder\Plugin\Gestionale\Support\Payments\OnlinePayments;
 use Wonder\View\View;
 
 final class CheckoutController
@@ -39,6 +40,7 @@ final class CheckoutController
             'return' => self::returned(),
             'pay' => self::pay(),
             'reopen' => self::reopen(),
+            'declined' => self::declined(),
             default => self::notFound(),
         };
     }
@@ -467,6 +469,9 @@ final class CheckoutController
         if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
             self::leave(self::returnUrl($reopened['reference']), $json);
         }
+        if ($reopened['outcome'] === 'kept') {
+            self::leave(self::route('ecommerce.checkout.pay'), $json);
+        }
 
         if (!$json) {
             self::flashRemoved($reopened['removed']);
@@ -492,6 +497,43 @@ final class CheckoutController
     }
 
     /**
+     * Il browser dice che Stripe ha rifiutato la carta nel modulo: l'esito si
+     * chiede a Stripe per l'ordine in sessione, così il rifiuto resta nella
+     * storia del pagamento anche senza webhook. Il client non porta niente.
+     */
+    private static function declined(): never
+    {
+        self::requirePost();
+        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            self::json(['success' => false], 419);
+        }
+
+        $orderId = OnlinePayment::pending();
+        // Ogni chiamata interroga Stripe: venti per ordine in dieci minuti bastano a molte carte.
+        if ($orderId > 0 && !Throttle::allowed('declined_order', (string) $orderId, 20, 600)) {
+            self::json(['success' => false], 429);
+        }
+        Throttle::hit('declined_order', (string) $orderId, 600);
+        $reference = $orderId > 0 ? (string) (OnlinePayments::payment($orderId)['provider_reference'] ?? '') : '';
+        if ($reference === '') {
+            self::json(['success' => false], 404);
+        }
+
+        try {
+            $outcome = OnlinePayment::settle($orderId, $reference);
+        } catch (OutOfBoundsException) {
+            self::json(['success' => false], 404);
+        }
+
+        // Pagato davvero (il browser si sbagliava): si va al ritorno.
+        if (in_array($outcome, ['succeeded', 'processing'], true)) {
+            self::leave(self::returnUrl($reference), true);
+        }
+
+        self::json(['success' => true, 'outcome' => $outcome]);
+    }
+
+    /**
      * Riapre l'ordine in sospeso senza lasciar uscire un errore.
      *
      * @return array{outcome: string, reference: string, removed: list<string>}
@@ -500,6 +542,11 @@ final class CheckoutController
     {
         try {
             return OnlinePayment::reopen();
+        } catch (UserError $error) {
+            // Stripe non ha annullato l'intento: l'ordine resta da pagare.
+            FlashMessage::error($error->getMessage(), (string) __t('ecommerce.checkout.error_title'));
+
+            return ['outcome' => 'kept', 'reference' => '', 'removed' => []];
         } catch (Throwable $error) {
             // Senza annullo l'ordine scade da solo con le prenotazioni.
             Errors::internal($error, 'ecommerce.checkout.reopen');

@@ -120,6 +120,16 @@ con lo stesso testo per tutti: non rivela se l'account ha già una password.
   riporta l'ordine a carrello sulla stessa riga con `Lifecycle::reopen` del
   gestionale; un carrello nato nel frattempo si unisce. Il «Paga» successivo
   tiene lo stesso numero d'ordine.
+- Ogni rifiuto (carta rifiutata, 3DS fallito) resta nella storia del pagamento
+  dell'ordine anche senza webhook: dopo un errore di `confirmPayment` il JS fa
+  un POST a `/checkout/declined/` (`ecommerce.checkout.declined`, CSRF, 20
+  chiamate ogni 10 minuti per ordine). L'ordine viene dalla sessione e lo stato
+  lo legge il server da Stripe: `settle` registra il rifiuto con
+  `OnlinePayments::fail` una volta per tentativo, col motivo della banca. Gli
+  errori di validazione del modulo non chiamano il server.
+- «Modifica l'ordine» annulla prima l'intento: se nel frattempo il pagamento è
+  partito l'ordine resta e si va al ritorno; se Stripe non annulla per altri
+  motivi l'ordine resta e il cliente vede l'errore su «Paga ora».
 - Pagato non vuol dire confermato: l'ordine resta «In attesa» con pagamento
   «pagato» e lo conferma il commerciante dal backend, dopo aver controllato la
   merce. La pagina «ordine completato» lo dice al cliente.
