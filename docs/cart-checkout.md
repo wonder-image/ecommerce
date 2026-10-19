@@ -110,13 +110,25 @@ utente cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account
 La sessione resta da ospite. La conferma dice all'ospite che l'email è partita,
 con lo stesso testo per tutti: non rivela se l'account ha già una password.
 
+## Pagamento online (Stripe)
+
+- Il «Paga» crea l'ordine in attesa una volta sola. Dopo un rifiuto (carta, 3DS,
+  metodo a reindirizzamento abbandonato) l'ordine resta: il cliente riprova
+  sullo stesso intento, dal checkout o da «Paga ora». Con un ordine in attesa in
+  sessione `place` rimanda a «Paga ora» invece di crearne un altro.
+- «Modifica l'ordine» (`ecommerce.checkout.reopen`, `OnlinePayment::reopen`)
+  riporta l'ordine a carrello sulla stessa riga con `Lifecycle::reopen` del
+  gestionale; un carrello nato nel frattempo si unisce. Il «Paga» successivo
+  tiene lo stesso numero d'ordine.
+- Pagato non vuol dire confermato: l'ordine resta «In attesa» con pagamento
+  «pagato» e lo conferma il commerciante dal backend, dopo aver controllato la
+  merce. La pagina «ordine completato» lo dice al cliente.
+
 ## Limiti intenzionali della prima fase
 
 - I metodi manuali (`PaymentMethod::MANUAL_PROVIDERS`: `bank_transfer`, `cash`,
   `manual`) possono creare l'ordine. Gli altri provider vengono rifiutati prima
   della creazione: non si simulano pagamenti.
-- Stripe richiede ancora adapter, sessione, callback idempotente e gestione
-  esplicita di successo, annullamento e fallimento.
 - L'ospite non va abilitato finché non sono definiti backend, consensi del
   checkout e collegamento successivo all'account.
 

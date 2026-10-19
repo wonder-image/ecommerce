@@ -75,17 +75,15 @@ check('reopen: POST e CSRF, poi l\'ordine si annulla e il modulo torna col riepi
     && str_contains($reopen, 'CheckoutSummary::payload(')
     && str_contains($reopen, "self::redirect(self::route('ecommerce.checkout.index'))"));
 
-check('reopen e il ritorno, se il denaro è arrivato, portano al ritorno col suo intento', fn () =>
+check('reopen, se il denaro è arrivato, porta al ritorno col suo intento', fn () =>
     str_contains($reopen, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
-    && str_contains($returned, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
-    && str_contains($returned, "self::redirect(self::returnUrl(\$reopened['reference']))")
     && str_contains($reopen, "self::returnUrl(\$reopened['reference'])")
     && str_contains(corpo($controller, 'returnUrl'), "'?payment_intent='.rawurlencode("));
 
-check('un pagamento rifiutato al ritorno riapre il checkout invece della pagina di pagamento', fn () =>
-    str_contains($returned, 'self::reopenPending()')
-    && str_contains($returned, "self::redirect(self::route('ecommerce.checkout.index'))")
-    && !str_contains($returned, "self::route('ecommerce.checkout.pay')"));
+check('un pagamento rifiutato al ritorno resta sullo stesso ordine: si torna a «Paga ora»', fn () =>
+    !str_contains($returned, 'self::reopenPending()')
+    && str_contains($returned, "self::redirect(self::route('ecommerce.checkout.pay'))")
+    && !str_contains($returned, "self::redirect(self::route('ecommerce.checkout.index'))"));
 
 check('reopenPending non lascia uscire un errore: l\'ordine scade da solo con le prenotazioni', fn () =>
     str_contains(corpo($controller, 'reopenPending'), 'OnlinePayment::reopen()')

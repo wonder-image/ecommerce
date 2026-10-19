@@ -80,13 +80,14 @@ check('start ricorda l\'ordine in sessione e dà il segreto dell\'intento', fn (
         && OnlinePayment::pending() === $ordine;
 }));
 
-check('settle con l\'intento riuscito registra l\'incasso e conferma l\'ordine', fn () => prova(static function () use ($finto): bool {
+check('settle con l\'intento riuscito registra l\'incasso e lascia l\'ordine in attesa del commerciante', fn () => prova(static function () use ($finto): bool {
     [$ordine, $pagamento, $intento] = avviato(50.0);
     $finto->states[$intento] = new PaymentState(PaymentState::SUCCEEDED, 5000, 'eur', $ordine);
 
     return OnlinePayment::settle($ordine, $intento) === 'succeeded'
         && (Payment::findById($pagamento)['status'] ?? '') === 'paid'
-        && (Order::findById($ordine)['status'] ?? '') !== 'pending';
+        && (Order::findById($ordine)['status'] ?? '') === 'pending'
+        && (Order::findById($ordine)['payment_status'] ?? '') === 'paid';
 }));
 
 check('settle sulla riga già pagata non chiede di nuovo al fornitore', fn () => prova(static function () use ($finto): bool {
@@ -172,13 +173,14 @@ check('dropPending lascia stare un pagamento in lavorazione e lo tiene in sessio
         && OnlinePayment::sessionOrder() === $ordine;
 }));
 
-check('dropPending conferma invece un pagamento già riuscito', fn () => prova(static function () use ($finto): bool {
+check('dropPending registra invece un pagamento già riuscito e tiene l\'ordine', fn () => prova(static function () use ($finto): bool {
     [$ordine, $pagamento, $intento] = avviato(50.0);
     $finto->states[$intento] = new PaymentState(PaymentState::SUCCEEDED, 5000, 'eur', $ordine);
 
     return OnlinePayment::dropPending() === 'succeeded'
         && (Payment::findById($pagamento)['status'] ?? '') === 'paid'
-        && !in_array((string) (Order::findById($ordine)['status'] ?? ''), ['pending', 'cancelled'], true);
+        && (string) (Order::findById($ordine)['status'] ?? '') === 'pending'
+        && OnlinePayment::sessionOrder() === $ordine;
 }));
 
 check('dropPending senza ordine in sospeso non fa niente', fn () => prova(static function (): bool {
@@ -206,15 +208,21 @@ function avviatoConRighe(): array
     return [$ordine, $prodotto, (string) (Payment::findById($pagamento)['provider_reference'] ?? '')];
 }
 
-check('reopen annulla l\'ordine rifiutato e rimette righe e contatti nel carrello', fn () => prova(static function () use ($finto): bool {
+check('reopen riporta l\'ordine a carrello sulla stessa riga, col suo numero, righe e contatti', fn () => prova(static function () use ($finto): bool {
     [$ordine, $prodotto, $intento] = avviatoConRighe();
+    $numero = 'TST-'.strtoupper(substr(uniqid(), -7));
+    Order::update(['order_number' => $numero], $ordine);
     $esito = OnlinePayment::reopen();
     $carrello = CartSession::current(false);
     $riga = $carrello['items'][0] ?? [];
+    $dopo = Order::findById($ordine);
 
-    return $esito['outcome'] === 'cancelled'
+    return $esito['outcome'] === 'reopened'
         && $esito['removed'] === []
-        && (Order::findById($ordine)['status'] ?? '') === 'cancelled'
+        && (int) ($carrello['order']['id'] ?? 0) === $ordine
+        && (string) ($dopo['stage'] ?? '') === 'cart'
+        && (string) ($dopo['status'] ?? '') === 'draft'
+        && (string) ($dopo['order_number'] ?? '') === $numero
         && in_array($intento, $finto->cancelled, true)
         && count($carrello['items']) === 1
         && (int) ($riga['product_id'] ?? 0) === $prodotto
@@ -222,6 +230,25 @@ check('reopen annulla l\'ordine rifiutato e rimette righe e contatti nel carrell
         && (string) ($carrello['order']['email'] ?? '') === 'cliente@example.com'
         && OnlinePayment::sessionOrder() === 0
         && !isset($_SESSION[OnlinePayment::RECEIPT]);
+}));
+
+check('reopen unisce il carrello aperto nel frattempo: resta la riga dell\'ordine', fn () => prova(static function (): bool {
+    [$ordine, $prodotto] = avviatoConRighe();
+    // Un altro articolo messo nel carrello della sessione mentre l'ordine aspettava.
+    $altro = articoloConGiacenza(10, 'TST-RIB-'.strtoupper(substr(uniqid(), -7)));
+    $nuovo = (int) CartSession::current(true)['order']['id'];
+    Cart::add($nuovo, ['product_id' => $altro, 'quantity' => 1]);
+    $esito = OnlinePayment::reopen();
+    $carrello = CartSession::current(false);
+    $prodotti = array_map(static fn (array $r): int => (int) $r['product_id'], $carrello['items']);
+    sort($prodotti);
+    $attesi = [$prodotto, $altro];
+    sort($attesi);
+
+    return $esito['outcome'] === 'reopened'
+        && (int) ($carrello['order']['id'] ?? 0) === $ordine
+        && $prodotti === $attesi
+        && empty(Order::findById($nuovo));
 }));
 
 check('reopen con il denaro già arrivato non riapre e dà l\'intento per il ritorno', fn () => prova(static function () use ($finto): bool {

@@ -38,6 +38,12 @@ class Checkout {
             return;
         }
 
+        this.form.querySelector('[data-checkout-edit-order]')?.addEventListener('click', () => {
+            if (!this.paying) {
+                this.reopen();
+            }
+        });
+
         // Anche la fatturazione: le tasse si calcolano sul suo indirizzo.
         const watch = 'select, [name^="shipping_"], [name^="billing_"], [name="same_as_shipping"], [name="invoice"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
 
@@ -899,15 +905,16 @@ class Checkout {
             });
 
             // Senza errore Stripe ha già portato il cliente al ritorno. Il rifiuto si legge
-            // nell'alert e dentro il Payment Element: sotto il box non si ripete.
+            // nell'alert e dentro il Payment Element: sotto il box non si ripete. L'ordine
+            // resta: si riprova con un'altra carta o lo si riapre con «Modifica l'ordine».
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                await this.reopen();
+                this.editable();
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
-            await this.reopen([this.labels.stripe_error]);
+            this.editable();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1069,7 +1076,7 @@ class Checkout {
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                await this.reopen();
+                this.editable();
             }
         } catch (error) {
             if (!sent) {
@@ -1077,7 +1084,7 @@ class Checkout {
             }
 
             this.say([this.labels.stripe_error]);
-            await this.reopen([this.labels.stripe_error]);
+            this.editable();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1110,13 +1117,29 @@ class Checkout {
         this.frozenFields.forEach((field) => { field.disabled = true; });
     }
 
-    // Pagamento rifiutato: il server annulla l'ordine e rimette righe e scelte nel carrello, il modulo
-    // torna modificabile e il prossimo «Paga» fa nascere un ordine nuovo. I messaggi dati restano a vista.
+    // Dopo un rifiuto, con l'ordine già nato, il cliente può riaprirlo.
+    editable() {
+        const button = this.form?.querySelector('[data-checkout-edit-order]');
+
+        if (button && this.placed) {
+            button.hidden = false;
+        }
+    }
+
+    // «Modifica l'ordine»: il server riporta l'ordine a carrello sulla stessa riga, il modulo torna
+    // modificabile e il prossimo «Paga» lo rifà ordine con lo stesso numero. I messaggi dati restano a vista.
     async reopen(keep = []) {
         if (!this.placed) {
             return;
         }
 
+        const button = this.form?.querySelector('[data-checkout-edit-order]');
+
+        if (button) {
+            button.hidden = true;
+        }
+
+        payAlert('');
         this.placed = null;
         this.frozen = false;
         (this.frozenFields || []).forEach((field) => { field.disabled = false; });

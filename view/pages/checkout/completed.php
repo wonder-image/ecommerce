@@ -10,6 +10,8 @@ Ecommerce::layout('checkout');
     <p class="text mt-4"><?=e(__t('ecommerce.checkout.completed.text', ['number' => (string) ($result['order_number'] ?? '')]))?></p>
     <?php if (!empty($result['processing'])): ?>
         <p class="text mt-4"><?=e(__t('ecommerce.checkout.completed.processing'))?></p>
+    <?php elseif (!empty($result['paid'])): ?>
+        <p class="text mt-4"><?=e(__t('ecommerce.checkout.completed.paid'))?></p>
     <?php endif; ?>
     <?php if (trim((string) ($result['instructions'] ?? '')) !== ''): ?>
         <p class="text mt-4"><?=nl2br(e((string) $result['instructions']))?></p>

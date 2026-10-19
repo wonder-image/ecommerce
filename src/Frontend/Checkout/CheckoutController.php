@@ -143,12 +143,15 @@ final class CheckoutController
                     ->verify();
             }
 
+            // Un ordine in attesa si paga o si riapre: un carrello nato in
+            // un'altra scheda non lo annulla.
+            $pending = OnlinePayment::pending();
+            if ($pending > 0 && !ExpressCart::owns($pending)) {
+                self::leave(self::route('ecommerce.checkout.pay'), $json);
+            }
+
             $cartId = self::cartId();
             if ($cartId === 0) {
-                // Il carrello è già diventato l'ordine: si torna a pagarlo.
-                if (OnlinePayment::pending() > 0) {
-                    self::leave(self::route('ecommerce.checkout.pay'), $json);
-                }
                 if ($json) {
                     self::leave(self::route('ecommerce.cart.index'), true, 409);
                 }
@@ -385,15 +388,9 @@ final class CheckoutController
         }
 
         if ($outcome === 'retry' || $outcome === 'canceled') {
-            // Il modulo si riapre: l'ordine si annulla e le righe tornano nel carrello.
-            $reopened = self::reopenPending();
-            if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
-                // Il denaro è arrivato nel frattempo: vale il nuovo esito.
-                self::redirect(self::returnUrl($reopened['reference']));
-            }
+            // Si riprova sullo stesso ordine; «Modifica l'ordine» lo riapre da «Paga ora».
             FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
-            self::flashRemoved($reopened['removed']);
-            self::redirect(self::route('ecommerce.checkout.index'));
+            self::redirect(self::route('ecommerce.checkout.pay'));
         }
 
         OnlinePayment::forget();
@@ -415,9 +412,11 @@ final class CheckoutController
             ];
         }
 
-        // L'email di conferma parte con l'incasso; in lavorazione arriverà più tardi.
+        // L'email «pagato» parte con l'incasso; in lavorazione arriverà più tardi.
+        // Pagato non è confermato: lo conferma il commerciante, visto la merce.
         $_SESSION[self::COMPLETED] = [
             'processing' => $outcome === 'processing',
+            'paid' => $outcome === 'succeeded',
             'email_sent' => !empty($receipt['guest']) && $outcome === 'succeeded',
         ] + $receipt;
         self::redirect(self::route('ecommerce.checkout.completed'));
@@ -451,9 +450,9 @@ final class CheckoutController
     }
 
     /**
-     * Dopo un rifiuto il cliente torna al modulo: l'ordine in sospeso si
-     * annulla, righe e scelte tornano nel carrello e il prossimo «Ordina»
-     * ne crea uno nuovo. Se intanto il denaro è arrivato si va al ritorno.
+     * «Modifica l'ordine»: l'ordine in sospeso torna carrello sulla stessa
+     * riga e il prossimo «Paga» lo rifà ordine con lo stesso numero. Se
+     * intanto il denaro è arrivato si va al ritorno.
      */
     private static function reopen(): never
     {

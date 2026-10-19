@@ -227,6 +227,8 @@ View::head(DataLayer::script([
             <div class="w-100" data-checkout-wallet-slot hidden></div>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
+            <?php /* Dopo un rifiuto l'ordine resta: si riprova o lo si riapre (stessa riga, stesso numero). */ ?>
+            <?=Button::make((string) __t('ecommerce.checkout.pay.change_method'))->type('button')->attr('data-checkout-edit-order', '')->attr('hidden', 'hidden')->variant('black')->outline()->class('w-100 mt-3')?>
         </div>
 
         <template data-checkout-choice><?=Choice::make('', '')->type('radio')?></template>

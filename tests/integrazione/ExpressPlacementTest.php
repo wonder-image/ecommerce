@@ -173,7 +173,7 @@ check('express: apple_pay crea l\'ordine online con provider_method, senza chiam
         && $http->requests === [];
 }));
 
-check('express: l\'ordine in sospeso del checkout normale torna nel carrello vero', fn () => prova(static function (): bool {
+check('express: l\'ordine in sospeso del checkout normale torna carrello vero, sulla stessa riga', fn () => prova(static function (): bool {
     $_SESSION = [];
     $_COOKIE[CartSession::COOKIE] = bin2hex(random_bytes(32));
     stripeConTipi(['card', 'apple_pay']);
@@ -192,7 +192,10 @@ check('express: l\'ordine in sospeso del checkout normale torna nel carrello ver
     $righe = $vero > 0 ? array_map(static fn (array $riga): array => [(int) $riga['product_id'], (float) $riga['quantity']], Cart::contents($vero)['items']) : [];
     $_SESSION = [];
 
-    return (string) Order::findById($normale)['status'] === 'cancelled' && $righe === [[$vecchio, 1.0]];
+    $riga = Order::findById($normale);
+
+    return $vero === $normale && (string) $riga['stage'] === 'cart' && (string) $riga['status'] === 'draft'
+        && $righe === [[$vecchio, 1.0]];
 }));
 
 check('dal modulo (senza express) apple_pay si rifiuta solo se è spento nel conto', fn () => prova(static function (): bool {

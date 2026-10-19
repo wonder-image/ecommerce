@@ -220,9 +220,12 @@ final class OnlinePayment
     }
 
     /**
-     * Dopo un pagamento non riuscito il checkout si riapre: l'ordine si annulla
-     * e righe, scelte, indirizzi e coupon tornano nel carrello della sessione.
-     * Se il denaro è arrivato non si riapre niente: `reference` porta al ritorno.
+     * «Modifica l'ordine»: l'ordine in sospeso torna carrello sulla stessa
+     * riga (`Lifecycle::reopen`), con righe, scelte, indirizzi e numero; il
+     * prossimo «Paga» lo rifà ordine. Se il denaro è arrivato o è in arrivo
+     * non si riapre niente: `reference` porta al ritorno. L'ordine della barra
+     * rapida e quello annullato da altri (scadenza) restano come prima: il primo
+     * si annulla, del secondo si copiano le righe in un carrello.
      *
      * @return array{outcome: string, reference: string, removed: list<string>}
      */
@@ -231,6 +234,33 @@ final class OnlinePayment
         $id = self::sessionOrder();
         $payment = $id > 0 ? (array) OnlinePayments::payment($id) : [];
         $reference = (string) ($payment['provider_reference'] ?? '');
+
+        if ($id > 0 && self::pending() === $id && !ExpressCart::owns($id)) {
+            $outcome = $reference !== '' ? self::settle($id, $reference) : '';
+            if (in_array($outcome, ['succeeded', 'processing'], true)) {
+                return ['outcome' => $outcome, 'reference' => $reference, 'removed' => []];
+            }
+
+            // Prima di riaprire: dopo, la sessione vedrebbe due carrelli.
+            $existing = (int) (CartSession::current(false)['order']['id'] ?? 0);
+            $customerId = CartSession::customerId();
+            Lifecycle::reopen($id, [
+                // L'ospite ritrova il carrello dal gettone, con il cliente a zero.
+                'customer_id' => $customerId,
+                'cart_token' => CartSession::token(true),
+                'user_id' => $customerId > 0 ? (int) ($_SESSION['user_id'] ?? 0) : 0,
+                'source' => 'ecommerce',
+                'reason' => 'Modificato dal cliente nel checkout',
+            ]);
+            self::forget();
+            unset($_SESSION[self::RECEIPT]);
+            self::rememberChoice($payment);
+            // Il carrello nato nel frattempo si unisce: resta la riga col numero.
+            $cart = $existing > 0 && $existing !== $id ? Cart::merge($existing, $id) : Cart::recalculate($id);
+
+            return ['outcome' => 'reopened', 'reference' => $reference, 'removed' => array_values((array) ($cart['removed'] ?? []))];
+        }
+
         $outcome = self::dropPending();
         if ($outcome === 'none' && $id > 0 && (Order::findById($id)['status'] ?? '') === 'cancelled') {
             // Annullato da altri (scadenza, webhook): le righe tornano lo stesso.
@@ -248,10 +278,7 @@ final class OnlinePayment
             return ['outcome' => 'cancelled', 'reference' => $reference, 'removed' => []];
         }
 
-        $method = (string) ($payment['provider_method'] ?? '');
-        if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
-            $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
-        }
+        self::rememberChoice($payment);
         $cart = CartSession::current(true);
         $restored = Cart::restore($id, (int) ($cart['order']['id'] ?? 0));
 
@@ -265,6 +292,15 @@ final class OnlinePayment
         unset($_SESSION[self::CHOICE]);
 
         return $choice;
+    }
+
+    /** @param array<string, mixed> $payment */
+    private static function rememberChoice(array $payment): void
+    {
+        $method = (string) ($payment['provider_method'] ?? '');
+        if ($method !== '' && $method !== 'card' && (int) ($payment['payment_method_id'] ?? 0) > 0) {
+            $_SESSION[self::CHOICE] = (int) $payment['payment_method_id'].':'.$method;
+        }
     }
 
     private static function confirm(string $provider, string $reference, PaymentState $state): string
