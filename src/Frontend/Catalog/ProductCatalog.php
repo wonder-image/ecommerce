@@ -14,6 +14,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\ProductModelCategory;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
 use Wonder\Plugin\Gestionale\Models\Locations\Location;
 use Wonder\Plugin\Gestionale\Models\Stock\Stock as StockRow;
+use Wonder\Plugin\Gestionale\Resources\Catalog\ProductModelResource;
 use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
@@ -270,7 +271,9 @@ final class ProductCatalog
     /** @return list<array<string, mixed>> */
     private static function optionGroups(array $model, array $products): array
     {
-        $ids = array_values(array_filter(array_map('intval', explode('-', (string) ($model['axes_order'] ?? '')))));
+        // L'ordine degli assi lo decide il gestionale: senza una scelta salvata
+        // (articoli di prova, importati) vale quello dell'anagrafica.
+        $ids = ProductModelResource::axesOrder((int) ($model['id'] ?? 0));
         $groups = [];
 
         foreach ($ids as $attributeId) {
