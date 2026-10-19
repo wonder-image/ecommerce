@@ -112,14 +112,24 @@ con lo stesso testo per tutti: non rivela se l'account ha già una password.
 
 ## Pagamento online (Stripe)
 
-- Il «Paga» crea l'ordine in attesa una volta sola. Dopo un rifiuto (carta, 3DS,
-  metodo a reindirizzamento abbandonato) l'ordine resta: il cliente riprova
-  sullo stesso intento, dal checkout o da «Paga ora». Con un ordine in attesa in
-  sessione `place` rimanda a «Paga ora» invece di crearne un altro.
-- «Modifica l'ordine» (`ecommerce.checkout.reopen`, `OnlinePayment::reopen`)
-  riporta l'ordine a carrello sulla stessa riga con `Lifecycle::reopen` del
-  gestionale; un carrello nato nel frattempo si unisce. Il «Paga» successivo
-  tiene lo stesso numero d'ordine.
+- Il «Paga» crea l'ordine una volta sola, **«In pagamento»**
+  (`awaiting_payment`): senza numero, fuori dalla lista del commerciante e
+  dall'area cliente. Diventa «In attesa», col numero e l'email «ricevuto», solo
+  quando Stripe incassa o mette il pagamento in elaborazione (SEPA). Dopo un
+  rifiuto (carta, 3DS, metodo a reindirizzamento abbandonato) l'ordine resta e
+  il cliente riprova sullo stesso intento, dal checkout o da «Paga ora».
+- Il checkout resta sempre modificabile: non c'è «Modifica l'ordine». Il primo
+  cambio nel checkout (`checkout.js`, `reopen()` una volta, i campi si
+  sbloccano), il carrello, le sue righe e il coupon riaprono da soli l'ordine
+  in pagamento con `OnlinePayment::reopen` (`Lifecycle::reopen` del
+  gestionale, stessa riga; un carrello nato nel frattempo si unisce). Prima
+  annulla l'intento: se il pagamento è partito (riuscito o in elaborazione) si
+  va al ritorno, se Stripe non annulla per altri motivi l'ordine resta e il
+  cliente vede l'errore. `CheckoutController::index` non rimanda più a «Paga
+  ora».
+- Un nuovo «Paga» sopra un ordine in pagamento lo abbandona
+  (`dropPending()` → `Lifecycle::abandon`, stato `abandoned`, nessuna email):
+  il commerciante lo vede solo col filtro «Pagamenti non riusciti».
 - Ogni rifiuto (carta rifiutata, 3DS fallito) resta nella storia del pagamento
   dell'ordine anche senza webhook: dopo un errore di `confirmPayment` il JS fa
   un POST a `/checkout/declined/` (`ecommerce.checkout.declined`, CSRF, 20
@@ -127,9 +137,8 @@ con lo stesso testo per tutti: non rivela se l'account ha già una password.
   lo legge il server da Stripe: `settle` registra il rifiuto con
   `OnlinePayments::fail` una volta per tentativo, col motivo della banca. Gli
   errori di validazione del modulo non chiamano il server.
-- «Modifica l'ordine» annulla prima l'intento: se nel frattempo il pagamento è
-  partito l'ordine resta e si va al ritorno; se Stripe non annulla per altri
-  motivi l'ordine resta e il cliente vede l'errore su «Paga ora».
+- Con il pagamento in elaborazione la pagina di ritorno mostra il blocco
+  «pagamento in corso»; la conferma regge un ordine ancora senza numero.
 - Pagato non vuol dire confermato: l'ordine resta «In attesa» con pagamento
   «pagato» e lo conferma il commerciante dal backend, dopo aver controllato la
   merce. La pagina «ordine completato» lo dice al cliente.
