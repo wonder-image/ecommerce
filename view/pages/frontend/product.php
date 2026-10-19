@@ -250,7 +250,7 @@ Ecommerce::layout('shop');
                                     <div class="d-flex f-wrap gap-2">
                                         <?php foreach ((array) ($group['values'] ?? []) as $value): ?>
                                             <button class="btn btn-light p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="false">
-                                                <?php if (!empty($value['image'])): ?><img src="<?=e($value['image'])?>" alt="" width="48" height="48" class="f-1-1 o-cover mr-2"><?php endif; ?>
+                                                <?php if (!empty($value['image'])): ?><span class="d-inline-block p-r f-1-1 mr-2" style="width:48px"><?=Product::image((string) $value['image'], Product::IMAGE_THUMB)->displaySizes('48px')?></span><?php endif; ?>
                                                 <?php if (!empty($value['color'])): ?><span aria-hidden="true" class="d-inline-block f-1-1 mr-2" style="width:1.25rem;height:1.25rem;background:<?=e($value['color'])?>"></span><?php endif; ?>
                                                 <?=e($value['label'] ?? '')?>
                                             </button>

@@ -18,6 +18,7 @@ use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
+use Wonder\Plugin\Gestionale\Support\Catalog\ProductPhotos;
 use Wonder\Plugin\Gestionale\Support\Stock\Levels;
 use Wonder\Plugin\Gestionale\Support\Stock\Locations;
 use Wonder\Plugin\Gestionale\Support\Stock\Stock;
@@ -111,12 +112,13 @@ final class ProductCatalog
             return null;
         }
 
-        $allImages = self::rows(ProductImage::find(
-            ['product_model_id' => $modelId],
+        // Cancellate e fallite non vanno in galleria (come ProductPhotos per le righe).
+        $allImages = array_values(array_filter(self::rows(ProductImage::find(
+            ['product_model_id' => $modelId, 'deleted' => 'false'],
             null,
             'position',
             'ASC'
-        ));
+        )), [ProductImages::class, 'isShowable']));
         $images = [];
 
         foreach (ProductImages::for($allImages, $variantId) as $image) {
@@ -256,18 +258,7 @@ final class ProductCatalog
      */
     private static function productImage(int $productId): string
     {
-        $product = $productId > 0 ? Product::find(['id' => $productId], 1) : null;
-        if (!is_array($product)) {
-            return '';
-        }
-
-        $images = ProductImages::for(
-            self::rows(ProductImage::find(['product_model_id' => (int) ($product['product_model_id'] ?? 0)], null, 'position', 'ASC')),
-            (int) ($product['product_variant_id'] ?? 0),
-            $productId
-        );
-
-        return isset($images[0]) && is_array($images[0]) ? self::absolute(ProductImages::url($images[0])) : '';
+        return self::absolute(ProductPhotos::forProduct($productId));
     }
 
     /** @return list<array<string, mixed>> */

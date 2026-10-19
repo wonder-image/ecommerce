@@ -15,6 +15,7 @@ use Wonder\Plugin\Gestionale\Support\Documents\OrderProforma;
 use Wonder\Plugin\Gestionale\Support\Locations\PickupPoints;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
 use Wonder\Plugin\Gestionale\Support\Shipping\Carriers;
+use Wonder\Plugin\Gestionale\Support\Catalog\ProductPhotos;
 
 /** Il dettaglio di un ordine come lo vede il cliente: tutto testo semplice, salvo gli indirizzi. */
 final class AccountOrder
@@ -136,7 +137,8 @@ final class AccountOrder
         $lines = CartPresenter::lines(EcommerceAccountController::rows(OrderItem::find(['order_id' => $orderId], null, 'position', 'ASC')));
         $line = static fn (array $item): array => [
             'name' => (string) ($item['name'] ?? ''),
-            'image' => trim((string) ($item['image'] ?? '')),
+            // Ordini fatti con righe senza foto: la foto attuale dell'articolo.
+            'image' => trim((string) ($item['image'] ?? '')) ?: ProductPhotos::forProduct((int) ($item['product_id'] ?? 0)),
             'details' => Customizations::lines($item),
             'quantity' => (string) ($item['type'] ?? '') === 'text' ? '' : CartPresenter::quantity($item['quantity'] ?? 1),
             'total' => (string) ($item['type'] ?? '') === 'text' ? '' : $money($item['line_total'] ?? 0),
