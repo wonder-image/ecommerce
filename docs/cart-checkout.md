@@ -110,13 +110,44 @@ utente cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account
 La sessione resta da ospite. La conferma dice all'ospite che l'email è partita,
 con lo stesso testo per tutti: non rivela se l'account ha già una password.
 
+## Pagamento online (Stripe)
+
+- Il «Paga» crea l'ordine una volta sola, **«In pagamento»**
+  (`awaiting_payment`): senza numero, fuori dalla lista del commerciante e
+  dall'area cliente. Diventa «In attesa», col numero e l'email «ricevuto», solo
+  quando Stripe incassa o mette il pagamento in elaborazione (SEPA). Dopo un
+  rifiuto (carta, 3DS, metodo a reindirizzamento abbandonato) l'ordine resta e
+  il cliente riprova sullo stesso intento, dal checkout o da «Paga ora».
+- Il checkout resta sempre modificabile: non c'è «Modifica l'ordine». Il primo
+  cambio nel checkout (`checkout.js`, `reopen()` una volta, i campi si
+  sbloccano), il carrello, le sue righe e il coupon riaprono da soli l'ordine
+  in pagamento con `OnlinePayment::reopen` (`Lifecycle::reopen` del
+  gestionale, stessa riga; un carrello nato nel frattempo si unisce). Prima
+  annulla l'intento: se il pagamento è partito (riuscito o in elaborazione) si
+  va al ritorno, se Stripe non annulla per altri motivi l'ordine resta e il
+  cliente vede l'errore. `CheckoutController::index` non rimanda più a «Paga
+  ora».
+- Un nuovo «Paga» sopra un ordine in pagamento lo abbandona
+  (`dropPending()` → `Lifecycle::abandon`, stato `abandoned`, nessuna email):
+  il commerciante lo vede solo col filtro «Pagamenti non riusciti».
+- Ogni rifiuto (carta rifiutata, 3DS fallito) resta nella storia del pagamento
+  dell'ordine anche senza webhook: dopo un errore di `confirmPayment` il JS fa
+  un POST a `/checkout/declined/` (`ecommerce.checkout.declined`, CSRF, 20
+  chiamate ogni 10 minuti per ordine). L'ordine viene dalla sessione e lo stato
+  lo legge il server da Stripe: `settle` registra il rifiuto con
+  `OnlinePayments::fail` una volta per tentativo, col motivo della banca. Gli
+  errori di validazione del modulo non chiamano il server.
+- Con il pagamento in elaborazione la pagina di ritorno mostra il blocco
+  «pagamento in corso»; la conferma regge un ordine ancora senza numero.
+- Pagato non vuol dire confermato: l'ordine resta «In attesa» con pagamento
+  «pagato» e lo conferma il commerciante dal backend, dopo aver controllato la
+  merce. La pagina «ordine completato» lo dice al cliente.
+
 ## Limiti intenzionali della prima fase
 
 - I metodi manuali (`PaymentMethod::MANUAL_PROVIDERS`: `bank_transfer`, `cash`,
   `manual`) possono creare l'ordine. Gli altri provider vengono rifiutati prima
   della creazione: non si simulano pagamenti.
-- Stripe richiede ancora adapter, sessione, callback idempotente e gestione
-  esplicita di successo, annullamento e fallimento.
 - L'ospite non va abilitato finché non sono definiti backend, consensi del
   checkout e collegamento successivo all'account.
 

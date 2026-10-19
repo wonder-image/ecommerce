@@ -67,29 +67,27 @@ check('leave e reject esistono e terminano la richiesta', fn () =>
 $reopen = corpo($controller, 'reopen');
 $returned = corpo($controller, 'returned');
 
-check('reopen: POST e CSRF, poi l\'ordine si annulla e il modulo torna col riepilogo', fn () => $reopen !== ''
+check('reopen: POST e CSRF, poi l\'ordine si riapre e il modulo torna col riepilogo', fn () => $reopen !== ''
     && str_contains($controller, "'reopen' => self::reopen()")
     && !str_contains($controller, "'abandon'")
-    && strpos($reopen, 'self::requireCsrf()') < strpos($reopen, 'self::reopenPending()')
+    && strpos($reopen, 'self::requireCsrf()') < strpos($reopen, 'self::resume($json, false)')
     && str_contains($reopen, "AuthSession::verify(\$_POST['csrf_token'] ?? '')")
     && str_contains($reopen, 'CheckoutSummary::payload(')
     && str_contains($reopen, "self::redirect(self::route('ecommerce.checkout.index'))"));
 
-check('reopen e il ritorno, se il denaro è arrivato, portano al ritorno col suo intento', fn () =>
-    str_contains($reopen, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
-    && str_contains($returned, "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
-    && str_contains($returned, "self::redirect(self::returnUrl(\$reopened['reference']))")
-    && str_contains($reopen, "self::returnUrl(\$reopened['reference'])")
+check('resume: se il denaro è arrivato porta al ritorno, se l\'intento non si chiude a «Paga ora»', fn () =>
+    str_contains(corpo($controller, 'resume'), "in_array(\$reopened['outcome'], ['succeeded', 'processing'], true)")
+    && str_contains(corpo($controller, 'resume'), "self::returnUrl(\$reopened['reference'])")
+    && str_contains(corpo($controller, 'resume'), "self::leave(self::route('ecommerce.checkout.pay'), \$json)")
     && str_contains(corpo($controller, 'returnUrl'), "'?payment_intent='.rawurlencode("));
 
-check('un pagamento rifiutato al ritorno riapre il checkout invece della pagina di pagamento', fn () =>
-    str_contains($returned, 'self::reopenPending()')
-    && str_contains($returned, "self::redirect(self::route('ecommerce.checkout.index'))")
-    && !str_contains($returned, "self::route('ecommerce.checkout.pay')"));
+check('un pagamento rifiutato al ritorno torna al checkout, quello della barra rapida a «Paga ora»', fn () =>
+    !str_contains($returned, 'self::resume(')
+    && str_contains($returned, "self::redirect(self::route(ExpressCart::owns(\$orderId) ? 'ecommerce.checkout.pay' : 'ecommerce.checkout.index'))"));
 
-check('reopenPending non lascia uscire un errore: l\'ordine scade da solo con le prenotazioni', fn () =>
-    str_contains(corpo($controller, 'reopenPending'), 'OnlinePayment::reopen()')
-    && str_contains(corpo($controller, 'reopenPending'), "Errors::internal(\$error, 'ecommerce.checkout.reopen')"));
+check('resume non lascia uscire un errore: OnlinePayment::resume() lo chiude in «kept»', fn () =>
+    str_contains(corpo($controller, 'resume'), 'OnlinePayment::resume()')
+    && !str_contains($controller, 'reopenPending'));
 
 check('il ritorno con un payment_intent non stringa è un 404 senza avvisi', fn () =>
     str_contains($returned, "\$reference = \$_GET['payment_intent'] ?? '';")

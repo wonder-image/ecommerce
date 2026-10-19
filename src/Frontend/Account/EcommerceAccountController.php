@@ -63,12 +63,12 @@ class EcommerceAccountController extends AccountController
         ]);
     }
 
-    /** Gli ordini (stage order, in qualsiasi stato) della scheda del cliente, dal più recente, a dieci per pagina. */
+    /** Gli ordini della scheda del cliente (stage order, tranne quelli in pagamento o abbandonati), dal più recente, a dieci per pagina. */
     protected function orders(): void
     {
         $contact = $this->contact((int) $this->user()->id);
         $contactId = (int) ($contact['id'] ?? 0);
-        $condition = ['stage' => 'order', 'customer_id' => $contactId];
+        $condition = AccountOrder::condition($contactId);
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
         $total = $contactId > 0 ? (int) (self::rows(Order::find($condition, null, null, null, 'COUNT(*) AS total'))[0]['total'] ?? 0) : 0;
         $pagination = AccountPagination::make($total, AccountPagination::requested());
@@ -124,7 +124,7 @@ class EcommerceAccountController extends AccountController
     {
         $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
         $order = $code !== '' && $contactId > 0 ? Order::find(['code' => $code, 'stage' => 'order'], 1) : null;
-        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId) {
+        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId || AccountOrder::hidden($order)) {
             $this->notFound();
         }
 

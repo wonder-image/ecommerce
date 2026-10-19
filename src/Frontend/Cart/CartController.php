@@ -6,6 +6,7 @@ use Throwable;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
@@ -29,6 +30,7 @@ final class CartController
 
     private static function index(): void
     {
+        self::resume(false);
         $cart = CartSession::current(false);
 
         self::seo();
@@ -116,6 +118,7 @@ final class CartController
         self::requirePost();
         $wantsJson = self::wantsJson();
         self::requireCsrf();
+        self::resume($wantsJson);
 
         $errors = [];
         $cart = null;
@@ -150,6 +153,41 @@ final class CartController
             $_POST['continue'] ?? '',
             self::route('ecommerce.cart.index')
         ));
+    }
+
+    /**
+     * Il cliente torna al carrello con un ordine in pagamento: l'ordine torna
+     * carrello. Se Stripe sta già incassando si va al ritorno del pagamento.
+     */
+    private static function resume(bool $json): void
+    {
+        $reopened = OnlinePayment::resume();
+        $url = match ($reopened['outcome']) {
+            'succeeded', 'processing' => self::route('ecommerce.checkout.return').'?payment_intent='.rawurlencode((string) $reopened['reference']),
+            'kept' => self::route('ecommerce.checkout.pay'),
+            default => '',
+        };
+
+        if ($url === '') {
+            if (! $json && $reopened['removed'] !== []) {
+                FlashMessage::info(
+                    (string) __t('ecommerce.checkout.pay.removed', ['names' => implode(', ', $reopened['removed'])]),
+                    (string) __t('ecommerce.cart.notice_title')
+                );
+            }
+
+            return;
+        }
+
+        if ($reopened['outcome'] === 'kept') {
+            FlashMessage::error((string) ($reopened['error'] ?? ''), (string) __t('ecommerce.cart.error_title'));
+        }
+
+        if ($json) {
+            self::json(['success' => false, 'redirect' => $url]);
+        }
+
+        self::redirect($url);
     }
 
     private static function requirePost(): void

@@ -57,19 +57,30 @@ class Checkout {
                 this.submit(this.latest);
             }
 
-            this.schedule();
+            this.changed();
         });
         this.form.addEventListener('input', (event) => {
             if (event.target.hasAttribute('aria-invalid')) this.fieldError(event.target, '');
             this.mirror();
 
             if (event.target.matches('input[type="text"], input:not([type])') && event.target.matches(watch)) {
-                this.schedule();
+                this.changed();
             }
         });
         this.toggles();
         this.mirror();
         this.guardSubmit();
+    }
+
+    // Il primo cambio dopo un pagamento non riuscito riporta l'ordine a carrello: il prossimo «Paga» lo rifà.
+    changed() {
+        if (this.placed && !this.paying) {
+            this.reopen();
+
+            return;
+        }
+
+        this.schedule();
     }
 
     schedule() {
@@ -144,6 +155,8 @@ class Checkout {
     }
 
     async refresh() {
+        // Il riepilogo si legge sull'ordine già tornato carrello.
+        await this.reopening;
         const payload = await this.request(this.root.dataset.summaryUrl, this.body());
 
         if (payload && payload.success !== false) {
@@ -156,6 +169,12 @@ class Checkout {
     async coupon(event) {
         event.preventDefault();
 
+        // Il server riapre l'ordine prima del coupon: il prossimo «Paga» lo rifà.
+        if (this.placed && !this.paying) {
+            this.placed = null;
+        }
+
+        await this.reopening;
         const couponForm = event.currentTarget;
         const data = this.body({
             action: event.submitter?.value || 'apply',
@@ -899,15 +918,17 @@ class Checkout {
             });
 
             // Senza errore Stripe ha già portato il cliente al ritorno. Il rifiuto si legge
-            // nell'alert e dentro il Payment Element: sotto il box non si ripete.
+            // nell'alert e dentro il Payment Element: sotto il box non si ripete. L'ordine
+            // resta: si riprova con un'altra carta, e al primo cambio del modulo torna carrello.
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                await this.reopen();
+                this.thaw();
+                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
-            await this.reopen([this.labels.stripe_error]);
+            this.thaw();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1069,7 +1090,8 @@ class Checkout {
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                await this.reopen();
+                this.thaw();
+                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             if (!sent) {
@@ -1077,7 +1099,7 @@ class Checkout {
             }
 
             this.say([this.labels.stripe_error]);
-            await this.reopen([this.labels.stripe_error]);
+            this.thaw();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1110,25 +1132,36 @@ class Checkout {
         this.frozenFields.forEach((field) => { field.disabled = true; });
     }
 
-    // Pagamento rifiutato: il server annulla l'ordine e rimette righe e scelte nel carrello, il modulo
-    // torna modificabile e il prossimo «Paga» fa nascere un ordine nuovo. I messaggi dati restano a vista.
-    async reopen(keep = []) {
-        if (!this.placed) {
-            return;
-        }
-
-        this.placed = null;
+    // Dopo un rifiuto il modulo torna modificabile; l'ordine resta finché il cliente non cambia qualcosa,
+    // così «Paga» riprova lo stesso intento con un'altra carta.
+    thaw() {
         this.frozen = false;
         (this.frozenFields || []).forEach((field) => { field.disabled = false; });
         this.frozenFields = [];
-        this.resetRecaptcha();
+        this.syncPaymentRadios();
+    }
 
-        const payload = await this.request(this.root.dataset.reopenUrl, this.body());
-
-        if (payload && payload.success !== false) {
-            this.render(payload);
-            this.notices([...keep, ...(payload.notices || [])]);
+    // Il server riporta l'ordine a carrello sulla stessa riga e ridà il riepilogo del modulo di adesso.
+    reopen() {
+        if (!this.placed) {
+            return this.reopening;
         }
+
+        payAlert('');
+        this.placed = null;
+        this.thaw();
+        this.resetRecaptcha();
+        this.sequence++;
+        clearTimeout(this.timer);
+
+        this.reopening = this.request(this.root.dataset.reopenUrl, this.body()).then((payload) => {
+            if (payload && payload.success !== false) {
+                this.render(payload);
+                this.notices(payload.notices || []);
+            }
+        }).finally(() => { this.reopening = null; });
+
+        return this.reopening;
     }
 
     lock(on) {
@@ -1381,6 +1414,33 @@ function walletMethods(types) {
 // Klarna, PayPal e gli altri a reindirizzamento: Stripe mostra il loro logo in un riquadro che non si può togliere, almeno senza bordo né sfondo.
 const STRIPE_APPEARANCE = { rules: { '.Block': { border: 'none', boxShadow: 'none', padding: '0', backgroundColor: 'transparent' }, '.BlockDivider': { backgroundColor: 'transparent' } } };
 
+// Il rifiuto della carta nel modulo resta nella storia del pagamento anche senza webhook: il server
+// chiede l'esito a Stripe, il browser non porta niente. Se intanto risulta pagato si va al ritorno.
+async function reportDeclined(url, token, error) {
+    if (!url || !token || error?.type === 'validation_error') {
+        return;
+    }
+
+    const body = new FormData();
+    body.append('csrf_token', token);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+        });
+        const payload = await response.json();
+
+        if (payload.redirect) {
+            window.location.href = payload.redirect;
+        }
+    } catch (failure) {
+        // Il webhook e il riallineamento lo scrivono lo stesso.
+    }
+}
+
 // Stripe.js arriva da Stripe, come vuole Stripe per la sicurezza della carta, e solo nelle pagine che lo usano.
 function loadStripe() {
     if (window.Stripe) {
@@ -1453,6 +1513,7 @@ class CheckoutPay {
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
                 payAlert(error.message || this.labels.failed);
+                reportDeclined(this.root.dataset.declinedUrl, document.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             this.say(this.labels.error);
