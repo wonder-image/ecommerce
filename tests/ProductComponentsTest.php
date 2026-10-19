@@ -7,6 +7,10 @@ require_once __DIR__.'/../vendor/wonder-image/app/app/function/helper.php';
 require __DIR__.'/harness.php';
 
 defined('APP_URL') || define('APP_URL', '');
+// Le immagini delle card passano da Product::image(): il core versiona gli URL.
+defined('ASSETS_VERSION') || define('ASSETS_VERSION', 'test');
+defined('APP_VERSION') || define('APP_VERSION', 'test');
+defined('ROOT') || define('ROOT', sys_get_temp_dir());
 defined('RESPONSIVE_IMAGE_SIZES') || define('RESPONSIVE_IMAGE_SIZES', [240, 480, 960, 1440]);
 
 // Le frecce dello swiper hanno etichette tradotte: si leggono dal lang/ del modulo.
@@ -62,7 +66,8 @@ check('la griglia rende card sicure e classi responsive', function () use ($prod
         && str_contains($html, '<div class="product-list__header mb-6 w-100')
         && !str_contains($html, '<header')
         && str_contains($html, 'product-card__media p-r d-block f-1-1')
-        && str_contains($html, 'class="bg bg-cover"')
+        && str_contains($html, 'bg bg-contain')
+        && !str_contains($html, 'bg-cover')
         && !str_contains($html, 'class="p-a top start w-100 h-100 bg bg-cover"')
         && !str_contains($html, 'product-card product-card--grid wi-box')
         && str_contains($html, 'T-shirt &lt;Blu&gt;')
@@ -87,7 +92,7 @@ check('le card usano solo componenti e utility del design system', function () u
     $html = ProductList::make($products)->renderGrid().ProductList::make($products)->renderList();
 
     return str_contains($html, 'badge badge-primary')
-        && str_contains($html, 'product-card__variant d-block b-1 o-hidden')
+        && str_contains($html, 'product-card__variant d-block p-r b-1 o-hidden')
         && str_contains($html, 'product-card__name d-block text fw-500 tx-black tx-none')
         && !str_contains($html, 'style=')
         && !str_contains($html, 'px-')

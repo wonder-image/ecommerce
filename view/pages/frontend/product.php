@@ -10,6 +10,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 if (!$product instanceof ProductDetail) {
@@ -103,7 +104,7 @@ $bundleRow = static function (string $tag, string $input, string $image, string 
     [$title, $option] = CartPresenter::split($name);
     array_unshift($details, $option);
     $picture = $image !== ''
-        ? '<img src="'.e($image).'" alt="" width="48" height="48" loading="lazy" class="o-cover" data-bundle-thumb>'
+        ? '<span class="d-block p-r o-hidden" data-bundle-thumb>'.Product::image($image, Product::IMAGE_THUMB)->displaySizes('48px').'</span>'
         : '';
     $details = array_values(array_filter($details, 'strlen'));
 
@@ -153,6 +154,8 @@ Ecommerce::layout('shop');
         <?php if ($images !== []): ?>
             <?=__swiper($images)
                 ->id('ecommerce-product-gallery')
+                ->size(Product::IMAGE_GALLERY)
+                ->fitContain()
                 ->ratio('4:5')
                 ->thumbnails(count($images) > 1)
                 ->thumbsRatio('1:1')
