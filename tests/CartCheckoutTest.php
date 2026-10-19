@@ -244,7 +244,7 @@ check('il carrello sta nel layout del negozio, col suo font, senza passi e senza
         && str_contains($v, 'data-checkout-cart')
         && !str_contains($v, 'Steps::make(') && !str_contains($v, 'steps.php')
         && !str_contains($v, "labels['sku']") && !str_contains($v, 'data-step')
-        && str_contains($parts, 'wi-thumb')
+        && str_contains($parts, 'components/cart/thumb.php')
         && str_contains($parts, '<template data-checkout-line>')
         && str_contains($parts, "FormField::key('return')->hidden()")
         && str_contains($parts, '<details')
@@ -456,7 +456,7 @@ check('il riepilogo è sticky e le righe non hanno lo SKU', function (): bool {
     $righe = (string) file_get_contents(dirname(__DIR__).'/view/components/checkout/lines.php');
 
     return str_contains($css, 'position: sticky')
-        && !str_contains($righe, 'data-line-sku') && str_contains($righe, '64px');
+        && !str_contains($righe, 'data-line-sku') && str_contains($righe, 'components/cart/thumb.php');
 });
 
 check('sul desktop il modulo prende 3 colonne su 5 e il riepilogo 2; sotto i 1024px il modulo va a tutta riga', function (): bool {
@@ -724,7 +724,23 @@ check('aprendo «Mi serve fattura» è già scelta «Azienda»; una scelta fatta
     return str_contains($v, "\$business = !\$invoice || (\$values['billing_type'] ?? 'business') === 'business';");
 });
 
-check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto a 88px e il codice sconto in un riquadro a parte', function () use ($root): bool {
+check('carrello, mini carrello, checkout e area cliente usano la stessa miniatura quadrata', function () use ($root): bool {
+    $thumb = (string) file_get_contents($root.'/view/components/cart/thumb.php');
+    $css = (string) file_get_contents($root.'/resources/assets/css/store.css');
+
+    foreach (['view/pages/cart/index.php', 'view/components/cart/mini-cart-body.php', 'view/components/checkout/lines.php', 'view/pages/account/order.php'] as $file) {
+        $v = (string) file_get_contents($root.'/'.$file);
+
+        if (!str_contains($v, "components/cart/thumb.php") || str_contains($v, '--wi-thumb-size') || str_contains($v, 'f-4-5')) {
+            return false;
+        }
+    }
+
+    return str_contains($thumb, 'class="wi-thumb"') && str_contains($thumb, 'data-line-image') && str_contains($thumb, 'data-line-quantity')
+        && !str_contains($css, '--wi-thumb-size');
+});
+
+check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto quadrata comune e il codice sconto in un riquadro a parte', function () use ($root): bool {
     $v = (string) file_get_contents($root.'/view/pages/cart/index.php');
 
     // −/+ mandano la quantità nuova col bottone stesso: niente JS e niente «Aggiorna».
@@ -732,7 +748,7 @@ check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto a 88px 
         && str_contains($v, "__t('ecommerce.cart.decrease')") && str_contains($v, "__t('ecommerce.cart.increase')")
         && !str_contains($v, "__t('ecommerce.cart.update')")
         && str_contains($v, 'bi-trash3')
-        && str_contains($v, '--wi-thumb-size: 88px')
+        && str_contains($v, 'components/cart/thumb.php')
         && str_contains($v, "'coupons' => false")
         && str_contains($v, "Accordion::make((string) __t('ecommerce.checkout.coupon_title'))")
         // Il tema Wonder non rende `Text`/`RichText`: il form entra nell'accordion come HTML già pronto.
