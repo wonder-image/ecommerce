@@ -210,7 +210,7 @@
             "email_sent": "Ti abbiamo mandato il riepilogo dell'ordine via email. Se non hai ancora una password, nell'email trovi il link per sceglierla e seguire i tuoi ordini.",
             "shop": "Torna al negozio",
             "processing": "Il pagamento è in lavorazione: ti scriviamo appena arriva la conferma.",
-            "paid": "Pagamento ricevuto. Controlliamo la disponibilità della merce e ti scriviamo appena confermiamo l'ordine."
+            "paid": "Pagamento ricevuto."
         },
         "pay": {
             "title": "Pagamento dell'ordine",
