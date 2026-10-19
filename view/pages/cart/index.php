@@ -6,6 +6,7 @@ use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 $order = (array) ($cart['order'] ?? []);
@@ -74,8 +75,8 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 ?>
                 <?php // In alto nome, scelte e prezzo; in basso quantità e «Rimuovi». La foto resta in cima, non si allunga con la riga. ?>
                 <article class="w-100 wi-cart__item">
-                    <<?=$url !== '' ? 'a href="'.e($url).'" tabindex="-1" aria-hidden="true"' : 'span'?> class="wi-thumb" style="--wi-thumb-size: 88px">
-                        <?php if (trim((string) ($item['image'] ?? '')) !== ''): ?><img src="<?=e($item['image'])?>" alt="" loading="lazy"><?php endif; ?>
+                    <<?=$url !== '' ? 'a href="'.e($url).'" tabindex="-1" aria-hidden="true"' : 'span'?> class="wi-thumb o-hidden" style="--wi-thumb-size: 88px">
+                        <?php if (trim((string) ($item['image'] ?? '')) !== ''): ?><?=Product::image((string) $item['image'], Product::IMAGE_THUMB)->displaySizes('88px')?><?php endif; ?>
                     </<?=$url !== '' ? 'a' : 'span'?>>
                     <div class="w-100 wi-cart__body">
                         <div class="w-100 wi-cart__head">

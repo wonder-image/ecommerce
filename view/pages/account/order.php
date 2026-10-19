@@ -2,6 +2,7 @@
 
 use Wonder\Elements\Components\Button;
 use Wonder\Http\Route;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 $title ??= '';
@@ -42,8 +43,8 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
             <?php foreach ($order['items'] as $item): ?>
                 <div class="wi-row-table__row">
                     <div class="wi-row-table__cell d-flex gap-4">
-                        <span class="wi-thumb">
-                            <?php if ($item['image'] !== ''): ?><img src="<?=e($item['image'])?>" alt="" loading="lazy"><?php endif; ?>
+                        <span class="wi-thumb o-hidden">
+                            <?php if ($item['image'] !== ''): ?><?=Product::image((string) $item['image'], Product::IMAGE_THUMB)->displaySizes('64px')?><?php endif; ?>
                         </span>
                         <span class="w-100">
                             <span class="wi-row-table__title d-block"><?=e($item['name'])?></span>

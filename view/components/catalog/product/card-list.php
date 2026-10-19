@@ -1,4 +1,7 @@
 <?php
+
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
+
 $product = is_array($product ?? null) ? $product : [];
 $url = (string) ($product['url'] ?? '');
 $tag = $url !== '' ? 'a' : 'div';
@@ -7,7 +10,7 @@ $link = $url !== '' ? ' href="'.e($url).'"' : '';
 <article class="product-card product-card--list d-grid col-4 col-p-1 gap-4 pb-4">
     <<?=$tag?> class="product-card__media p-r d-block f-1-1 bg-light o-hidden"<?=$link?>>
         <?php if (($product['image'] ?? '') !== ''): ?>
-            <img src="<?=e($product['image'])?>" alt="<?=e($product['image_alt'] ?? '')?>" class="bg bg-cover" loading="lazy">
+            <?=Product::image((string) $product['image'], Product::IMAGE_CARD, (string) ($product['image_alt'] ?? ''))?>
         <?php else: ?>
             <span class="center tx-secondary" aria-hidden="true"><i class="bi bi-image"></i></span>
         <?php endif; ?>

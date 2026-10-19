@@ -1,4 +1,7 @@
 <?php
+
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
+
 /** @var array $variants Varianti della scheda: name, url, image, active. */
 ?>
 <?php if (count($variants) > 1): ?>
@@ -7,7 +10,7 @@
             <?php foreach ($variants as $variant): ?>
                 <?php if (!empty($variant['image'])): ?>
                     <a href="<?=e($variant['url'] ?? '')?>" class="product-variant d-block f-1-1 p-2 b-1 <?=!empty($variant['active']) ? 'tx-primary' : ''?>" title="<?=e($variant['name'] ?? '')?>" aria-label="<?=e($variant['name'] ?? '')?>" <?=!empty($variant['active']) ? 'aria-current="page"' : ''?>>
-                        <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" width="120" height="120" loading="lazy" class="w-100 f-1-1 o-cover">
+                        <span class="d-block w-100 f-1-1 p-r"><?=Product::image((string) $variant['image'], Product::IMAGE_THUMB, (string) ($variant['name'] ?? ''))->displaySizes('120px')?></span>
                     </a>
                 <?php else: ?>
                     <a href="<?=e($variant['url'] ?? '')?>" class="product-variant btn btn-sm <?=!empty($variant['active']) ? 'btn-primary' : 'btn-light'?>" <?=!empty($variant['active']) ? 'aria-current="page"' : ''?>><?=e($variant['name'] ?? '')?></a>

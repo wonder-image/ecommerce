@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\App\ResourceSchema\FormField;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 
 $order = (array) (($cart ?? [])['order'] ?? []);
@@ -35,9 +36,9 @@ $currency = (string) ($order['currency'] ?? 'EUR');
                 $url = CartPresenter::url($item);
                 ?>
                 <article class="w-100 d-grid gap-4 box-border <?=$index === 0 ? 'pb-4' : 'pt-4 pb-4'?>" style="grid-template-columns:72px 1fr<?=$last ? '' : ';border-bottom:1px solid var(--black-color-10)'?>">
-                    <<?=$url !== '' ? 'a href="'.e($url).'" tabindex="-1" aria-hidden="true"' : 'div'?> class="d-block w-100 f-4-5 bg-light o-hidden" style="border-radius:6px">
+                    <<?=$url !== '' ? 'a href="'.e($url).'" tabindex="-1" aria-hidden="true"' : 'div'?> class="d-block w-100 f-4-5 bg-light o-hidden p-r" style="border-radius:6px">
                         <?php if (trim((string) ($item['image'] ?? '')) !== ''): ?>
-                            <img src="<?=e($item['image'])?>" alt="" class="w-100 h-100 bg bg-cover" loading="lazy">
+                            <?=Product::image((string) $item['image'], Product::IMAGE_THUMB)->displaySizes('72px')?>
                         <?php endif; ?>
                     </<?=$url !== '' ? 'a' : 'div'?>>
                     <div class="w-100 d-flex d-column gap-1">

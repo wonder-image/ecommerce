@@ -10,6 +10,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 if (!$product instanceof ProductDetail) {
@@ -119,7 +120,7 @@ $bundleRow = static function (string $tag, string $input, string $image, string 
     [$title, $option] = CartPresenter::split($name);
     array_unshift($details, $option);
     $picture = $image !== ''
-        ? '<img src="'.e($image).'" alt="" width="48" height="48" loading="lazy" class="o-cover" data-bundle-thumb>'
+        ? '<span class="d-block p-r o-hidden" data-bundle-thumb>'.Product::image($image, Product::IMAGE_THUMB)->displaySizes('48px').'</span>'
         : '';
     $details = array_values(array_filter($details, 'strlen'));
 
@@ -169,6 +170,8 @@ Ecommerce::layout('shop');
         <?php if ($images !== []): ?>
             <?=__swiper($images)
                 ->id('ecommerce-product-gallery')
+                ->size(Product::IMAGE_GALLERY)
+                ->fitContain()
                 ->ratio('4:5')
                 ->thumbnails(count($images) > 1)
                 ->thumbsRatio('1:1')
@@ -277,7 +280,7 @@ Ecommerce::layout('shop');
                                             <?php $unavailable = !$optionAvailable((string) ($group['id'] ?? ''), (string) ($value['id'] ?? '')); ?>
                                             <?php $unavailableLabel = (string) __t('ecommerce.catalog.availability.option_unavailable', ['option' => (string) ($value['label'] ?? '')]); ?>
                                             <button class="btn <?=$pressed ? 'btn-primary' : 'btn-light'?> p-3" type="button" data-option-value="<?=e($value['id'] ?? '')?>" aria-pressed="<?=$pressed ? 'true' : 'false'?>" data-unavailable-label="<?=e($unavailableLabel)?>"<?=$unavailable ? ' data-unavailable aria-label="'.e($unavailableLabel).'"' : ''?>>
-                                                <?php if (!empty($value['image'])): ?><img src="<?=e($value['image'])?>" alt="" width="48" height="48" class="f-1-1 o-cover mr-2"><?php endif; ?>
+                                                <?php if (!empty($value['image'])): ?><span class="d-inline-block p-r f-1-1 mr-2" style="width:48px"><?=Product::image((string) $value['image'], Product::IMAGE_THUMB)->displaySizes('48px')?></span><?php endif; ?>
                                                 <?php if (!empty($value['color'])): ?><span aria-hidden="true" class="d-inline-block f-1-1 mr-2" style="width:1.25rem;height:1.25rem;background:<?=e($value['color'])?>"></span><?php endif; ?>
                                                 <span data-option-label><?=e($value['label'] ?? '')?></span>
                                             </button>

@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 $product = is_array($product ?? null) ? $product : [];
@@ -19,7 +20,7 @@ $cart = is_array($product['cart'] ?? null) ? $product['cart'] : null;
 <article class="product-card product-card--grid w-100 h-100">
     <<?=$tag?> class="product-card__media p-r d-block f-1-1 bg-light o-hidden"<?=$link?>>
         <?php if (($product['image'] ?? '') !== ''): ?>
-            <img src="<?=e($product['image'])?>" alt="<?=e($product['image_alt'] ?? '')?>" class="bg bg-cover" loading="lazy">
+            <?=Product::image((string) $product['image'], Product::IMAGE_CARD, (string) ($product['image_alt'] ?? ''))?>
         <?php else: ?>
             <span class="center tx-secondary" aria-hidden="true"><i class="bi bi-image"></i></span>
         <?php endif; ?>
@@ -40,13 +41,13 @@ $cart = is_array($product['cart'] ?? null) ? $product['cart'] : null;
                 <?php foreach ($variants as $variant): ?>
                     <?php $variantTag = ($variant['url'] ?? '') !== '' ? 'a' : 'span'; ?>
                     <<?=$variantTag?>
-                        class="product-card__variant d-block b-1 o-hidden tx-dark tx-none"
+                        class="product-card__variant d-block p-r b-1 o-hidden tx-dark tx-none"
                         title="<?=e($variant['name'] ?? '')?>"
                         <?php if ($variantTag === 'a'): ?>href="<?=e($variant['url'])?>"<?php endif; ?>
                         <?php if (!empty($variant['active'])): ?>aria-current="true"<?php endif; ?>
                     >
                         <?php if (($variant['image'] ?? '') !== ''): ?>
-                            <img src="<?=e($variant['image'])?>" alt="<?=e($variant['name'] ?? '')?>" width="32" height="32" class="d-block w-100 h-100 o-cover" loading="lazy">
+                            <?=Product::image((string) $variant['image'], Product::IMAGE_THUMB, (string) ($variant['name'] ?? ''))->displaySizes('32px')?>
                         <?php else: ?>
                             <span class="d-block text-xsmall p-1"><?=e($variant['name'] ?? '')?></span>
                         <?php endif; ?>
