@@ -199,13 +199,9 @@ main .wi-cart__foot .wi-cart__quantity {
 main .wi-cart__foot .wi-cart__remove {
     color: var(--black-color-60, #737373);
 }
-/* Sul telefono la foto si stringe e lascia spazio a nome e prezzo. */
 @media (max-width: 650px) {
     main .wi-cart__item {
         gap: 12px;
-    }
-    main .wi-cart__item .wi-thumb {
-        --wi-thumb-size: 72px !important;
     }
     main .wi-cart__head {
         gap: 8px;

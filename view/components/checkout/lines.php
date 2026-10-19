@@ -1,21 +1,19 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
-use Wonder\Plugin\Gestionale\Models\Catalog\Product;
+use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\View\View;
 
 $line = static function (array $item) use ($currency): string {
     $image = trim((string) ($item['image'] ?? ''));
     $parts = (array) ($item['parts'] ?? CartPresenter::parts($item));
 
     return '<div class="w-100 d-flex gap-4">'
-        .'<span class="wi-thumb" style="--wi-thumb-size: 64px">'
-        // Il template del JS ha un <img> semplice: checkout.js ne cambia solo il src.
-        .match (true) {
-            $image === '' => '',
-            $image === 'data:,' => '<img src="data:," alt="" class="skeleton bg bg-contain" data-line-image>',
-            default => (string) Product::image($image, Product::IMAGE_THUMB)->displaySizes('64px'),
-        }
-        .'<span class="badge badge-dark" data-line-quantity>'.e($item['quantity_display'] ?? CartPresenter::quantity($item['quantity'] ?? 1)).'</span></span>'
+        // La stessa foto quadrata di carrello e mini carrello, col badge della quantità.
+        .View::component(Ecommerce::viewPath('components/cart/thumb.php'), [
+            'image' => $image,
+            'quantity' => $item['quantity_display'] ?? CartPresenter::quantity($item['quantity'] ?? 1),
+        ])
         .'<span class="w-100"><span class="d-block" data-line-name>'.e($item['name'] ?? '').'</span>'
         .'<ul class="text-small mt-1" data-line-parts'.($parts === [] ? ' hidden' : '').'>'.implode('', array_map(
             static fn (string $part): string => '<li>'.e($part).'</li>',
