@@ -117,6 +117,12 @@ class Cart {
         }, options));
         const payload = await response.json();
 
+        // Un ordine con il pagamento in corso: il server dice dove andare.
+        if (typeof payload.redirect === 'string' && payload.redirect !== '') {
+            window.location.assign(payload.redirect);
+            throw new Error('Cart redirected');
+        }
+
         if (!response.ok || typeof payload.html !== 'string') {
             throw new Error('Cart request failed');
         }
@@ -180,7 +186,7 @@ class Cart {
 
             return true;
         } catch (error) {
-            return false;
+            return error.message === 'Cart redirected';
         } finally {
             if (submitter) {
                 submitter.disabled = false;

@@ -38,12 +38,6 @@ class Checkout {
             return;
         }
 
-        this.form.querySelector('[data-checkout-edit-order]')?.addEventListener('click', () => {
-            if (!this.paying) {
-                this.reopen();
-            }
-        });
-
         // Anche la fatturazione: le tasse si calcolano sul suo indirizzo.
         const watch = 'select, [name^="shipping_"], [name^="billing_"], [name="same_as_shipping"], [name="invoice"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
 
@@ -63,19 +57,30 @@ class Checkout {
                 this.submit(this.latest);
             }
 
-            this.schedule();
+            this.changed();
         });
         this.form.addEventListener('input', (event) => {
             if (event.target.hasAttribute('aria-invalid')) this.fieldError(event.target, '');
             this.mirror();
 
             if (event.target.matches('input[type="text"], input:not([type])') && event.target.matches(watch)) {
-                this.schedule();
+                this.changed();
             }
         });
         this.toggles();
         this.mirror();
         this.guardSubmit();
+    }
+
+    // Il primo cambio dopo un pagamento non riuscito riporta l'ordine a carrello: il prossimo «Paga» lo rifà.
+    changed() {
+        if (this.placed && !this.paying) {
+            this.reopen();
+
+            return;
+        }
+
+        this.schedule();
     }
 
     schedule() {
@@ -150,6 +155,8 @@ class Checkout {
     }
 
     async refresh() {
+        // Il riepilogo si legge sull'ordine già tornato carrello.
+        await this.reopening;
         const payload = await this.request(this.root.dataset.summaryUrl, this.body());
 
         if (payload && payload.success !== false) {
@@ -162,6 +169,12 @@ class Checkout {
     async coupon(event) {
         event.preventDefault();
 
+        // Il server riapre l'ordine prima del coupon: il prossimo «Paga» lo rifà.
+        if (this.placed && !this.paying) {
+            this.placed = null;
+        }
+
+        await this.reopening;
         const couponForm = event.currentTarget;
         const data = this.body({
             action: event.submitter?.value || 'apply',
@@ -906,16 +919,16 @@ class Checkout {
 
             // Senza errore Stripe ha già portato il cliente al ritorno. Il rifiuto si legge
             // nell'alert e dentro il Payment Element: sotto il box non si ripete. L'ordine
-            // resta: si riprova con un'altra carta o lo si riapre con «Modifica l'ordine».
+            // resta: si riprova con un'altra carta, e al primo cambio del modulo torna carrello.
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                this.editable();
+                this.thaw();
                 reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
-            this.editable();
+            this.thaw();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1077,7 +1090,7 @@ class Checkout {
             if (error) {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
-                this.editable();
+                this.thaw();
                 reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
             }
         } catch (error) {
@@ -1086,7 +1099,7 @@ class Checkout {
             }
 
             this.say([this.labels.stripe_error]);
-            this.editable();
+            this.thaw();
         } finally {
             this.paying = false;
             this.payKey = null;
@@ -1119,41 +1132,36 @@ class Checkout {
         this.frozenFields.forEach((field) => { field.disabled = true; });
     }
 
-    // Dopo un rifiuto, con l'ordine già nato, il cliente può riaprirlo.
-    editable() {
-        const button = this.form?.querySelector('[data-checkout-edit-order]');
-
-        if (button && this.placed) {
-            button.hidden = false;
-        }
+    // Dopo un rifiuto il modulo torna modificabile; l'ordine resta finché il cliente non cambia qualcosa,
+    // così «Paga» riprova lo stesso intento con un'altra carta.
+    thaw() {
+        this.frozen = false;
+        (this.frozenFields || []).forEach((field) => { field.disabled = false; });
+        this.frozenFields = [];
+        this.syncPaymentRadios();
     }
 
-    // «Modifica l'ordine»: il server riporta l'ordine a carrello sulla stessa riga, il modulo torna
-    // modificabile e il prossimo «Paga» lo rifà ordine con lo stesso numero. I messaggi dati restano a vista.
-    async reopen(keep = []) {
+    // Il server riporta l'ordine a carrello sulla stessa riga e ridà il riepilogo del modulo di adesso.
+    reopen() {
         if (!this.placed) {
-            return;
-        }
-
-        const button = this.form?.querySelector('[data-checkout-edit-order]');
-
-        if (button) {
-            button.hidden = true;
+            return this.reopening;
         }
 
         payAlert('');
         this.placed = null;
-        this.frozen = false;
-        (this.frozenFields || []).forEach((field) => { field.disabled = false; });
-        this.frozenFields = [];
+        this.thaw();
         this.resetRecaptcha();
+        this.sequence++;
+        clearTimeout(this.timer);
 
-        const payload = await this.request(this.root.dataset.reopenUrl, this.body());
+        this.reopening = this.request(this.root.dataset.reopenUrl, this.body()).then((payload) => {
+            if (payload && payload.success !== false) {
+                this.render(payload);
+                this.notices(payload.notices || []);
+            }
+        }).finally(() => { this.reopening = null; });
 
-        if (payload && payload.success !== false) {
-            this.render(payload);
-            this.notices([...keep, ...(payload.notices || [])]);
-        }
+        return this.reopening;
     }
 
     lock(on) {

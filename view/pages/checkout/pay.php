@@ -16,7 +16,6 @@ $labels = [
 <div class="w-100 wi-box p-6">
     <h1 class="title"><?=e(__t('ecommerce.checkout.pay.title'))?></h1>
     <p class="text mt-4"><?=e(__t('ecommerce.checkout.pay.text', [
-        'number' => (string) ($order['order_number'] ?? ''),
         'total' => CartPresenter::money($order['total'] ?? 0, (string) ($order['currency'] ?? 'EUR')),
     ]))?></p>
     <?php if ($client_secret === '' || $stripe['publishable_key'] === ''): ?>
@@ -36,10 +35,9 @@ $labels = [
             <button type="button" class="btn btn-primary w-100 mt-4" data-checkout-pay-submit disabled><?=e(__t('ecommerce.checkout.pay.submit'))?></button>
         </div>
     <?php endif; ?>
-    <form class="mt-4 a-c" method="post" action="<?=e(__r('ecommerce.checkout.reopen'))?>">
-        <input type="hidden" name="csrf_token" value="<?=e($csrf_token)?>">
-        <button type="submit" class="btn btn-link"><?=e(__t('ecommerce.checkout.pay.change_method'))?></button>
-    </form>
+    <?php if ($back_url !== ''): ?>
+        <p class="mt-4 a-c"><a class="btn btn-link" href="<?=e($back_url)?>"><?=e(__t('ecommerce.checkout.pay.back'))?></a></p>
+    <?php endif; ?>
 </div>
 <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
     View::head('<script src="'.e($checkoutJs).'" defer></script>');

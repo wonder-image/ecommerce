@@ -52,10 +52,11 @@ final class CheckoutController
             self::redirect(self::loginUrl());
         }
 
+        // Il carrello è diventato l'ordine in pagamento: torna carrello e il checkout resta modificabile.
+        self::resume(false);
         $cart = CartSession::current(false);
         if ((array) ($cart['items'] ?? []) === []) {
-            // Il carrello è diventato l'ordine: si torna a pagarlo.
-            self::redirect(self::route(OnlinePayment::pending() > 0 ? 'ecommerce.checkout.pay' : 'ecommerce.cart.index'));
+            self::redirect(self::route('ecommerce.cart.index'));
         }
 
         $formState = self::pullFormState();
@@ -145,12 +146,10 @@ final class CheckoutController
                     ->verify();
             }
 
-            // Un ordine in attesa si paga o si riapre: un carrello nato in
-            // un'altra scheda non lo annulla.
-            $pending = OnlinePayment::pending();
-            if ($pending > 0 && !ExpressCart::owns($pending)) {
-                self::leave(self::route('ecommerce.checkout.pay'), $json);
-            }
+            // Un ordine in pagamento (un'altra scheda, senza JavaScript) torna
+            // carrello e si unisce a quello nato nel frattempo: il modulo vale
+            // per tutti e due.
+            self::resume($json);
 
             $cartId = self::cartId();
             if ($cartId === 0) {
@@ -218,6 +217,10 @@ final class CheckoutController
     {
         $return = ($_POST['return'] ?? '') === 'cart' ? 'cart' : 'checkout';
         $json = self::wantsJson();
+        if (AuthSession::verify($_POST['csrf_token'] ?? '')) {
+            // Il coupon cambia il totale: l'ordine in pagamento torna carrello.
+            self::resume($json);
+        }
         // Il coupon si prova già dal carrello, prima del login.
         $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart');
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
@@ -390,9 +393,10 @@ final class CheckoutController
         }
 
         if ($outcome === 'retry' || $outcome === 'canceled') {
-            // Si riprova sullo stesso ordine; «Modifica l'ordine» lo riapre da «Paga ora».
+            // Si torna al checkout, che riapre l'ordine: si riprova o si cambia metodo.
+            // L'ordine della barra rapida si riprova da «Paga ora».
             FlashMessage::error((string) __t('ecommerce.checkout.pay.'.($outcome === 'retry' ? 'failed' : 'canceled')), (string) __t('ecommerce.checkout.error_title'));
-            self::redirect(self::route('ecommerce.checkout.pay'));
+            self::redirect(self::route(ExpressCart::owns($orderId) ? 'ecommerce.checkout.pay' : 'ecommerce.checkout.index'));
         }
 
         OnlinePayment::forget();
@@ -404,8 +408,11 @@ final class CheckoutController
         }
         $receipt = (array) ($_SESSION[OnlinePayment::RECEIPT] ?? []);
         unset($_SESSION[OnlinePayment::RECEIPT]);
-        if ((int) ($receipt['order_id'] ?? 0) !== $orderId) {
-            $order = (array) Order::findById($orderId);
+        $order = (array) Order::findById($orderId);
+        if ((int) ($receipt['order_id'] ?? 0) === $orderId) {
+            // Il numero arriva con l'incasso (o l'elaborazione): a «Paga» non c'era.
+            $receipt['order_number'] = (string) ($order['order_number'] ?? '');
+        } else {
             $receipt = [
                 'order_id' => $orderId,
                 'order_number' => (string) ($order['order_number'] ?? $order['code'] ?? ''),
@@ -448,13 +455,15 @@ final class CheckoutController
             'stripe' => OnlinePayment::browserKeys(),
             'return_url' => self::route('ecommerce.checkout.return'),
             'csrf_token' => AuthSession::csrfToken(),
+            // Il checkout riapre l'ordine; quello della barra rapida non ha un checkout.
+            'back_url' => ExpressCart::owns($orderId) ? '' : self::route('ecommerce.checkout.index'),
         ])->render();
     }
 
     /**
-     * «Modifica l'ordine»: l'ordine in sospeso torna carrello sulla stessa
-     * riga e il prossimo «Paga» lo rifà ordine con lo stesso numero. Se
-     * intanto il denaro è arrivato si va al ritorno.
+     * La prima modifica del checkout dopo un «Paga» non andato: l'ordine in
+     * pagamento torna carrello sulla stessa riga e il prossimo «Paga» lo rifà
+     * ordine. Se intanto il denaro è arrivato si va al ritorno.
      */
     private static function reopen(): never
     {
@@ -465,14 +474,7 @@ final class CheckoutController
         }
         self::requireCsrf();
 
-        $reopened = self::reopenPending();
-        if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
-            self::leave(self::returnUrl($reopened['reference']), $json);
-        }
-        if ($reopened['outcome'] === 'kept') {
-            self::leave(self::route('ecommerce.checkout.pay'), $json);
-        }
-
+        $reopened = self::resume($json, false);
         if (!$json) {
             self::flashRemoved($reopened['removed']);
             self::redirect(self::route('ecommerce.checkout.index'));
@@ -534,25 +536,27 @@ final class CheckoutController
     }
 
     /**
-     * Riapre l'ordine in sospeso senza lasciar uscire un errore.
+     * L'ordine in pagamento del checkout normale torna carrello prima di una
+     * modifica. Se il denaro è arrivato si va al ritorno; se l'intento non si
+     * chiude (pagamento in corso) si resta a pagare, col messaggio.
      *
      * @return array{outcome: string, reference: string, removed: list<string>}
      */
-    private static function reopenPending(): array
+    private static function resume(bool $json, bool $flash = true): array
     {
-        try {
-            return OnlinePayment::reopen();
-        } catch (UserError $error) {
-            // Stripe non ha annullato l'intento: l'ordine resta da pagare.
-            FlashMessage::error($error->getMessage(), (string) __t('ecommerce.checkout.error_title'));
-
-            return ['outcome' => 'kept', 'reference' => '', 'removed' => []];
-        } catch (Throwable $error) {
-            // Senza annullo l'ordine scade da solo con le prenotazioni.
-            Errors::internal($error, 'ecommerce.checkout.reopen');
-
-            return ['outcome' => 'none', 'reference' => '', 'removed' => []];
+        $reopened = OnlinePayment::resume();
+        if (in_array($reopened['outcome'], ['succeeded', 'processing'], true)) {
+            self::leave(self::returnUrl($reopened['reference']), $json);
         }
+        if ($reopened['outcome'] === 'kept') {
+            FlashMessage::error((string) ($reopened['error'] ?? ''), (string) __t('ecommerce.checkout.error_title'));
+            self::leave(self::route('ecommerce.checkout.pay'), $json);
+        }
+        if ($flash) {
+            self::flashRemoved($reopened['removed']);
+        }
+
+        return $reopened;
     }
 
     private static function returnUrl(string $reference): string

@@ -40,7 +40,7 @@ check('il ritorno senza un pagamento in sessione è un 404', fn () => $status ==
 
 [$status, $head] = $request('/checkout/pay/');
 check('la pagina di pagamento senza ordine in sessione rimanda al carrello', fn () =>
-    $status === 302 && preg_match('#^Location:\s*\S*/cart/\s*$#mi', $head) === 1);
+    $status === 302 && preg_match('#^Location:\s*\S*/carrello/\s*$#mi', $head) === 1);
 
 [$status] = $request('/checkout/reopen/', ['csrf_token' => 'invalid']);
 check('la riapertura con CSRF invalido viene rifiutata', fn () => $status === 419);

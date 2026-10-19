@@ -179,9 +179,9 @@ check('express: l\'ordine in sospeso del checkout normale torna carrello vero, s
     stripeConTipi(['card', 'apple_pay']);
     $vecchio = articolo(1.0, 20.0);
     $normale = carrello([[$vecchio, 1]]);
-    Order::update(['stage' => 'order', 'status' => 'pending', 'email' => 'cliente@example.com', 'total' => '20.00'], $normale);
+    Order::update(['stage' => 'order', 'status' => 'awaiting_payment', 'email' => 'cliente@example.com', 'total' => '20.00'], $normale);
     Ledger::open(['order_id' => $normale, 'amount' => 20.0, 'provider' => 'stripe']);
-    // Il pagamento non è mai partito: niente da chiedere a Stripe, l'ordine si annulla.
+    // Il pagamento non è mai partito: niente da chiedere a Stripe, l'ordine si riapre.
     Payment::update(['provider_reference' => ''], (int) Payment::find(['order_id' => $normale], 1)['id']);
     OnlinePayment::remember($normale);
     [$cartId, $post] = postExpress(metodoStripe(), 'apple_pay');

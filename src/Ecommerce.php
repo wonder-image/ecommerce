@@ -216,7 +216,7 @@ final class Ecommerce implements ModuleInterface, ModuleGoogleApis, ProvidesSett
             }
         }
 
-        $link = in_array($key, ['confirmed', 'paid'], true) ? GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore')) : '';
+        $link = in_array($key, ['confirmed', 'processing', 'paid'], true) ? GuestCheckout::passwordLink($userId, \__r('ecommerce.auth.password.restore')) : '';
 
         return $link === '' ? $extras : $extras + ['account_url' => $link];
     }
