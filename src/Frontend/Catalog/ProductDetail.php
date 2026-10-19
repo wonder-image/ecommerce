@@ -167,7 +167,9 @@ final class ProductDetail
 
             $regular = max(0.0, (float) ($offer['regular_price'] ?? $offer['price'] ?? 0));
             $sale = max(0.0, (float) ($offer['sale_price'] ?? 0));
-            $price = $sale > 0 && ($regular <= 0 || $sale < $regular) ? $sale : $regular;
+            // Come il carrello (LinePrice): la campagna vince sul saldo, il saldo sul listino.
+            $campaign = max(0.0, (float) ($offer['campaign_price'] ?? 0));
+            $price = $campaign > 0 ? $campaign : ($sale > 0 && ($regular <= 0 || $sale < $regular) ? $sale : $regular);
 
             $stockManaged = (bool) ($offer['stock_managed'] ?? $row['stock_managed'] ?? false);
             $offers[] = [

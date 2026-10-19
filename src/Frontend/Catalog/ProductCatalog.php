@@ -19,6 +19,7 @@ use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductPhotos;
+use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
 use Wonder\Plugin\Gestionale\Support\Stock\Levels;
 use Wonder\Plugin\Gestionale\Support\Stock\Locations;
 use Wonder\Plugin\Gestionale\Support\Stock\Stock;
@@ -149,8 +150,12 @@ final class ProductCatalog
         $bundle = ($model['type'] ?? 'simple') === 'bundle';
         $bundleQuantity = $bundle && $stockManaged ? Bundles::available($modelId) : 0.0;
 
+        // Il prezzo di campagna lo calcola il gestionale, come nel carrello.
+        $now = date('Y-m-d H:i:s');
+
         foreach ($products as $product) {
             $quantity = $bundle ? $bundleQuantity : self::onHand((int) $product['id']);
+            $campaign = Campaigns::display((int) $product['id'], $now);
 
             $sku = trim((string) ($product['sku'] ?? ''));
             $offers[] = [
@@ -163,6 +168,7 @@ final class ProductCatalog
                 'mpn' => trim((string) ($product['mpn'] ?? '')),
                 'regular_price' => (float) ($product['price'] ?? 0),
                 'sale_price' => (float) ($product['sale_price'] ?? 0),
+                'campaign_price' => $campaign !== null ? (float) $campaign['price'] : 0.0,
                 'stock_managed' => $stockManaged,
                 'available' => !$stockManaged || $quantity > 0 || Stock::allowsBackorder($product),
                 'attributes' => self::productOptions((int) $product['id'], $optionGroups),
