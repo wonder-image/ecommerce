@@ -125,8 +125,6 @@ Route::area('frontend')
             throw new \LogicException('Invalid ecommerce account panel');
         }
         \Wonder\Auth\Frontend\AccountRoutes::register(new $panelClass(), new $authProfileClass());
-        // Prima la scheda cliente: le voci e le righe dell'ecommerce si appoggiano alle sue.
-        \Wonder\Auth\Frontend\AccountRoutes::extend(new \Wonder\Plugin\CustomerAccount\Account\CustomerAccountExtension());
         \Wonder\Auth\Frontend\AccountRoutes::extend(new EcommerceAccountExtension());
 
     });

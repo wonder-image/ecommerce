@@ -11,8 +11,8 @@ require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\AccountAddress;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
-use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAccountAddress extends RuntimeException {}

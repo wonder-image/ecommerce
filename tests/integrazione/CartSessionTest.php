@@ -13,7 +13,7 @@ require __DIR__.'/dns-fixture.php';
 
 use Wonder\App\Models\User\User;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 use Wonder\Sql\Transaction;

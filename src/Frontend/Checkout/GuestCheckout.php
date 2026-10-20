@@ -8,7 +8,7 @@ use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 

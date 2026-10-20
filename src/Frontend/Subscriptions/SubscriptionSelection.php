@@ -4,7 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Subscriptions;
 
 use Closure;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\Subscriptions;

@@ -15,7 +15,7 @@ use Wonder\Auth\Frontend\AccountAddressForm;
 use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Sql\Transaction;
 
 final class RollbackCoreViews extends RuntimeException {}
@@ -135,8 +135,8 @@ try {
             && $posted['name']->get('value') === ''
         );
         $shipping = ContactAddress::create(['contact_id' => (int) $contact['id'], 'label' => 'Test delivery', 'country' => 'DE', 'phone_prefix' => '+49', 'phone' => '15112345678']);
-        check('gli indirizzi core e gestionale condividono la stessa FK e riga', fn () =>
-            ($shipping->success ?? false) && !empty(\Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress::findById((int) $shipping->insert_id)['id'])
+        check('l\'indirizzo di consegna resta legato alla scheda del cliente', fn () =>
+            ($shipping->success ?? false) && (int) (ContactAddress::findById((int) $shipping->insert_id)['contact_id'] ?? 0) === (int) $contact['id']
         );
         throw new RollbackCoreViews();
     });

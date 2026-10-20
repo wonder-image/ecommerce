@@ -3,7 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Wonder\App\Support\GoogleMaps;
-use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
 /**

@@ -18,7 +18,7 @@ use Wonder\Auth\PasswordReset;
 use Wonder\App\Models\User\User;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Sql\Transaction;
 
 final class AnnullaAuthAccount extends RuntimeException {}
