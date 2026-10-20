@@ -4,7 +4,7 @@ use Wonder\App\Dependencies;
 use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;

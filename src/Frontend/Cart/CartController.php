@@ -5,7 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 use Throwable;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Http\SafeRedirect;
 use Wonder\Plugin\Gestionale\Gestionale;

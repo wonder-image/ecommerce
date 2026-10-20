@@ -10,7 +10,7 @@ use Wonder\App\Security\RecaptchaGuard;
 use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;

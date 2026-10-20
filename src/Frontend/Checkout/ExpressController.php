@@ -6,7 +6,7 @@ use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaChallenge;
 use Wonder\App\Security\RecaptchaGuard;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
