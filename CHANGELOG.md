@@ -148,6 +148,19 @@ versionamento semantico.
 
 ### Modificato
 
+- **Scheda e indirizzi solo da customer-account**: la scheda del cliente entrato
+  la dà `CustomerContact::forUser()` (carrello, Panoramica, checkout ospite con
+  account esistente); l'ospite nuovo la collega con
+  `ContactAccount::linkKeepingIdentity()`; `EcommerceAuthProfile::afterUserSaved()`
+  chiama il genitore e l'assegnazione degli ordini passa in
+  `afterContactLinked()`; gli indirizzi del checkout si ricordano con
+  `AccountAddresses::save()`. Cellulare e prefisso proposti al checkout con
+  `AuthValidator::localPhone()`/`defaultPrefix()` del core.
+  Visibile al cliente: un indirizzo arrivato incompleto dal pagamento rapido
+  (Apple Pay, Google Pay, Link: senza civico o provincia) non entra più nella
+  rubrica; l'ordine nasce lo stesso. Il prefisso si toglie dal numero salvato
+  solo se questo comincia con `+`.
+
 - **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
   fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
   modulo, dipendenza dichiarata in `module.json`; l'ecommerce tiene solo la parte

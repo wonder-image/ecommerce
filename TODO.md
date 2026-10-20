@@ -93,7 +93,7 @@ solo quando ha una prova automatica o una verifica descritta.
 - [x] C0b Condividere layout, navigazione e righe stile Elena tramite
   `AccountPanel`; estendere nav, riepilogo e campi personali con validazione e
   salvataggio espliciti. Test core indipendente e rendering transazionale.
-- [x] C0c Spostare nel core i modelli di `gst_contacts`,
+- [x] C0c Spostare in `wonder-image/customer-account` i modelli di `gst_contacts`,
   `gst_contact_addresses`, `gst_external_references` e il collegamento account;
   usare `contacts`, `contact_addresses`, `external_references` con migrazione
   conservativa dei nomi `gst_*`; conservare ID, FK e namespace del gestionale.

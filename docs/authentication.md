@@ -6,8 +6,10 @@
   route opt-in, profili estendibili, token, OIDC, sessioni, impersonificazione,
   layout account e token colore generici (`Wonder\Auth\Frontend`).
 - `wonder-image/ecommerce` definisce `EcommerceAuthProfile`, il cliente, i
-  consensi ecommerce, il cellulare obbligatorio e il collegamento a
-  `contacts`; `EcommerceAccountExtension` aggiunge al pannello del core la
+  consensi ecommerce e il cellulare obbligatorio; la scheda in `contacts` la
+  collega `wonder-image/customer-account`, e l'ecommerce in
+  `afterContactLinked()` assegna all'account gli ordini fatti prima con la
+  stessa email; `EcommerceAccountExtension` aggiunge al pannello del core la
   riga e la pagina dei metodi di pagamento e le sezioni Ordini (elenco e
   dettaglio) e Coupon. Per CSRF, validazione, utenti e redirect usa
   direttamente le classi del core (`AuthSession`, `AuthValidator`,
@@ -33,7 +35,9 @@ nascita, fatturazione e primo indirizzo di spedizione con `signup.fields` in
 `custom/config/modules/customer-account.php` (`off`, `optional`,
 `required`). Il cellulare è `required` per `signupDefaults()`; la config del
 sito può renderlo `optional`. I dati si salvano nella scheda in
-`afterUserSaved()`, nella transazione della conferma. Un campo `required` che
+`afterUserSaved()` di customer-account, nella transazione della conferma:
+`EcommerceAuthProfile` non collega la scheda per conto suo, chiama il
+genitore e aggiunge solo l'assegnazione degli ordini in `afterContactLinked()`. Un campo `required` che
 manca fa passare dal completamento anche l'accesso Google.
 
 Google verifica l'ID token nel server. Per un nuovo account richiede un'email
@@ -196,7 +200,15 @@ migrazione conservativa dei vecchi nomi `gst_*` (del modulo). L'ecommerce legge
 contatti e indirizzi con `Contact` e `ContactAddress` di customer-account; le
 sottoclassi del gestionale aggiungono solo le colonne commerciali sue.
 I controller dell'ecommerce leggono la scheda del cliente con il trait
-`ManagesContact` del modulo.
+`ManagesContact` del modulo. La scheda del cliente entrato la dà
+`CustomerContact::forUser()` (una volta per richiesta, collegandola se manca),
+anche per carrello e Panoramica; il checkout ospite la collega con
+`ContactAccount::linkKeepingIdentity()`, che non cambia nome e telefono di una
+scheda esistente. Gli indirizzi del checkout entrano in rubrica con
+`AccountAddresses::save()` e la sua validazione: uno incompleto (dal pagamento
+rapido, senza civico o provincia) non si ricorda e l'ordine va avanti. Il
+cellulare proposto al checkout usa `AuthValidator::localPhone()` e
+`defaultPrefix()` del core.
 Gli indirizzi usano `AccountAddressForm` del core per label tradotte, default paese e
 prefisso, e griglia responsive con i Container del framework. I POST falliti
 mantengono anche i campi svuotati.
