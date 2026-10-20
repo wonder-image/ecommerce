@@ -17,6 +17,7 @@ use Wonder\Auth\Federated\FederatedLoginService;
 use Wonder\Auth\PasswordReset;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\UserAccountGateway;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Sql\Transaction;
@@ -161,8 +162,8 @@ try {
             '_ecommerce_signup_completion' => true,
         ];
         $localCompleted = user($localInput, $localUserId);
-        // Come fa EcommerceAuthProfile::afterUserSaved() dopo il salvataggio dell'utente.
-        CustomerAccount::linkContact($localUserId, $localInput);
+        // Come fa il core dopo il salvataggio dell'utente.
+        (new EcommerceAuthProfile())->afterUserSaved($localUserId, 'signup-completion', $localInput);
         $localUser = infoUser($localUserId, 'id');
         $localContact = Contact::find(['user_id' => $localUserId], 1);
 

@@ -4,7 +4,6 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Auth;
 
 use Wonder\Plugin\CustomerAccount\Auth\CustomerAuthProfile;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderOwner;
 
 /** Telefono richiesto di default; gli altri campi della registrazione dalla config di customer-account. */
@@ -22,20 +21,18 @@ class EcommerceAuthProfile extends CustomerAuthProfile
 
     protected function signupDefaults(): array { return ['phone' => 'required']; }
 
-    /** Collega la scheda (non il genitore, che la collegherebbe due volte), poi i campi della registrazione. */
+    /** La scheda la collega customer-account; il cellulare del modulo ecommerce, se c'è, vale come telefono. */
     public function afterUserSaved(int $userId, string $surface, array $input): void
     {
-        if (!in_array($surface, ['email.verify', 'signup-completion', 'federated'], true)) {
-            return;
+        if (isset($input['_ecommerce_contact_phone'])) {
+            $input['phone'] = $input['_ecommerce_contact_phone'];
         }
-        $result = CustomerAccount::linkContact($userId, $input);
-        if (!($result->success ?? false)) {
-            throw new \RuntimeException('contact_write_failed');
-        }
+        parent::afterUserSaved($userId, $surface, $input);
+    }
+
+    protected function afterContactLinked(int $userId, int $contactId, string $surface, array $input): void
+    {
         // L'email ora è provata: gli ordini fatti con lei prima dell'account sono suoi.
-        OrderOwner::claim($userId, (int) ($result->contact_id ?? 0), (string) (infoUser($userId, 'id')->email ?? ''));
-        if ($surface === 'signup-completion') {
-            $this->saveSignupFields($userId, $input, (int) ($result->contact_id ?? 0));
-        }
+        OrderOwner::claim($userId, $contactId, (string) (infoUser($userId, 'id')->email ?? ''));
     }
 }
