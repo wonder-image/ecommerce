@@ -28,6 +28,9 @@ use Wonder\Plugin\Gestionale\Support\Stock\Stock;
 /** Legge una scheda pubblica dalle tabelle catalogo del gestionale. */
 final class ProductCatalog
 {
+    /** Larghezza dell'immagine di anteprima: quella consigliata per Open Graph. */
+    public const PREVIEW_WIDTH = 1200;
+
     /**
      * La scheda di `/prodotto/{modello}/` o `/prodotto/{modello}/{variante}/`,
      * oppure dove rimandare. Tutti e due null: il modello non c'è, è un 404.
@@ -128,6 +131,7 @@ final class ProductCatalog
             if ($url !== '') {
                 $images[] = [
                     'url' => self::absolute($url),
+                    'preview' => self::absolute(self::previewUrl($image)),
                     'alt' => trim((string) ($image['alt'] ?? '')),
                 ];
             }
@@ -460,6 +464,33 @@ final class ProductCatalog
 
         return rtrim((string) Ecommerce::config('catalog.category_url', '/prodotti/categoria/'), '/')
             .'/'.implode('/', array_map('rawurlencode', $path)).'/';
+    }
+
+    /**
+     * La foto nella misura da anteprima (Open Graph), relativa come
+     * {@see ProductImages::url()}: `nome-1200.jpg` accanto all'originale.
+     *
+     * Le misure le scrive la coda del gestionale, nell'estensione originale e
+     * in WebP: qui si prende l'originale, che tutti i crawler di anteprima
+     * leggono. Finché la riga non è `ready`, o se il sito non genera quella
+     * larghezza, si resta sul file caricato.
+     */
+    public static function previewUrl(array $image, int $width = self::PREVIEW_WIDTH): string
+    {
+        $url = ProductImages::url($image);
+        $extension = strtolower(pathinfo($url, PATHINFO_EXTENSION));
+        $sizes = defined('RESPONSIVE_IMAGE_SIZES') ? array_map('intval', (array) RESPONSIVE_IMAGE_SIZES) : [];
+
+        if (
+            $url === ''
+            || !ProductImages::isReady($image)
+            || !in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)
+            || !in_array($width, $sizes, true)
+        ) {
+            return $url;
+        }
+
+        return substr($url, 0, -strlen($extension) - 1).'-'.$width.'.'.$extension;
     }
 
     private static function absolute(string $url): string
