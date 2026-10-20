@@ -7,8 +7,8 @@ use Throwable;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
 use Wonder\Auth\Frontend\UserAccountGateway;
-use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
-use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
@@ -45,8 +45,8 @@ final class GuestCheckout
 
         if ($found !== null) {
             $userId = (int) $found['id'];
-            $contact = Contact::find(['user_id' => $userId], 1);
-            $customerId = is_array($contact) && !empty($contact['id']) ? (int) $contact['id'] : self::link($userId, []);
+            // La sua scheda, o collegata ora; 0 se quella con la sua email è di un altro account.
+            $customerId = (int) (CustomerContact::forUser($userId)['id'] ?? 0);
 
             // I consensi dell'account restano i suoi: l'accettazione si traccia sull'email.
             self::consents(static fn () => consentService()->registerLeadConsents($email, $post, $context), $asked);
@@ -73,7 +73,7 @@ final class GuestCheckout
             return ['user_id' => 0, 'customer_id' => 0, 'created' => false];
         }
 
-        $customerId = self::linkNew($userId, $email, [
+        $customerId = self::linkNew($userId, [
             'phone_prefix' => (string) ($order['shipping_phone_prefix'] ?? ''),
             'phone' => (string) ($order['shipping_phone'] ?? ''),
         ]);
@@ -104,35 +104,20 @@ final class GuestCheckout
     }
 
     /**
-     * Il contatto dell'account; `0` se la scheda con quella email è già di un
-     * altro account: l'ordine nasce lo stesso, con l'email e l'utente.
+     * Il contatto di un account appena nato; `0` se la scheda con quella email è
+     * già di un altro account: l'ordine nasce lo stesso, con l'email e l'utente.
+     * Una scheda del commerciante con la stessa email e senza account si collega
+     * così com'è: chi ordina non ne cambia nome e telefono, finché non prova
+     * l'email scegliendo la password.
      *
      * @param array<string, string> $input
      */
-    private static function link(int $userId, array $input): int
+    private static function linkNew(int $userId, array $input): int
     {
-        $linked = CustomerAccount::linkContact($userId, $input);
+        $linked = ContactAccount::linkKeepingIdentity($userId, $input);
+        CustomerContact::forget($userId);
 
         return ($linked->success ?? false) ? (int) ($linked->contact_id ?? 0) : 0;
-    }
-
-    /**
-     * Il contatto di un account appena nato. Una scheda del commerciante con la
-     * stessa email e senza account si collega così com'è: chi ordina non ne
-     * cambia nome e telefono, finché non prova l'email scegliendo la password.
-     *
-     * @param array<string, string> $input
-     */
-    private static function linkNew(int $userId, string $email, array $input): int
-    {
-        $contact = Contact::find(['email' => $email], 1);
-        if (!is_array($contact) || empty($contact['id']) || (int) ($contact['user_id'] ?? 0) > 0) {
-            return self::link($userId, $input);
-        }
-
-        $linked = Contact::update(['user_id' => $userId, 'is_customer' => 'true', 'active' => 'true'], (int) $contact['id']);
-
-        return ($linked->success ?? false) ? (int) $contact['id'] : 0;
     }
 
     /** @param list<string> $asked */
