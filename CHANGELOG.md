@@ -157,6 +157,16 @@ versionamento semantico.
   `Wonder\Plugin\CustomerAccount\…`. Abilitare `customer-account` in
   `modules.php` prima di gestionale ed ecommerce ed eseguire `forge update`.
 
+- Contatti e indirizzi letti con `Contact` e `ContactAddress` di
+  `Wonder\Plugin\CustomerAccount\Models` invece delle sottoclassi
+  `Wonder\Plugin\Gestionale\Models\Contacts\*`: l'ecommerce non legge colonne
+  del gestionale. `CustomerAccountExtension` la registra solo customer-account
+  nelle proprie route; l'ecommerce registra la sua estensione dopo.
+- Carrello, checkout, abbonamenti e impersonazione usano direttamente le classi
+  del core: `Wonder\Auth\Frontend\{AuthSession,AuthValidator,UserAccountGateway}`
+  e `Wonder\Http\SafeRedirect`. Gli errori di registrazione usano le chiavi
+  `auth.validation.*` del core.
+
 - Area cliente: ogni ordine dell'elenco è una riga di `frontend.account.row`
   come «Dati personali» (Ordine, Data, Totale, **Visualizza**), al posto della
   tabella `.wi-row-table`; la riga la costruisce `AccountOrder::row()`. In
@@ -196,6 +206,14 @@ versionamento semantico.
   `pages/account/payment-methods.php` e le traduzioni `ecommerce.account.payment_methods.*`.
 - Le rotte `ecommerce.account.*` (tabella sotto), senza alias dei vecchi nomi né
   redirect dei vecchi URL.
+- Le facciate auth di compatibilità, che inoltravano al core:
+  `Wonder\Plugin\Ecommerce\Frontend\Auth\{AuthController,AuthSession,AuthValidator,AuthValidationAlert,EcommerceUserAccountGateway}`
+  e `Wonder\Plugin\Ecommerce\Support\SafeRedirect`; l'handler
+  `http/frontend/auth.php` e i sette stub `view/pages/auth/*.php`, che nessuna
+  rotta raggiungeva (le pagine auth sono quelle del core). Resta
+  `EcommerceAuthProfile`.
+- Il blocco `ecommerce.auth.validation` di `lang/{it,en}/ecommerce.json`
+  (titolo, riepilogo e dieci messaggi), identico a `auth.validation` del core.
 
 ### BREAKING — migrazione dei siti
 
@@ -245,3 +263,8 @@ pannello (`side-nav`, `row-table`, apertura dei modal dal server).
 - **Password.** `/account/password/` e la sua voce di menu non esistono più.
 - **Database.** Dopo l'aggiornamento lanciare `php forge update`: aggiunge la colonna
   `birth_date` alla scheda contatto. Senza, «Dati personali» non riesce a salvare.
+- **Facciate auth.** Un sito che importa una delle classi auth rimosse (vedi
+  «Rimosso») passa alla classe omonima del core in `Wonder\Auth\Frontend`
+  (`EcommerceUserAccountGateway` → `UserAccountGateway`, `SafeRedirect` →
+  `Wonder\Http\SafeRedirect`) e alle chiavi `auth.validation.*`. I siti di
+  riferimento non ne usano nessuna.

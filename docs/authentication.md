@@ -9,7 +9,10 @@
   consensi ecommerce, il cellulare obbligatorio e il collegamento a
   `contacts`; `EcommerceAccountExtension` aggiunge al pannello del core la
   riga e la pagina dei metodi di pagamento e le sezioni Ordini (elenco e
-  dettaglio) e Coupon.
+  dettaglio) e Coupon. Per CSRF, validazione, utenti e redirect usa
+  direttamente le classi del core (`AuthSession`, `AuthValidator`,
+  `UserAccountGateway`, `Wonder\Http\SafeRedirect`) e i testi
+  `auth.validation.*`, senza facciate né view auth proprie.
 - Il sito configura credenziali, colori, testi consentiti dagli slot e flag del
   modulo. Non duplica controller o logica account.
 
@@ -186,11 +189,12 @@ con `frontend.account.pagination` in fondo. I Coupon restano una tabella a righe
 
 La fatturazione unica, le spedizioni multiple e la pagina «Indirizzi» sono del
 modulo `wonder-image/customer-account` (`Wonder\Plugin\CustomerAccount\Models`,
-`CustomerAccountExtension`), che l'ecommerce registra prima della propria estensione;
+`CustomerAccountExtension`, che il modulo registra nelle proprie route);
 i riferimenti esterni restano nel core (`Models\System`).
 I nomi SQL sono `contacts`, `contact_addresses`, `external_references`, con
-migrazione conservativa dei vecchi nomi `gst_*` (del modulo); i namespace del
-gestionale sono subclass compatibili e conservano le sole estensioni commerciali.
+migrazione conservativa dei vecchi nomi `gst_*` (del modulo). L'ecommerce legge
+contatti e indirizzi con `Contact` e `ContactAddress` di customer-account; le
+sottoclassi del gestionale aggiungono solo le colonne commerciali sue.
 I controller dell'ecommerce leggono la scheda del cliente con il trait
 `ManagesContact` del modulo.
 Gli indirizzi usano `AccountAddressForm` del core per label tradotte, default paese e
