@@ -63,11 +63,10 @@ solo quando ha una prova automatica o una verifica descritta.
 - [x] B11 Test unitari di validazione/manifest/configurazione e test transazionali
   di account federato, registrazione locale, reset password, contatti e
   impersonificazione, con rollback verificato.
-- [ ] B12 E2E locale completo con consegna email di test: registrazione, verifica,
-  login, logout e password reset. Dipende da un trasporto mail di test configurato.
-- [ ] B13 Callback reale Google su `ecommerce.test`. Dipende dal Client ID e
-  dall'origine JavaScript locale autorizzata nel progetto Google. Apple resta
-  una fase successiva separata.
+- [x] B12 E2E locale completo con consegna email di test: registrazione, verifica,
+  login, logout e password reset (verificato il 2026-10-20).
+- [x] B13 Callback reale Google su `ecommerce.test` (verificato il 2026-10-20).
+  Apple resta una fase successiva separata.
 - [x] B14 Test browser dell'impersonificazione da sessione backend reale: conferma,
   avvio, banner responsive e stop con ripristino dell'amministratore verificati su
   `ecommerce.test`.
@@ -115,12 +114,12 @@ solo quando ha una prova automatica o una verifica descritta.
 - [x] C0j Completare nella lib l'accessibilità di `modal()` (focus, Esc e
   campi non raggiungibili nei modal chiusi), mantenendo compatibilità;
   i Button usano `opensModal()` secondo il tema, senza onclick nelle viste.
-- [ ] C0d Verificare visualmente account autenticato desktop/mobile e varianti
+- [x] C0d Verificare visualmente account autenticato desktop/mobile e varianti
   colore su altri siti; completare E2E Google/email con credenziali di test.
-  Fatta (2026-10-09) la prova nel browser del pannello del core su
-  `ecommerce-account.test` a 1280, 768 e 386 px: Panoramica, Ordini (lista,
-  paginazione, dettaglio), Coupon, Dati personali con i tre modal, Indirizzi,
-  Fatturazione. Restano le varianti colore su altri siti e l'E2E Google/email.
+  Prova nel browser del pannello del core su `ecommerce-account.test` a 1280,
+  768 e 386 px (2026-10-09): Panoramica, Ordini (lista, paginazione, dettaglio),
+  Coupon, Dati personali con i tre modal, Indirizzi, Fatturazione. Varianti
+  colore ed E2E Google/email verificati il 2026-10-20.
 - [x] C0e Verificare seed/import ed eseguire `forge update --local` nel sito
   demo autorizzato: completato (94 tabelle, nessun reset dei contatti), poi
   `forge start --driver=herd`. Sync API esterna non disponibile.
@@ -140,13 +139,13 @@ solo quando ha una prova automatica o una verifica descritta.
   accesa) sono sezioni di `EcommerceAccountExtension`, nel menu del core.
 - [ ] C4b Resi nel pannello del cliente: fuori ambito della spec del pannello account
   (§10), da rifare quando ci sarà il progetto dei resi.
-- [ ] C5 Collegare “Metodi di pagamento” al Billing Portal Stripe quando il
-  gestionale esporrà in modo verificato il customer id; fino ad allora il
-  percorso resta visibile ma non apre sessioni Stripe.
+- [x] C5 Collegare “Metodi di pagamento” al Billing Portal Stripe (verificato il
+  2026-10-20); la sezione si accende con `account.payment_methods.enabled`.
 
-Della fase C restano aperti i resi (C4b), i consensi (C3) e il collegamento a Stripe
-dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambito
-(§10, `2026-10-08-pannello-account-design.md`) e vanno ripresi con un progetto a parte.
+Della fase C restano aperti i resi (C4b) e i consensi (C3): la spec del pannello
+account li lascia fuori ambito (§10, `2026-10-08-pannello-account-design.md`) e
+vanno ripresi con un progetto a parte. La spec di architettura mette la richiesta
+di reso nell'area cliente dentro E1c.
 
 ## Fase D — Carrello e checkout
 
@@ -163,9 +162,9 @@ dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambit
 - [x] D5 Raccolta fatturazione e consegna, metodi di spedizione, sedi di ritiro,
   coupon, riepilogo che si ricalcola (`checkout.js`) e creazione ordine con i
   metodi manuali. Checkout in una pagina sola (spec del gestionale
-  `2026-10-07-checkout-pagina-unica-design.md`, piano 2).
-  **Resta la prova nel browser su `ecommerce.test`.**
-- [~] D6 Pagamento con Stripe (spec del gestionale
+  `2026-10-07-checkout-pagina-unica-design.md`, piano 2). Provato nel browser su
+  `ecommerce.test` il 2026-10-20.
+- [x] D6 Pagamento con Stripe (spec del gestionale
   `2026-10-09-pagamento-stripe-design.md`). **Piano 1 fatto** (2026-10-09): Payment
   Element nel pannello della scelta «Carta», solo numero/scadenza/CVC; spinner
   «Elaborazione pagamento»; 3DS nella finestra di Stripe; ritorno e webhook
@@ -174,17 +173,20 @@ dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambit
   link all'ordine nelle email (cliente → account, commerciante → backend);
   l'indirizzo di consegna resta nell'account del cliente autenticato. Provato su
   `ecommerce.test` con 4242, 0002 e la 3DS 4000 0027 6000 3184.
-  - [ ] Piano 2: checkout rapidi in alto (Express Checkout Element con Link,
+  - [x] Piano 2: checkout rapidi in alto (Express Checkout Element con Link,
     Apple Pay, Google Pay) e i metodi Stripe separati sotto la carta, uno per
-    metodo acceso nel conto (PaymentMethodConfiguration).
+    metodo acceso nel conto (PaymentMethodConfiguration). Unito con il ramo
+    `stripe-rapido` (piano 2b), con reCAPTCHA v3 per l'ospite nell'express.
+  - [x] Ordine in pagamento (spec del gestionale `2026-10-19-ordine-in-pagamento-design.md`):
+    il checkout resta modificabile e l'ordine in pagamento si riapre da solo.
   - Prove in locale: `stripe listen --forward-to https://ecommerce.test/api/gestionale/stripe/webhook/`
     (eventi diretti, non Connect). `forge update --local` rimette `active` dei
     metodi di pagamento come nella sincronizzazione: dopo, riaccendere «Carta».
 - [ ] D7 Misure ripetibili di query, tempo server e richieste client prima di
   attribuire cause alla lentezza percepita del riferimento legacy.
-- [ ] D8 E2E su `ecommerce.test`: carrello conservato attraverso auth, account e
+- [x] D8 E2E su `ecommerce.test`: carrello conservato attraverso auth, account e
   ospite abilitato/disabilitato, success/failure/cancel pagamento, responsive e
-  regressioni.
+  regressioni (verificato il 2026-10-20).
 - [x] D9 Layout `ecommerce.shop` e `ecommerce.checkout`, pagine carrello,
   checkout e conferma collegate al flusso funzionale.
 
@@ -192,7 +194,7 @@ dei metodi di pagamento (C5): la spec del pannello account li lascia fuori ambit
 
 Spec nel gestionale: `docs/superpowers/specs/2026-10-13-abbonamenti-design.md`
 §2 e §5; piano `docs/superpowers/plans/2026-10-13-g10-piano-2-abbonamenti-online.md`.
-Si unisce su `main` dopo la `1.0.0`.
+Unito su `main` (PR #11 e, per i servizi, #15), inerte con `online_subscriptions` spenta.
 
 - [x] E3.1 Pagina dei piani `/abbonamenti/` con `ItemList` di `Product`,
   breadcrumb, `view_item_list` e `select_item` (`SubscriptionsPageTest`).
@@ -204,7 +206,7 @@ Si unisce su `main` dopo la `1.0.0`.
   prova sul sito di prova): carta, carta con autenticazione, prova gratuita,
   cambio piano, disdetta, portale.
 - [x] E3.6 Abbonamenti con più servizi (G10b §7, ramo `abbonamenti-con-servizi`,
-  NON unito): selezione, riepilogo, un Checkout per più servizi, area cliente
+  unito con la PR #15): selezione, riepilogo, un Checkout per più servizi, area cliente
   con Aggiungi, Togli e Cambia per riga (`SubscriptionSelectionTest`,
   `AccountSubscriptionsTest`).
 - [ ] E3.7 Prova nel browser di E3.6 sul sito `ecommerce-site-servizi`: la
@@ -217,3 +219,5 @@ Si unisce su `main` dopo la `1.0.0`.
   corrente prima del rilascio.
 - [ ] I3 Documentare configurazione provider e mail del sito di produzione senza
   salvare segreti nel repository.
+- [ ] I4 Unire su `main` il ramo `fix/2026-10-1` (scheda del cliente e indirizzi
+  da `wonder-image/customer-account`).
