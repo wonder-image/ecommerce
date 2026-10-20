@@ -143,6 +143,29 @@ check('il ritiro in negozio e una consegna senza via non salvano niente', functi
     return $x === [];
 });
 
+check('un indirizzo della barra rapida senza civico e provincia non entra in rubrica, senza errori', function () {
+    $x = provaIndirizzo(static function (): array {
+        $contatto = contattoDiProva();
+        $id = AccountAddress::remember($contatto, ordineConsegna(['shipping_number' => '', 'shipping_province' => '']));
+
+        return ['id' => $id, 'righe' => indirizziDi($contatto)];
+    });
+
+    return $x['id'] === null && $x['righe'] === [];
+});
+
+check('il primo indirizzo completo dopo uno rifiutato diventa il predefinito', function () {
+    $x = provaIndirizzo(static function (): array {
+        $contatto = contattoDiProva();
+        AccountAddress::remember($contatto, ordineConsegna(['shipping_number' => '']));
+        AccountAddress::remember($contatto, ordineConsegna());
+
+        return indirizziDi($contatto);
+    });
+
+    return count($x) === 1 && $x[0]['number'] === '1' && $x[0]['is_default'] === 'true';
+});
+
 check('senza contatto non salva niente', function () {
     return provaIndirizzo(static fn (): ?int => AccountAddress::remember(0, ordineConsegna())) === null;
 });
