@@ -4,7 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Client;
 
 use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
+use Wonder\Auth\Frontend\AuthValidator;
 
 final class CustomerAccount
 {
