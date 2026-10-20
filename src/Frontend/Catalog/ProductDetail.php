@@ -229,6 +229,8 @@ final class ProductDetail
             if ($url !== '') {
                 $images[] = [
                     'url' => $url,
+                    // Più leggera per le anteprime social; senza, l'originale.
+                    'preview' => (is_array($image) ? self::string($image['preview'] ?? '') : '') ?: $url,
                     'alt' => is_array($image) ? self::string($image['alt'] ?? '') : '',
                 ];
             }

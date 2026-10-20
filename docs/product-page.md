@@ -34,6 +34,11 @@ senza magazzino il prodotto resta ordinabile.
 ## SEO e dati strutturati
 
 - indicizzazione `INDEX,FOLLOW`, canonical assoluto e immagine principale;
+- `$SEO->image` (Open Graph) usa la misura da 1200 px della prima foto,
+  nell'estensione originale (`ProductCatalog::previewUrl()`); finché la coda
+  del gestionale non ha segnato la foto `ready`, o se il sito non genera i
+  1200 px, resta sul file caricato. Il JSON-LD `image` usa invece gli
+  originali, la risoluzione più alta che Google consiglia;
 - un solo `h1`, descrizione server-side e galleria responsive del core;
 - `Product` JSON-LD generato con `json_encode`, con `Offer` per una sola
   opzione e `AggregateOffer` quando i prezzi disponibili sono piu di uno;

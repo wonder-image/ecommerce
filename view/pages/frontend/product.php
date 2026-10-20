@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\App\Dependencies;
+use Wonder\App\Support\Asset;
 use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
@@ -79,7 +80,8 @@ if ($recent_products !== []) $events[] = $listEvent('recent_products', (string) 
 if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (string) __t('ecommerce.catalog.sliders.suggested'), $suggested_products);
 
 $productStyle = module_asset('ecommerce', 'css/product.css');
-if ($productStyle !== '') View::head('<link rel="stylesheet" href="'.e($productStyle).'">');
+// Foglio piccolo e sopra la piega: inline, fuori dal render-blocking.
+if ($productStyle !== '') View::head(Asset::inlineStyle(strtok($productStyle, '?')) ?? '<link rel="stylesheet" href="'.e($productStyle).'">');
 if ((bool) Ecommerce::config('product.express', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
     View::head('<script src="'.e($checkoutJs).'" defer></script>');
 }

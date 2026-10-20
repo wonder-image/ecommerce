@@ -60,7 +60,7 @@ check('la scheda conserva SEO e tracking senza il titolo Varianti', function () 
     return $status === 200 && substr_count($html, '<h1') === 1
         && !preg_match('~<h2[^>]*>Varianti</h2>~', $html)
         && str_contains($html, 'product-details')
-        && str_contains($html, 'product.css')
+        && str_contains($html, 'main .product-details')
         && str_contains($html, 'aria-current="page"')
         && str_contains($html, '"event":"view_product"')
         && str_contains($html, '"user":{"id":null}')

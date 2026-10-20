@@ -5,7 +5,9 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
+use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 
 $product = ProductDetail::make([
@@ -271,6 +273,44 @@ check('un attributo «Bottone» diventa un gruppo a scelta singola con le opzion
         && str_contains($css, '[data-unavailable] [data-option-label]')
         && !in_array('', $labels, true)
         && str_contains($labels[0], '{{option}}') && str_contains($labels[1], '{{option}}');
+});
+
+check('l\'anteprima Open Graph usa la misura da 1200 px solo quando la coda l\'ha generata', function () {
+    if (!defined('RESPONSIVE_IMAGE_SIZES')) {
+        define('RESPONSIVE_IMAGE_SIZES', [240, 480, 620, 960, 1200, 1440, 1920, 2400]);
+    }
+
+    $dir = '/assets/upload'.ProductImages::folder();
+    $preview = static fn (string $file, string $status): string =>
+        ProductCatalog::previewUrl(['file' => $file, 'status' => $status]);
+
+    return $preview('scarpa.jpg', 'ready') === $dir.'scarpa-1200.jpg'
+        // Il core scrive le misure con l'estensione in minuscolo.
+        && $preview('scarpa.PNG', 'ready') === $dir.'scarpa-1200.png'
+        && $preview('scarpa.jpg', 'pending') === $dir.'scarpa.jpg'
+        && $preview('logo.svg', 'ready') === $dir.'logo.svg'
+        && ProductCatalog::previewUrl(['file' => 'scarpa.jpg', 'status' => 'ready'], 1000) === $dir.'scarpa.jpg'
+        && $preview('', 'ready') === '';
+});
+
+check('Open Graph prende l\'anteprima, il JSON-LD resta sugli originali', function () use ($product) {
+    $leggera = ProductDetail::make([
+        'id' => 9,
+        'name' => 'Con anteprima',
+        'url' => 'https://shop.test/prodotto/con-anteprima/',
+        'images' => [[
+            'url' => 'https://shop.test/media/foto.jpg',
+            'preview' => 'https://shop.test/media/foto-1200.jpg',
+            'alt' => 'Foto',
+        ]],
+    ]);
+    $controller = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Catalog/ProductController.php');
+
+    return $leggera->data()['images'][0]['preview'] === 'https://shop.test/media/foto-1200.jpg'
+        && $leggera->schemaOrg()['image'] === ['https://shop.test/media/foto.jpg']
+        // Senza anteprima si ripiega sull'originale.
+        && $product->data()['images'][0]['preview'] === 'https://shop.test/media/dinosauro.jpg'
+        && str_contains($controller, "\$SEO->image = \$data['images'][0]['preview']");
 });
 
 summary();

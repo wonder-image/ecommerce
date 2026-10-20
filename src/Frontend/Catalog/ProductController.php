@@ -62,7 +62,8 @@ final class ProductController
         $SEO->title = $data['name'].($society !== '' ? ' - '.$society : '');
         $SEO->description = $product->seoDescription();
         $SEO->url = $data['url'];
-        $SEO->image = $data['images'][0]['url'] ?? '';
+        // Open Graph prende la misura da 1200 px; il JSON-LD resta sugli originali.
+        $SEO->image = $data['images'][0]['preview'] ?? '';
         $SEO->robots = 'INDEX,FOLLOW';
         $SEO->searchUrl = CatalogController::searchUrl();
         $SEO->ogType = 'product';
