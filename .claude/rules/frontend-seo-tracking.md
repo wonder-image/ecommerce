@@ -3,7 +3,6 @@ paths:
   - "src/Frontend/**"
   - "http/frontend/**"
   - "view/pages/frontend/**"
-  - "view/pages/auth/**"
   - "view/pages/account/**"
   - "view/pages/cart/**"
   - "view/pages/checkout/**"

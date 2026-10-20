@@ -75,7 +75,8 @@ solo quando ha una prova automatica o una verifica descritta.
   combinazioni dei cinque token auth configurate dal pannello colori.
 - [x] B16 `publish:module` nel core salta con avviso file e cartelle dichiarati
   `sealed`, anche per richieste puntuali e `--force`; verificato dal sito con
-  `pages/auth/login.php`.
+  una view sigillata del modulo (le view auth oggi sono del core e non sono
+  più sigillate dall'ecommerce).
 - [ ] B17 Definire slot auth solo dove emerge una personalizzazione reale del
   sito; `config.slots` è predisposto ma non viene ancora consumato.
 - [ ] B18 Test browser della revoca o disattivazione dell'attore durante una

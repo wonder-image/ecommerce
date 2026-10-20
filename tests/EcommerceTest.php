@@ -36,7 +36,7 @@ check('la configurazione non porta il checkout ospite: si accende dal backend', 
         && $config['auth']['federated']['apple'] === false;
 });
 
-check('le view auth sono sigillate', fn () => in_array('pages/auth', Ecommerce::sealedViews(), true));
+check('le view auth sono del core e l\'ecommerce non le sigilla', fn () => !in_array('pages/auth', Ecommerce::sealedViews(), true));
 
 check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua estensione', function () use ($root, $core) {
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');

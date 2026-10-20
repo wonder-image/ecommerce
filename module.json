@@ -44,7 +44,6 @@
             "pages/cart",
             "pages/checkout",
             "pages/account",
-            "pages/auth",
             "components/checkout"
         ]
     }

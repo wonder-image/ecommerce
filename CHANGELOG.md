@@ -211,7 +211,8 @@ versionamento semantico.
   e `Wonder\Plugin\Ecommerce\Support\SafeRedirect`; l'handler
   `http/frontend/auth.php` e i sette stub `view/pages/auth/*.php`, che nessuna
   rotta raggiungeva (le pagine auth sono quelle del core). Resta
-  `EcommerceAuthProfile`.
+  `EcommerceAuthProfile`. Di conseguenza `pages/auth` esce da `views.sealed` di
+  `module.json`.
 - Il blocco `ecommerce.auth.validation` di `lang/{it,en}/ecommerce.json`
   (titolo, riepilogo e dieci messaggi), identico a `auth.validation` del core.
 
