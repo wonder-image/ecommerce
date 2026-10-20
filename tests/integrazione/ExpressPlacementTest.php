@@ -191,6 +191,10 @@ check('express da cliente entrato: senza civico e provincia l\'ordine nasce e l\
         'user_id' => $userId, 'is_customer' => 'true', 'active' => 'true',
     ])->insert_id ?? 0);
 
+    // Il rifiuto della rubrica si scrive nel log, che il test legge da un file suo.
+    $log = (string) tempnam(sys_get_temp_dir(), 'express-log-');
+    $logPrima = ini_set('error_log', $log);
+
     try {
         $_SESSION['user_id'] = $userId;
         stripeConTipi(['card', 'apple_pay']);
@@ -217,8 +221,12 @@ check('express da cliente entrato: senza civico e provincia l\'ordine nasce e l\
         return CartSession::customerId() === $contactId
             && (int) ($ordine['customer_id'] ?? 0) === $contactId
             && ($ordine['shipping_street'] ?? '') === 'Via Roma 1'
-            && ContactAddress::find(['contact_id' => $contactId]) === [];
+            && ContactAddress::find(['contact_id' => $contactId]) === []
+            && str_contains((string) file_get_contents($log), 'address not remembered for contact '.$contactId.':')
+            && !str_contains((string) file_get_contents($log), $email);
     } finally {
+        ini_set('error_log', $logPrima === false ? '' : $logPrima);
+        @unlink($log);
         unset($_SESSION['user_id']);
         // La scheda letta resta in memoria oltre l'annullamento.
         CustomerContact::forget();

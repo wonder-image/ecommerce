@@ -35,8 +35,14 @@ final class AccountAddress
         // (dalla barra rapida, senza civico o provincia) non entra in rubrica e
         // l'ordine va avanti lo stesso.
         $saved = AccountAddresses::save($contactId, $address);
+        if (!($saved->success ?? false)) {
+            // Solo l'id della scheda e i messaggi della validazione: niente dati del cliente.
+            error_log('Ecommerce checkout address not remembered for contact '.$contactId.': '.implode(' | ', array_map('strval', (array) ($saved->messages ?? []))));
 
-        return ($saved->success ?? false) && (int) ($saved->id ?? 0) > 0 ? (int) $saved->id : null;
+            return null;
+        }
+
+        return (int) ($saved->id ?? 0) > 0 ? (int) $saved->id : null;
     }
 
     /**
