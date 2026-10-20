@@ -6,7 +6,7 @@ use RuntimeException;
 use Throwable;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
+use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
@@ -38,7 +38,7 @@ final class GuestCheckout
      */
     public static function account(array $order, array $post, array $asked): array
     {
-        $users = new EcommerceUserAccountGateway();
+        $users = new UserAccountGateway();
         $email = strtolower(trim((string) ($order['email'] ?? '')));
         $found = $users->findUserByEmail($email);
         $context = ['required_document_types' => $asked, 'ui_surface' => 'checkout'];
@@ -90,7 +90,7 @@ final class GuestCheckout
      */
     public static function passwordLink(int $userId, string $restorePath): string
     {
-        $users = new EcommerceUserAccountGateway();
+        $users = new UserAccountGateway();
         if ($userId <= 0
             || $users->hasLocalPassword($userId)
             || !$users->canAccessArea($userId, 'frontend', ['client'])

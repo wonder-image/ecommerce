@@ -16,7 +16,7 @@ use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\Federated\FederatedLoginService;
 use Wonder\Auth\PasswordReset;
 use Wonder\App\Models\User\User;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
+use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Sql\Transaction;
@@ -37,7 +37,7 @@ try {
             'Lovelace',
             ['sub' => $providerUserId, 'email_verified' => true]
         );
-        $gateway = new EcommerceUserAccountGateway();
+        $gateway = new UserAccountGateway();
         $identities = new FederatedIdentityRepository();
         $service = new FederatedLoginService($gateway, $identities);
         $created = $service->authenticate($identity, 'frontend', ['client']);
