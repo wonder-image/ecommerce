@@ -75,8 +75,9 @@ solo quando ha una prova automatica o una verifica descritta.
 - [x] B16 `publish:module` nel core salta con avviso file e cartelle dichiarati
   `sealed`, anche per richieste puntuali e `--force`; verificato dal sito con
   `pages/auth/login.php`.
-- [ ] B17 Definire slot auth solo dove emerge una personalizzazione reale del
-  sito; `config.slots` è predisposto ma non viene ancora consumato.
+- [ ] B17 **Priorità alta**, tra le prime dopo la 1.0.0: slot di markup in
+  carrello, checkout, area cliente e autenticazione; `config.slots` è predisposto
+  ma non viene ancora consumato. Issue #25.
 - [ ] B18 Test browser della revoca o disattivazione dell'attore durante una
   sessione impersonata; la validazione applicativa resta coperta dai test del core.
 - [x] B19 reCAPTCHA Enterprise con action dedicate e verifica server-side sui
