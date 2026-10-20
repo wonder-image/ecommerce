@@ -6,7 +6,7 @@ require __DIR__.'/harness.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidationAlert;
-use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
+use Wonder\Http\SafeRedirect;
 
 check('il primo passaggio richiede solo identita e consensi ecommerce', function () {
     $valid = AuthValidator::signupRequest([
