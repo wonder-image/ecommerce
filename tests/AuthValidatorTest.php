@@ -4,8 +4,8 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Auth\Frontend\AuthValidationAlert;
 use Wonder\Auth\Frontend\AuthValidator;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidationAlert;
 use Wonder\Http\SafeRedirect;
 
 check('il primo passaggio richiede solo identita e consensi ecommerce', function () {
@@ -56,9 +56,9 @@ check('gli errori del secondo passaggio diventano dettagli nello stesso alert', 
         'password' => 'too_short',
         'password_confirmation' => 'mismatch',
     ]) === [
-        'ecommerce.auth.validation.errors.phone_required',
-        'ecommerce.auth.validation.errors.password_too_short',
-        'ecommerce.auth.validation.errors.password_mismatch',
+        'auth.validation.errors.phone_required',
+        'auth.validation.errors.password_too_short',
+        'auth.validation.errors.password_mismatch',
     ]
 );
 
