@@ -40,6 +40,11 @@ final class CustomerAccount
         return (object) array_merge(['exists' => is_array($row) && !empty($row['id'])], is_array($row) ? $row : []);
     }
 
+    /**
+     * @deprecated La scheda la collega customer-account: usare
+     *             `ContactAccount::link()` o, senza toccarne l'identità,
+     *             `ContactAccount::linkKeepingIdentity()`.
+     */
     public static function linkContact(int $userId, array $input = []): object
     {
         if (isset($input['_ecommerce_contact_phone'])) {

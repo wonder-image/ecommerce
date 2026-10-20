@@ -18,7 +18,7 @@ use Wonder\Auth\PasswordReset;
 use Wonder\App\Models\User\User;
 use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceAuthProfile;
-use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
+use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Sql\Transaction;
 
@@ -67,7 +67,7 @@ try {
             && $again->userId === $created->userId
         );
 
-        $contact = CustomerAccount::linkContact((int) $created->userId, [
+        $contact = ContactAccount::link((int) $created->userId, [
             'phone_prefix' => '+39',
             'phone' => '3331234567',
         ]);
@@ -101,7 +101,7 @@ try {
             'is_customer' => 'true',
             'active' => 'true',
         ]);
-        $reused = CustomerAccount::linkContact((int) $second->userId);
+        $reused = ContactAccount::link((int) $second->userId);
 
         check('una scheda con la stessa email e senza account viene riutilizzata', function () use ($unlinked, $reused, $second) {
             $row = Contact::findById((int) ($unlinked->insert_id ?? 0));
@@ -130,7 +130,7 @@ try {
             'is_customer' => 'true',
             'active' => 'true',
         ]);
-        $conflict = CustomerAccount::linkContact((int) $third->userId);
+        $conflict = ContactAccount::link((int) $third->userId);
 
         check('una scheda già collegata a un altro account viene rifiutata', fn () =>
             $third->success
