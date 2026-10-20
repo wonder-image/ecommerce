@@ -159,7 +159,11 @@ versionamento semantico.
   Visibile al cliente: un indirizzo arrivato incompleto dal pagamento rapido
   (Apple Pay, Google Pay, Link: senza civico o provincia) non entra più nella
   rubrica; l'ordine nasce lo stesso. Il prefisso si toglie dal numero salvato
-  solo se questo comincia con `+`.
+  solo se questo comincia con `+`. Richiede `wonder-image/app` `fix/2026-10-1`
+  (`AuthValidator::localPhone()`/`defaultPrefix()`, commit `f2c594ba`, non
+  ancora in una release) e `wonder-image/customer-account` `fix/2026-10-1`
+  (`afterContactLinked()`, `ContactAccount::linkKeepingIdentity()`,
+  `AccountAddresses::save()`); con quelli vecchi il checkout va in errore.
 
 - **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
   fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
