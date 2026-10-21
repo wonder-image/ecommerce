@@ -239,7 +239,7 @@ final class CatalogFilter
     {
         $term = trim((string) $value);
         if ($term === '') return;
-        $like = self::escape($term);
+        $like = self::likeTerm($term);
         $this->conditions[] = "(`name` LIKE '%{$like}%' OR `short_description` LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_product_variants` v WHERE v.`product_model_id` = `gst_product_models`.`id` AND v.`visible` = 'true' AND v.`deleted` = 'false' AND (v.`name` LIKE '%{$like}%' OR CONCAT(`gst_product_models`.`name`, ' ', v.`name`) LIKE '%{$like}%') AND EXISTS (SELECT 1 FROM `gst_products` vp WHERE vp.`product_variant_id` = v.`id` AND vp.`active` = 'true' AND vp.`deleted` = 'false')) OR EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`active` = 'true' AND p.`deleted` = 'false' AND (p.`name` LIKE '%{$like}%' OR p.`sku` LIKE '%{$like}%' OR p.`ean` LIKE '%{$like}%' OR p.`mpn` LIKE '%{$like}%')))";
     }
 
@@ -286,7 +286,7 @@ final class CatalogFilter
             if ($parts === []) return;
             $match = implode(' AND ', $parts);
         } else {
-            $match = "a.`value_text` LIKE '%".self::escape((string) ($selected[0] ?? ''))."%'";
+            $match = "a.`value_text` LIKE '%".self::likeTerm((string) ($selected[0] ?? ''))."%'";
         }
 
         $this->conditions[] = "EXISTS (SELECT 1 FROM `{$table}` a WHERE a.`attribute_id` = {$attributeId} AND a.`deleted` = 'false' AND {$relation} AND {$match})";
@@ -362,6 +362,10 @@ final class CatalogFilter
     }
 
     private static function escape(string $value): string { return (new Query())->mysqli->real_escape_string($value); }
+
+    /** Termine per `LIKE '%…%'`: `%`, `_` e `\` restano letterali, come `Popup::likeLiteral()` del core. */
+    public static function likeTerm(string $term): string { return self::escape(self::likeLiteral($term)); }
+    public static function likeLiteral(string $term): string { return addcslashes($term, '%_\\'); }
     private static function decimal(float $value): string { return number_format($value, 3, '.', ''); }
     private static function clean(string $value): string { return trim(str_replace(['\\', '"'], '', $value)); }
     private static function rows(mixed $rows): array

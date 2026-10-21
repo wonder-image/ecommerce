@@ -34,7 +34,7 @@ final class ProductListing
         $term = is_scalar($term) ? trim((string) $term) : '';
         $variantSearch = '';
         if ($term !== '') {
-            $like = (new \Wonder\Sql\Query())->mysqli->real_escape_string($term);
+            $like = CatalogFilter::likeTerm($term);
             $variantSearch = " AND EXISTS (SELECT 1 FROM `gst_product_models` sm WHERE sm.`id` = `gst_product_variants`.`product_model_id` AND (sm.`name` LIKE '%{$like}%' OR sm.`short_description` LIKE '%{$like}%' OR `gst_product_variants`.`name` LIKE '%{$like}%' OR CONCAT(sm.`name`, ' ', `gst_product_variants`.`name`) LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_products` sp WHERE sp.`product_variant_id` = `gst_product_variants`.`id` AND sp.`active` = 'true' AND sp.`deleted` = 'false' AND (sp.`name` LIKE '%{$like}%' OR sp.`sku` LIKE '%{$like}%' OR sp.`ean` LIKE '%{$like}%' OR sp.`mpn` LIKE '%{$like}%'))))";
         }
 

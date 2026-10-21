@@ -16,6 +16,21 @@ check('il filtro prezzo accetta intervallo, minimo, massimo ed esatto', function
         && CatalogFilter::range('non valido') === [null, null];
 });
 
+check('la ricerca tiene letterali % _ e \\ nel LIKE (likeTerm)', function () {
+    $root = dirname(__DIR__);
+    $sources = (string) file_get_contents($root.'/src/Frontend/Catalog/CatalogFilter.php')
+        .(string) file_get_contents($root.'/src/Frontend/Catalog/ProductListing.php');
+
+    return CatalogFilter::likeLiteral('100%') === '100\%'
+        && CatalogFilter::likeLiteral('a_b') === 'a\_b'
+        && CatalogFilter::likeLiteral('c:\x') === 'c:\\\\x'
+        && CatalogFilter::likeLiteral('maglietta') === 'maglietta'
+        && substr_count($sources, 'likeTerm(') >= 3
+        && !str_contains($sources, '$like = self::escape(')
+        && !str_contains($sources, "LIKE '%\".self::escape(")
+        && !str_contains($sources, '->real_escape_string($term)');
+});
+
 check('il catalogo espone tutte le route richieste e un solo handler', function () {
     $root = dirname(__DIR__);
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
