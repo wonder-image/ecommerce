@@ -16,9 +16,9 @@ use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
 /**
  * L'ospite che ordina: l'ordine va a un account. Con un'email nuova
- * l'account nasce senza password; con l'email di un account senza password
- * nato da un ordine dell'ospite si riusa così com'è. Ogni altro account
- * ferma l'ordine con `GuestAccountExists`.
+ * l'account nasce senza password; con l'email di un cliente del negozio senza
+ * password, anche disattivato, si riusa così com'è. Ogni altro account ferma
+ * l'ordine con `GuestAccountExists`.
  * La sessione resta da ospite: chi ordina non entra nell'account.
  */
 final class GuestCheckout
@@ -103,7 +103,7 @@ final class GuestCheckout
     public static function passwordLink(int $userId, string $restorePath): string
     {
         $users = new UserAccountGateway();
-        if ($userId <= 0 || self::claimed($users, $userId)) {
+        if ($userId <= 0 || self::claimed($users, $userId) || !$users->canAccessArea($userId, 'frontend', ['client'])) {
             return '';
         }
 
@@ -138,13 +138,18 @@ final class GuestCheckout
 
     /**
      * `true` se l'account ha una password, entra con un'identità federata o
-     * non è un cliente attivo del negozio. Resta agganciabile solo l'account
-     * senza password nato da un ordine dell'ospite.
+     * non è un cliente del negozio (area frontend, ruolo client). Il cliente
+     * senza password resta agganciabile anche se disattivato (Q-GUEST-NOPWD).
      */
     private static function claimed(UserAccountGateway $users, int $userId): bool
     {
-        return $users->hasLocalPassword($userId)
-            || !$users->canAccessArea($userId, 'frontend', ['client'])
+        $user = $users->findUserById($userId);
+        $client = $user !== null && !$user['deleted']
+            && in_array('frontend', $user['area'], true)
+            && in_array('client', $user['authority'], true);
+
+        return !$client
+            || $users->hasLocalPassword($userId)
             || (new FederatedIdentityRepository())->findByUserId($userId) !== [];
     }
 

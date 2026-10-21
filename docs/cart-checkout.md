@@ -102,14 +102,15 @@ scrive la sua email; l'invio è protetto da reCAPTCHA (action
 email.
 
 - Se l'account ha una password, un accesso federato (Google) o non è un cliente
-  attivo del negozio, l'ordine si ferma (`GuestAccountExists`) e l'ospite viene
+  del negozio (area frontend con ruolo client), l'ordine si ferma (`GuestAccountExists`) e l'ospite viene
   invitato ad accedere o a recuperare la password. L'ordine non si aggancia più
   a quell'account e il contatto non viene collegato.
-- Se l'account è nato da un ordine da ospite (cliente attivo, senza password e
-  senza accesso federato), l'ordine si aggancia come prima: il contatto si
-  collega, i consensi passano da `registerLeadConsents` e i dati dell'account
-  non cambiano. L'email dell'ordine porta il link «Scegli la password» (7
-  giorni, i link già mandati restano validi); scegliendola l'email risulta
+- Se l'account è un cliente senza password e senza accesso federato (per
+  esempio nato da un ordine da ospite), l'ordine si aggancia come prima, anche
+  se il cliente è disattivato: il contatto si collega, i consensi passano da
+  `registerLeadConsents` e i dati dell'account non cambiano. L'email
+  dell'ordine porta il link «Scegli la password» (7 giorni, i link già mandati
+  restano validi) solo se il cliente è attivo; scegliendola l'email risulta
   verificata.
 - Se l'account non c'è, `GuestCheckout` lo crea senza password, collega il
   contatto e salva i consensi. Una scheda del commerciante con quella email e

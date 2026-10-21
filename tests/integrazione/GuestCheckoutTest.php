@@ -222,10 +222,15 @@ try {
             && $senzaAccount === ['user_id' => 0, 'customer_id' => 0, 'created' => false]
         );
 
-        $disattivo = clienteSenzaPassword('ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com', 'false');
+        $delDisattivo = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';
+        $disattivo = clienteSenzaPassword($delDisattivo, 'false');
 
         check('a un cliente disattivato non parte il link', fn () =>
             $disattivo > 0 && GuestCheckout::passwordLink($disattivo, '/account/password-restore/') === ''
+        );
+
+        check('il cliente disattivato senza password non ferma l\'ospite: si aggancia come prima', fn () =>
+            $disattivo > 0 && !fermato($delDisattivo)
         );
 
         $delGoogle = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';

@@ -40,11 +40,20 @@ check('account(): il blocco arriva prima di consensi, contatto e creazione', fun
 
 check('l\'account è di qualcuno con password, Google o se non è un cliente del negozio', fn () =>
     str_contains($claimed, '->hasLocalPassword($userId)')
-    && str_contains($claimed, "->canAccessArea(\$userId, 'frontend', ['client'])")
+    && str_contains($claimed, "in_array('frontend', \$user['area'], true)")
+    && str_contains($claimed, "in_array('client', \$user['authority'], true)")
     && str_contains($claimed, 'FederatedIdentityRepository())->findByUserId($userId) !== []'));
 
-check('il link per la password usa la stessa regola', fn () =>
-    str_contains(corpoMetodo($guest, 'passwordLink'), 'self::claimed($users, $userId)'));
+check('il cliente disattivato senza password si aggancia come prima (Q-GUEST-NOPWD)', fn () =>
+    !str_contains($claimed, 'canAccessArea(')
+    && !str_contains($claimed, "['active']"));
+
+check('il link per la password usa la stessa regola, solo per un cliente attivo', function () use ($guest) {
+    $link = corpoMetodo($guest, 'passwordLink');
+
+    return str_contains($link, 'self::claimed($users, $userId)')
+        && str_contains($link, "!\$users->canAccessArea(\$userId, 'frontend', ['client'])");
+});
 
 check('GuestAccountExists è un RuntimeException con il testo del modulo', function () use ($root) {
     $classe = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestAccountExists.php');

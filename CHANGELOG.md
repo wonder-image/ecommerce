@@ -12,8 +12,9 @@ versionamento semantico.
   password; l'ordine non viene più agganciato a quell'account. La risposta JSON
   è 409 con `error: account_exists`, `login_url` e `recovery_url`, senza
   `redirect`; senza JavaScript torna al checkout con i dati e i link. Il
-  check-out rapido risponde allo stesso modo. Gli account nati da un ordine da
-  ospite, senza password, si agganciano come prima. Il blocco ha un limite (3
+  check-out rapido risponde allo stesso modo. I clienti senza password (come
+  gli account nati da un ordine da ospite), anche disattivati, si agganciano
+  come prima. Il blocco ha un limite (3
   ogni 15 minuti per email, 10 ogni ora per IP) e va nel registro degli
   accessi come `guest_checkout_existing`, con l'hash dell'email.
 - CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
