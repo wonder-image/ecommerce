@@ -187,6 +187,27 @@ check('ordini: il limite per cliente sta in CheckoutPlacement, così vale anche 
     && strpos($placed, "Throttle::hit('orders'") > strpos($placed, 'Checkout::place(')
     && str_contains($placed, 'ecommerce.checkout.errors.too_many_orders'));
 
+$configurazione = require $root.'/config/module.php';
+check('config: checkout.guest_order_limit di default ip [10, 900] e cart [5, 600]', fn () =>
+    ($configurazione['checkout']['guest_order_limit'] ?? null) === ['ip' => [10, 900], 'cart' => [5, 600]]);
+
+check('ordini: l\'ospite passa da attempt() per IP e carrello prima di account e Checkout::place', fn () =>
+    str_contains($placed, 'self::guestAllowed($cartId)')
+    && strpos($placed, 'self::guestAllowed($cartId)') < strpos($placed, 'GuestCheckout::account(')
+    && strpos($placed, 'self::guestAllowed($cartId)') < strpos($placed, 'Checkout::place(')
+    && str_contains(corpo($placement, 'guestAllowed'), "Throttle::attempt('orders'")
+    && str_contains(corpo($placement, 'guestAllowed'), "'order_ip:'")
+    && str_contains(corpo($placement, 'guestAllowed'), "'order_cart:'")
+    && str_contains(corpo($placement, 'guestLimit'), "'checkout.guest_order_limit.'"));
+
+check('ordini: il limite dell\'ospite si legge dalla config, 0 lo spegne', function (): bool {
+    $ip = \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement::guestLimit('ip');
+    $cart = \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement::guestLimit('cart');
+    $spento = \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement::guestLimit('nessuno');
+
+    return $ip === [10, 900] && $cart === [5, 600] && $spento === [0, 0] && Throttle::attempt('orders', 'x', $spento[0], $spento[1]);
+});
+
 check('carrello: in HTTPS il cookie è __Host- e il nome semplice non si legge', fn () =>
     str_contains($session, "'__Host-ecommerce_cart'")
     && str_contains(corpo($session, 'token'), 'self::cookieName()')

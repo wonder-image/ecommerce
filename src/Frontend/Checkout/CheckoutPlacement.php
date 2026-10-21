@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
+use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -83,6 +84,10 @@ final class CheckoutPlacement
         $customerId = CartSession::customerId();
         $passwordLink = '';
         if ($guest) {
+            // L'ospite non ha il limite per cliente: si conta per indirizzo e per carrello, prima dell'account.
+            if (!self::guestAllowed($cartId)) {
+                throw new RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'));
+            }
             $account = GuestCheckout::account($order, $post, $asked);
             $userId = $account['user_id'];
             $customerId = $account['customer_id'];
@@ -185,6 +190,32 @@ final class CheckoutPlacement
         }
 
         return $values;
+    }
+
+    /** I limiti `checkout.guest_order_limit`: ogni tentativo conta, anche quello che poi non diventa ordine. */
+    private static function guestAllowed(int $cartId): bool
+    {
+        $ip = Throttle::ip();
+        foreach (['ip' => $ip === '' ? '' : 'order_ip:'.$ip, 'cart' => 'order_cart:'.$cartId] as $scope => $key) {
+            [$limit, $window] = self::guestLimit($scope);
+            if (!Throttle::attempt('orders', $key, $limit, $window)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @return array{0: int, 1: int} [tentativi, secondi]; [0, 0] se il sito l'ha spento. */
+    public static function guestLimit(string $scope): array
+    {
+        $value = Ecommerce::config('checkout.guest_order_limit.'.$scope, 0);
+        if (!is_array($value) || count($value) < 2) {
+            return [0, 0];
+        }
+        $value = array_values($value);
+
+        return [max(0, (int) $value[0]), max(0, (int) $value[1])];
     }
 
     private static function route(string $name): string

@@ -62,6 +62,15 @@ return [
         // Bottoni del pagamento rapido nel riepilogo, sopra «Procedi». Nel checkout ci sono sempre.
         'express' => true,
     ],
+    'checkout' => [
+        // Ordini dell'ospite (che non ha il limite per cliente): [tentativi, secondi]
+        // per indirizzo IP e per carrello. 0 al posto della coppia spegne quel limite.
+        // L'IP è quello del core: dietro un proxy serve APP_TRUST_PROXY.
+        'guest_order_limit' => [
+            'ip' => [10, 900],
+            'cart' => [5, 600],
+        ],
+    ],
     // Partial del sito innestate negli slot delle view sigillate (piano 2):
     // chiave dello slot => percorso della partial dentro `custom/`.
     'slots' => [],
