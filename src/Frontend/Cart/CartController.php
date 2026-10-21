@@ -5,7 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 use Throwable;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Http\Csrf;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Http\SafeRedirect;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -36,7 +36,6 @@ final class CartController
         self::seo();
         View::make(Ecommerce::viewPath('pages/cart/index.php'), [
             'cart' => $cart,
-            'csrf_token' => AuthSession::csrfToken(),
             'coupons' => Gestionale::feature('coupons'),
             'step' => 'cart',
         ])->render();
@@ -199,7 +198,7 @@ final class CartController
 
     private static function requireCsrf(): void
     {
-        if (AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (Csrf::verify()) {
             return;
         }
 
@@ -232,7 +231,6 @@ final class CartController
             'empty' => $items === [],
             'html' => View::component(Ecommerce::viewPath('components/cart/mini-cart-body.php'), [
                 'cart' => $cart,
-                'csrf_token' => AuthSession::csrfToken(),
                 'notice' => $notice,
                 'errors' => $errors,
             ]),

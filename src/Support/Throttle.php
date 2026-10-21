@@ -2,17 +2,62 @@
 
 namespace Wonder\Plugin\Ecommerce\Support;
 
+use RuntimeException;
+use Throwable;
+use Wonder\Http\ClientIp;
+use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Sql\Connection;
+
 /**
- * Un limite di tentativi in una finestra di tempo, su file.
+ * Limiti di tentativi in una finestra di tempo.
  *
- * Ogni coppia gruppo e chiave è un file con gli istanti dei tentativi; quelli
- * fuori dalla finestra si buttano a ogni scrittura e il file vuoto se ne va.
- * Il core non ha ancora un limitatore comune: quando ci sarà, questa classe
- * passa a lui.
+ * `attempt()` conta e decide in un colpo solo, sulla tabella
+ * `ecommerce_throttle` (Models\Throttle), a finestra fissa.
+ * `allowed()` e `hit()` restano su file: ogni coppia gruppo e chiave è un
+ * file con gli istanti dei tentativi; quelli fuori dalla finestra si buttano
+ * a ogni scrittura e il file vuoto se ne va.
  */
 final class Throttle
 {
+    // `hits` prima di `window_start`: MySQL assegna da sinistra e il secondo IF deve vedere la finestra vecchia.
+    public const UPSERT = 'INSERT INTO ecommerce_throttle (throttle_key, hits, window_start) VALUES (?, 1, ?)'
+        .' ON DUPLICATE KEY UPDATE hits = IF(window_start <= ?, 1, hits + 1),'
+        .' window_start = IF(window_start <= ?, ?, window_start)';
+
     private static ?string $directory = null;
+
+    /** @var callable|null Contatore sostituibile nei test: fn(string $hash, int $now, int $since): int, i tentativi dopo questo. */
+    private static $store = null;
+
+    /** Il contatore di attempt(); null torna alla tabella. Serve ai test. */
+    public static function useStore(?callable $store): void
+    {
+        self::$store = $store;
+    }
+
+    /**
+     * Conta un tentativo e dice se rientra nel limite: al massimo `$limit`
+     * per finestra di `$window` secondi. Una chiave vuota o un limite a 0 non
+     * limitano. Se la tabella non risponde il tentativo passa e l'errore va
+     * nel registro: un limite rotto non ferma le vendite.
+     */
+    public static function attempt(string $bucket, string $key, int $limit, int $window): bool
+    {
+        if ($key === '' || $limit <= 0 || $window <= 0) {
+            return true;
+        }
+
+        $now = time();
+        try {
+            $hits = (self::$store ?? self::database(...))(hash('sha256', $bucket.'|'.$key), $now, $now - $window);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.throttle', ['bucket' => $bucket]);
+
+            return true;
+        }
+
+        return $hits <= $limit;
+    }
 
     /** La cartella dei contatori; null torna a quella del sito. Serve ai test. */
     public static function useDirectory(?string $directory): void
@@ -74,10 +119,32 @@ final class Throttle
         fclose($handle);
     }
 
-    /** L'indirizzo di chi chiama, così come lo vede il server: un'intestazione si falsifica. */
+    /** L'indirizzo di chi chiama, quello del core: dietro un proxy fidato (APP_TRUST_PROXY) l'ultima voce di X-Forwarded-For. */
     public static function ip(): string
     {
-        return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        return ClientIp::resolve();
+    }
+
+    /**
+     * L'upsert e la rilettura sulla stessa connessione. Con richieste in
+     * parallelo la rilettura può vedere anche il tentativo di un altro: si
+     * blocca di più, mai di meno.
+     */
+    private static function database(string $hash, int $now, int $since): int
+    {
+        $connection = Connection::Connect('main');
+        $upsert = $connection->prepare(self::UPSERT);
+        if (!$upsert || !$upsert->execute([$hash, $now, $since, $since, $now])) {
+            throw new RuntimeException('throttle_upsert');
+        }
+
+        $select = $connection->prepare('SELECT hits FROM ecommerce_throttle WHERE throttle_key = ?');
+        if (!$select || !$select->execute([$hash])) {
+            throw new RuntimeException('throttle_select');
+        }
+        $row = $select->get_result()->fetch_assoc();
+
+        return (int) ($row['hits'] ?? 0);
     }
 
     /** @return list<int> */

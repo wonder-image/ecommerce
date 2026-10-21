@@ -16,6 +16,43 @@ check('il filtro prezzo accetta intervallo, minimo, massimo ed esatto', function
         && CatalogFilter::range('non valido') === [null, null];
 });
 
+check('la ricerca tiene letterali % _ e \\ nel LIKE (likeTerm)', function () {
+    $root = dirname(__DIR__);
+    $sources = (string) file_get_contents($root.'/src/Frontend/Catalog/CatalogFilter.php')
+        .(string) file_get_contents($root.'/src/Frontend/Catalog/ProductListing.php');
+
+    return CatalogFilter::likeLiteral('100%') === '100\%'
+        && CatalogFilter::likeLiteral('a_b') === 'a\_b'
+        && CatalogFilter::likeLiteral('c:\x') === 'c:\\\\x'
+        && CatalogFilter::likeLiteral('maglietta') === 'maglietta'
+        && substr_count($sources, 'likeTerm(') >= 3
+        && !str_contains($sources, '$like = self::escape(')
+        && !str_contains($sources, "LIKE '%\".self::escape(")
+        && !str_contains($sources, '->real_escape_string($term)');
+});
+
+check('in modalità variant la direzione vale sulla prima espressione dell\'ordine', function () {
+    $order = static function (string $ordina): string {
+        $filter = (new ReflectionClass(CatalogFilter::class))->newInstanceWithoutConstructor();
+        (new ReflectionMethod(CatalogFilter::class, 'applyOrder'))->invoke($filter, $ordina);
+        $sql = (string) (new ReflectionMethod(ProductListing::class, 'variantOrder'))->invoke(null, $filter);
+
+        return \Wonder\Sql\Query::orderClause($sql, 'ASC');
+    };
+    $name = $order('nome_desc');
+    $price = $order('prezzo_desc');
+    $recent = $order('recenti');
+    $asc = $order('nome_asc');
+    $source = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Catalog/ProductListing.php');
+
+    return str_contains($name, "`product_model_id`) DESC, position ASC, name ASC")
+        && str_contains($price, "`product_model_id` AND p.`active` = 'true' AND p.`deleted` = 'false') DESC, position ASC")
+        && str_ends_with($price, ') DESC, position ASC')
+        && str_contains($recent, 'm.`creation`') && str_contains($recent, ') DESC, position ASC, name ASC')
+        && str_contains($asc, ') ASC, position ASC, name ASC')
+        && !str_contains($source, "self::variantOrder(\$filter),\n                \$filter->direction()");
+});
+
 check('il catalogo espone tutte le route richieste e un solo handler', function () {
     $root = dirname(__DIR__);
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');

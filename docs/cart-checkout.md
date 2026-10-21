@@ -20,7 +20,7 @@ cliente. Un semplice GET su `/cart/` non crea né cookie né righe nel database.
 - `view/components/cart/add.php`: form POST riutilizzabile per aggiungere un
   prodotto. Richiede `product_id`; accetta `quantity`, `label`, `continue`,
   `stepper` (−/+), `fields` e `id` (vuoto se il form si ripete, come nelle card).
-  CSRF e id del form GTM sono gestiti dal componente.
+  Il componente scrive il campo CSRF `_csrf` e l'id del form GTM.
 - `/cart/`: riepilogo, modifica quantità e rimozione, nel layout del negozio.
 - `/checkout/`: una pagina sola con riepilogo a destra (vedi sotto).
 - `/checkout/completed/`: conferma legata alla sessione che ha creato l'ordine.
@@ -110,6 +110,41 @@ utente cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account
 La sessione resta da ospite. La conferma dice all'ospite che l'email è partita,
 con lo stesso testo per tutti: non rivela se l'account ha già una password.
 
+Gli ordini dell'ospite hanno un limite, in `checkout.guest_order_limit` della
+config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
+indirizzo) e `cart` vale `[5, 600]` (5 ogni 10 minuti per carrello). Con `0` al
+posto della coppia quel limite si spegne. Superato il limite, l'ospite vede
+`ecommerce.checkout.errors.too_many_orders`. I conteggi stanno nella tabella
+`ecommerce_throttle` (Model `Throttle`, dichiarato in `database.models`), che
+nasce con `php forge update`. Ogni tentativo è un solo UPSERT, quindi due
+richieste insieme non superano il limite. Se la tabella non risponde,
+l'ordine passa e l'errore va nel registro (`ecommerce.throttle`). L'indirizzo
+è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
+`APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
+
+## CSRF
+
+Moduli e richieste del negozio usano `Wonder\Http\Csrf` del core.
+
+- Le view scrivono `Csrf::field()`, cioè il campo `_csrf`.
+- `checkout.js` e `mini-cart.js` mandano lo stesso token anche nell'header
+  `X-WI-CSRF` di ogni `fetch`. Il token viene dal meta `wi-csrf` del layout,
+  poi dal campo `_csrf` di un modulo della pagina, infine dal valore passato
+  dal server (Express).
+- I controller verificano con `Csrf::verify()`.
+- Fa eccezione il form `checkout-logout` del checkout: va al logout del core,
+  che verifica ancora `csrf_token`, quindi scrive `Csrf::field('csrf_token')`.
+
+Il token di sessione è lo stesso di prima, quindi nessuno perde la sessione.
+Un modulo che manda ancora il vecchio campo `csrf_token` (una pagina in cache
+o un override del sito) riceve 419: va rigenerato con `Csrf::field()`.
+
+La ricerca del catalogo (`POST`, route `catalog.products.search`) dichiara
+`->csrf()`. Senza un token valido nell'header `X-WI-CSRF` il guard del core
+risponde 403, non 419. L'header lo manda la lib wonder-image dalla #12
+(`form/list.js`): un sito con una lib precedente deve aggiornarla con
+`npm install`, altrimenti la ricerca risponde 403.
+
 ## Pagamento online (Stripe)
 
 - Il «Paga» crea l'ordine una volta sola, **«In pagamento»**
@@ -150,6 +185,9 @@ con lo stesso testo per tutti: non rivela se l'account ha già una password.
   della creazione: non si simulano pagamenti.
 - L'ospite non va abilitato finché non sono definiti backend, consensi del
   checkout e collegamento successivo all'account.
+- Oggi il modulo non riceve file. Un nuovo ingresso di file (`$_FILES` o
+  `type="file"`) deve passare da `UploadValidator::validate()` del core: il
+  test `UploadGuardTest` fallisce se manca.
 
 ## Verifica locale
 

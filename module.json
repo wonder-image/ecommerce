@@ -32,6 +32,9 @@
         "backend": "config/routes/route.backend.php",
         "api": "config/routes/route.api.php"
     },
+    "database": {
+        "models": "src/Models"
+    },
     "seo": {
         "robotsDisallow": ["/carrello/", "/checkout/", "/account/"],
         "sitemaps": ["/shared/sitemap/catalogo.xml"]

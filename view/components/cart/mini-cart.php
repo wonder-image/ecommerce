@@ -9,12 +9,13 @@
     data-cart-url="<?=e(__r('ecommerce.cart.index'))?>"
     style="z-index: 98"
 >
-    <div class="bg bg-black-20 blur-2 background-blur" data-cart-close></div>
-    <div class="p-a top w-30 h-100 bg-white w-t-50 w-p-100 background-white" data-cart-close></div>
+    <?php // Stato chiuso già nel markup: mini-cart.js è defer. `translate` e non `transform`: `.c-h` ha un transform !important nella lib. ?>
+    <div class="bg bg-black-20 blur-2 background-blur" style="opacity: 0" data-cart-close></div>
+    <div class="p-a top w-30 h-100 bg-white w-t-50 w-p-100 background-white" style="right: 0; translate: 100vw 0" data-cart-close></div>
     <div class="content">
-        <div class="p-a w-30 f-end w-t-50 w-p-100 h-120 c-h phone-none bg-white background-white" data-cart-close></div>
+        <div class="p-a w-30 f-end w-t-50 w-p-100 h-120 c-h phone-none bg-white background-white" style="right: 0; translate: 100vw 0" data-cart-close></div>
 
-        <div class="w-30 f-end w-t-50 w-p-100 h-100 cart-content box-border pl-10 pl-p-0">
+        <div class="w-30 f-end w-t-50 w-p-100 h-100 cart-content box-border pl-10 pl-p-0" style="right: 0; translate: 100vw 0">
             <h2 class="subtitle"><?=e(__t('ecommerce.cart.title'))?></h2>
             <div class="p-r w-100 mt-5 h-70 o-scroll no-scrollbar box-border">
                 <div class="w-100 h-100 tx-black cart-product" data-ecommerce-mini-cart-content role="status">

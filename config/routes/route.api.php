@@ -6,5 +6,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 Route::area('api')->response('json')->frontend()->translatable(false)
     ->name('api.ecommerce.')->prefix('/ecommerce')->group(function () {
         Route::post('/catalog/products/search/', Ecommerce::handlerPath('api/catalog/search.php'))
-            ->name('catalog.products.search');
+            ->name('catalog.products.search')
+            // La lib manda il token del meta wi-csrf nell'header X-WI-CSRF.
+            ->csrf();
     });

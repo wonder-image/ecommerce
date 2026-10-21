@@ -19,10 +19,8 @@
  * @var string $plans_url
  * @var string $summary_url
  * @var string $action
- * @var string $csrf_token
  */
 
-use Wonder\App\ResourceSchema\FormField;
 use Wonder\Elements\Components\Breadcrumb;
 use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
@@ -30,6 +28,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 View::head(DataLayer::script([
     'type' => 'subscription_configure',
@@ -80,7 +79,7 @@ $blocked = $needs_parent && $fields['parent'] === null;
     <?php endif; ?>
 
     <form id="subscription_configure" class="w-100 d-flex d-column gap-4" method="post" action="<?=e($action)?>" novalidate>
-        <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+        <?=Csrf::field()?>
         <div class="w-100"><?=$fields['quantity']?></div>
         <?php foreach ($fields['customizations'] as $customization): ?>
             <div class="w-100 d-flex d-column gap-1">

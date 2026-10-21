@@ -1,3 +1,11 @@
+// Token CSRF della pagina: il meta del layout, poi il campo _csrf di un modulo, infine quello ricevuto dal server.
+function csrfToken(fallback = '') {
+    return document.querySelector('meta[name="wi-csrf"]')?.content
+        || document.querySelector('[name="_csrf"]')?.value
+        || fallback
+        || '';
+}
+
 class Checkout {
     constructor() {
         this.root = document.querySelector('[data-checkout]');
@@ -104,7 +112,7 @@ class Checkout {
         const data = this.form ? new FormData(this.form) : new FormData();
 
         if (!this.form) {
-            data.set('csrf_token', document.querySelector('[name="csrf_token"]')?.value || '');
+            data.set('_csrf', csrfToken());
         }
 
         // Mentre si paga i radio del pagamento sono spenti e il modulo non li manda: vale la scelta fissata all'inizio.
@@ -126,7 +134,7 @@ class Checkout {
                 method: 'POST',
                 body: data,
                 credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-WI-CSRF': csrfToken() },
             });
             const payload = await response.json();
 
@@ -942,7 +950,7 @@ class Checkout {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
                 this.thaw();
-                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
+                reportDeclined(this.root.dataset.declinedUrl, csrfToken(), error);
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
@@ -961,7 +969,7 @@ class Checkout {
             method: 'POST',
             body: this.body({ expected_total: String(this.latest?.order?.total ?? '') }),
             credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-WI-CSRF': csrfToken() },
         });
         const payload = await response.json().catch(() => ({}));
 
@@ -1112,7 +1120,7 @@ class Checkout {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
                 this.thaw();
-                reportDeclined(this.root.dataset.declinedUrl, this.form.querySelector('[name="csrf_token"]')?.value, error);
+                reportDeclined(this.root.dataset.declinedUrl, csrfToken(), error);
             }
         } catch (error) {
             if (!sent) {
@@ -1452,14 +1460,14 @@ async function reportDeclined(url, token, error) {
     }
 
     const body = new FormData();
-    body.append('csrf_token', token);
+    body.append('_csrf', token);
 
     try {
         const response = await fetch(url, {
             method: 'POST',
             body,
             credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-WI-CSRF': csrfToken() },
         });
         const payload = await response.json();
 
@@ -1543,7 +1551,7 @@ class CheckoutPay {
             // Senza errore Stripe ha già portato il cliente al ritorno.
             if (error) {
                 payAlert(error.message || this.labels.failed);
-                reportDeclined(this.root.dataset.declinedUrl, document.querySelector('[name="csrf_token"]')?.value, error);
+                reportDeclined(this.root.dataset.declinedUrl, csrfToken(), error);
             }
         } catch (error) {
             this.say(this.labels.error);
@@ -1870,14 +1878,14 @@ class Express {
     }
 
     async post(action, values) {
-        const body = new URLSearchParams({ csrf_token: this.config.csrf || '', ...values });
+        const body = new URLSearchParams({ _csrf: csrfToken(this.config.csrf), ...values });
 
         try {
             const response = await fetch(this.config.urls[action], {
                 method: 'POST',
                 body,
                 credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-WI-CSRF': csrfToken(this.config.csrf) },
             });
             const data = await response.json();
 

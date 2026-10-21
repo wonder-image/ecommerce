@@ -34,7 +34,7 @@ final class ProductListing
         $term = is_scalar($term) ? trim((string) $term) : '';
         $variantSearch = '';
         if ($term !== '') {
-            $like = (new \Wonder\Sql\Query())->mysqli->real_escape_string($term);
+            $like = CatalogFilter::likeTerm($term);
             $variantSearch = " AND EXISTS (SELECT 1 FROM `gst_product_models` sm WHERE sm.`id` = `gst_product_variants`.`product_model_id` AND (sm.`name` LIKE '%{$like}%' OR sm.`short_description` LIKE '%{$like}%' OR `gst_product_variants`.`name` LIKE '%{$like}%' OR CONCAT(sm.`name`, ' ', `gst_product_variants`.`name`) LIKE '%{$like}%' OR EXISTS (SELECT 1 FROM `gst_products` sp WHERE sp.`product_variant_id` = `gst_product_variants`.`id` AND sp.`active` = 'true' AND sp.`deleted` = 'false' AND (sp.`name` LIKE '%{$like}%' OR sp.`sku` LIKE '%{$like}%' OR sp.`ean` LIKE '%{$like}%' OR sp.`mpn` LIKE '%{$like}%'))))";
         }
 
@@ -50,7 +50,7 @@ final class ProductListing
                 self::paginationWhere($filter),
                 $limit,
                 self::variantOrder($filter),
-                $filter->direction()
+                'ASC'
             ));
 
             return array_values(array_filter(array_map(static function (array $variant): ?array {
@@ -256,11 +256,16 @@ final class ProductListing
         return trim($model.' '.$variant);
     }
 
+    /**
+     * Il core applica la direzione solo all'ultima colonna: qui va sulla
+     * prima espressione, e `cards()` chiude con ASC su `position`/`name`.
+     */
     private static function variantOrder(CatalogFilter $filter): string
     {
         $order = $filter->order();
+        $direction = $filter->direction() === 'DESC' ? 'DESC' : 'ASC';
         if (str_contains($order, 'SELECT MIN')) {
-            return str_replace('`gst_product_models`.`id`', '`gst_product_variants`.`product_model_id`', $order).', position';
+            return str_replace('`gst_product_models`.`id`', '`gst_product_variants`.`product_model_id`', $order)." {$direction}, position";
         }
 
         $column = match ($order) {
@@ -269,7 +274,7 @@ final class ProductListing
             default => 'position',
         };
 
-        return "(SELECT m.`{$column}` FROM `gst_product_models` m WHERE m.`id` = `gst_product_variants`.`product_model_id`), position, name";
+        return "(SELECT m.`{$column}` FROM `gst_product_models` m WHERE m.`id` = `gst_product_variants`.`product_model_id`) {$direction}, position ASC, name";
     }
 
     private static function effectivePrice(array $product): float

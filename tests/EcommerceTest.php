@@ -31,7 +31,8 @@ check('la configurazione non porta il checkout ospite: si accende dal backend', 
 
     return $config['extensions'] === []
         && $config['slots'] === []
-        && !isset($config['checkout'])
+        // Sotto checkout ci sono solo i limiti dell'ospite, non l'interruttore.
+        && array_keys($config['checkout'] ?? []) === ['guest_order_limit']
         && $config['auth']['federated']['google'] === true
         && $config['auth']['federated']['apple'] === false;
 });

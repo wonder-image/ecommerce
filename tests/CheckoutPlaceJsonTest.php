@@ -71,7 +71,7 @@ check('reopen: POST e CSRF, poi l\'ordine si riapre e il modulo torna col riepil
     && str_contains($controller, "'reopen' => self::reopen()")
     && !str_contains($controller, "'abandon'")
     && strpos($reopen, 'self::requireCsrf()') < strpos($reopen, 'self::resume($json, false)')
-    && str_contains($reopen, "AuthSession::verify(\$_POST['csrf_token'] ?? '')")
+    && str_contains($reopen, 'Csrf::verify()')
     && str_contains($reopen, 'CheckoutSummary::payload(')
     && str_contains($reopen, "self::redirect(self::route('ecommerce.checkout.index'))"));
 

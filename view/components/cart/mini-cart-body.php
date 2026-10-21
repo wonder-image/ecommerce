@@ -1,9 +1,9 @@
 <?php
 
-use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 $order = (array) (($cart ?? [])['order'] ?? []);
 $items = CartPresenter::lines(array_values((array) (($cart ?? [])['items'] ?? [])));
@@ -48,7 +48,7 @@ $currency = (string) ($order['currency'] ?? 'EUR');
                                 <?php endif; ?>
                             </h3>
                             <form method="post" action="<?=e(__r('ecommerce.cart.remove', ['id' => $itemId]))?>" data-ecommerce-mini-cart-form>
-                                <?=FormField::key('csrf_token')->hidden()->value((string) $csrf_token)?>
+                                <?=Csrf::field()?>
                                 <button class="tx-black" type="submit" style="width:28px;height:28px;border:0;border-radius:50%;background:transparent;cursor:pointer" aria-label="<?=e(__t('ecommerce.cart.mini.remove_item', ['name' => $item['name'] ?? '']))?>">
                                     <i class="bi bi-x-lg" aria-hidden="true"></i>
                                 </button>

@@ -1,3 +1,11 @@
+// Token CSRF della pagina: il meta del layout, poi il campo _csrf di un modulo, infine quello ricevuto dal server.
+function csrfToken(fallback = '') {
+    return document.querySelector('meta[name="wi-csrf"]')?.content
+        || document.querySelector('[name="_csrf"]')?.value
+        || fallback
+        || '';
+}
+
 class Cart {
     constructor(selector = '#cart-offpage') {
         this.element = document.querySelector(selector);
@@ -17,10 +25,10 @@ class Cart {
     }
 
     prepareAnimation() {
+        // Lo stato chiuso è già inline in mini-cart.php: qui si ribadisce
+        // nel caso il markup sia sovrascritto dal sito.
         if (this.backdrop) {
             this.backdrop.style.opacity = '0';
-            this.backdrop.style.transitionProperty = 'opacity';
-            this.backdrop.style.transitionDuration = '.3s';
         }
 
         // Tutti i pannelli fermi al bordo destro e spostati fuori schermo
@@ -30,6 +38,18 @@ class Cart {
         this.panels.forEach(function (panel) {
             panel.style.right = '0';
             panel.style.translate = '100vw 0';
+        });
+
+        // Reflow: lo stato chiuso viene applicato prima delle transition,
+        // così il caricamento della pagina non anima i pannelli.
+        void this.element.offsetWidth;
+
+        if (this.backdrop) {
+            this.backdrop.style.transitionProperty = 'opacity';
+            this.backdrop.style.transitionDuration = '.3s';
+        }
+
+        this.panels.forEach(function (panel) {
             panel.style.transitionProperty = 'translate';
             panel.style.transitionDuration = '.4s';
             panel.style.transitionTimingFunction = 'cubic-bezier(.22, 1, .36, 1)';
@@ -113,6 +133,7 @@ class Cart {
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
+                'X-WI-CSRF': csrfToken(),
             },
         }, options));
         const payload = await response.json();

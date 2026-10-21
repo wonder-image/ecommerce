@@ -5,7 +5,6 @@ use Wonder\App\Support\Asset;
 use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
@@ -13,6 +12,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 if (!$product instanceof ProductDetail) {
     http_response_code(404);
@@ -239,7 +239,6 @@ Ecommerce::layout('shop');
                 <?php if ($data['available']): ?>
                     <?=View::component(Ecommerce::viewPath('components/cart/add.php'), [
                         'product_id' => $data['selected_product_id'],
-                        'csrf_token' => AuthSession::csrfToken(),
                         'label' => __t('ecommerce.cart.add'),
                         'stepper' => $stepper,
                         'fields' => $bundleFields,
@@ -249,7 +248,7 @@ Ecommerce::layout('shop');
                 <?php endif; ?>
             <?php elseif ($data['offers'] !== []): ?>
                 <form id="add_to_cart_product" method="post" action="<?=e(__r('ecommerce.cart.add'))?>" data-ecommerce-add-to-cart>
-                    <?=FormField::key('csrf_token')->hidden()->value(AuthSession::csrfToken())?>
+                    <?=Csrf::field()?>
                     <?php if (!$stepper): ?><?=FormField::key('quantity')->hidden()->value('1')?><?php endif; ?>
                     <?=FormField::key('continue')->hidden()->value((string) ($_SERVER['REQUEST_URI'] ?? $data['url']))?>
                     <?php if ($data['option_groups'] === []): ?>

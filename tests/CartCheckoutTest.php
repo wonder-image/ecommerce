@@ -61,6 +61,11 @@ check('il mini-carrello usa le utility del design system e conserva il fallback 
 
     return str_contains($shell, 'id="cart-offpage"')
         && str_contains($shell, 'class="p-f top end full-page no-interaction intro"')
+        && str_contains($shell, 'background-blur" style="opacity: 0"')
+        && substr_count($shell, 'style="right: 0; translate: 100vw 0"') === 3
+        && !preg_match('/style="[^"]*transition/', $shell)
+        && str_contains($script, 'void this.element.offsetWidth')
+        && strpos($script, 'void this.element.offsetWidth') < (int) strpos($script, "transitionProperty = 'translate'")
         && str_contains($shell, "__r('ecommerce.cart.preview')")
         && str_contains($shell, "__r('ecommerce.cart.index')")
         && str_contains($add, 'data-ecommerce-add-to-cart')
@@ -90,7 +95,7 @@ check('tutte le mutazioni del carrello e del checkout verificano il CSRF', funct
 
     return str_contains($cart, 'self::requireCsrf();')
         && str_contains($checkout, 'self::requireCsrf();')
-        && str_contains($add, "FormField::key('csrf_token')->hidden()")
+        && str_contains($add, '<?=Csrf::field()?>')
         && !str_contains($add, "render('wonder')");
 });
 

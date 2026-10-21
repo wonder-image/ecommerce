@@ -20,7 +20,6 @@
  * @var string $plans_url
  * @var string $action
  * @var string $remove_url
- * @var string $csrf_token
  */
 
 use Wonder\App\ResourceSchema\FormField;
@@ -32,6 +31,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 View::head(DataLayer::script([
     'type' => 'subscription_checkout',
@@ -83,7 +83,7 @@ Ecommerce::layout('checkout');
                 <?php endif; ?>
                 <div>
                     <?=Button::post($remove_url, (string) __t('ecommerce.subscriptions.summary.remove'))
-                        ->hidden(['csrf_token' => $csrf_token, 'index' => (string) $row['index']])
+                        ->hidden([Csrf::FIELD => Csrf::token(), 'index' => (string) $row['index']])
                         ->variant('danger')
                         ->outline()
                         ->size('sm')
@@ -110,7 +110,7 @@ Ecommerce::layout('checkout');
     <?php endif; ?>
 
     <form id="subscription_checkout" class="w-100 d-flex d-column gap-6" method="post" action="<?=e($action)?>" novalidate>
-        <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+        <?=Csrf::field()?>
         <div class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.billing'))?></h2>
             <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3">

@@ -6,7 +6,7 @@ use RuntimeException;
 use Throwable;
 use Wonder\App\Security\RecaptchaChallenge;
 use Wonder\App\Security\RecaptchaGuard;
-use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Http\Csrf;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
@@ -219,7 +219,7 @@ final class ExpressController
             self::json(['success' => false], 404);
         }
 
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (!Csrf::verify()) {
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
 
