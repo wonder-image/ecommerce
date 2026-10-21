@@ -84,7 +84,7 @@ try {
         check('form backend con markup Bootstrap', fn () => str_contains($html, 'form-control'));
         check('province idratate dal paese salvato', fn () => str_contains($html, 'data-wi-list-states="DE"'));
         check('provincia salvata selezionata', fn () => str_contains($html, 'value="BE" selected'));
-        check('form con token CSRF e senza password', fn () => str_contains($html, 'name="'.Csrf::FIELD.'"') && !str_contains($html, 'name="password"'));
+        check('form senza _contact_csrf e senza password: il token _csrf lo emette la pagina del core', fn () => !str_contains($html, '_contact_csrf') && !str_contains($html, 'name="password"'));
         $withoutStates = array_values(array_filter(array_keys(countries()), static fn ($code): bool => states($code) === []))[0];
         $foreignForm = (new ResourcePagePresenter(ContactAddressResource::class))->form('create', ['country' => $withoutStates]);
         foreach ($foreignForm['FIELDS'] as $field) {
