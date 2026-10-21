@@ -27,13 +27,29 @@ function csrfFiles(string $root, array $dirs, array $ext): array
     return $files;
 }
 
-// Restano sul nome storico: login federato e impersonificazione sono del core (Q-CSRFNAME).
+// Restano sul nome storico: login federato, impersonificazione e logout sono del core (Q-CSRFNAME).
 $legacy = ['http/backend/impersonation.php', 'view/components/auth/federated.php', 'view/pages/backend/impersonation.php'];
+
+/** Il form di logout del checkout, che va alla route del core. */
+function logoutForm(string $root): string
+{
+    $source = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+    $start = strpos($source, '<form id="checkout-logout"');
+    if ($start === false) {
+        return '';
+    }
+
+    return substr($source, $start, (int) strpos($source, '</form>', $start) - $start + 7);
+}
 
 check('nessun csrf_token nel codice commerciale, fuori dai file del core', function () use ($root, $legacy) {
     $found = [];
     foreach (csrfFiles($root, ['src', 'http', 'view', 'config', 'resources'], ['php', 'js']) as $file) {
-        if (!in_array($file, $legacy, true) && str_contains((string) file_get_contents($root.'/'.$file), 'csrf_token')) {
+        $source = (string) file_get_contents($root.'/'.$file);
+        if ($file === 'view/pages/checkout/index.php') {
+            $source = str_replace(logoutForm($root), '', $source);
+        }
+        if (!in_array($file, $legacy, true) && str_contains($source, 'csrf_token')) {
             $found[] = $file;
         }
     }
@@ -43,6 +59,14 @@ check('nessun csrf_token nel codice commerciale, fuori dai file del core', funct
     }
 
     return true;
+});
+
+check('il logout del checkout manda csrf_token, il nome che il core verifica', function () use ($root) {
+    $form = logoutForm($root);
+
+    return str_contains($form, 'ecommerce.auth.logout')
+        && str_contains($form, "<?=Csrf::field('csrf_token')?>")
+        && !str_contains($form, '<?=Csrf::field()?>');
 });
 
 check('nessuna chiamata ad AuthSession per il CSRF nel codice commerciale', function () use ($root, $legacy) {

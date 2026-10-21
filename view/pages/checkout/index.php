@@ -241,7 +241,8 @@ View::head(DataLayer::script([
 </div>
 <?php if (!$guest && $user_email !== ''): ?>
     <form id="checkout-logout" method="post" action="<?=e(__r('ecommerce.auth.logout'))?>" hidden>
-        <?=Csrf::field()?>
+        <?php // Il logout è del core: verifica ancora csrf_token (Q-CSRFNAME). ?>
+        <?=Csrf::field('csrf_token')?>
     </form>
 <?php endif; ?>
 <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {

@@ -132,6 +132,8 @@ Moduli e richieste del negozio usano `Wonder\Http\Csrf` del core.
   poi dal campo `_csrf` di un modulo della pagina, infine dal valore passato
   dal server (Express).
 - I controller verificano con `Csrf::verify()`.
+- Fa eccezione il form `checkout-logout` del checkout: va al logout del core,
+  che verifica ancora `csrf_token`, quindi scrive `Csrf::field('csrf_token')`.
 
 Il token di sessione è lo stesso di prima, quindi nessuno perde la sessione.
 Un modulo che manda ancora il vecchio campo `csrf_token` (una pagina in cache
