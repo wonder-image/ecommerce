@@ -156,6 +156,13 @@ l'ordine passa e l'errore va nel registro (`ecommerce.throttle`). L'indirizzo
 è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
 `APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
 
+Limite di quanto sopra: anche oltre il limite di `guest_exists` la differenza
+resta osservabile. Un'email con un account riceve `too_many_orders`, una
+nuova crea l'ordine (e un account senza password). Il limite per email non
+frena chi prova molte email diverse: il freno vero all'enumerazione è
+`checkout.guest_order_limit` per IP, insieme a reCAPTCHA. Non spegnere quel
+limite (`0`) senza reCAPTCHA attivo.
+
 ## CSRF
 
 Moduli e richieste del negozio usano `Wonder\Http\Csrf` del core.

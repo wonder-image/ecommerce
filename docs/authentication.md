@@ -64,7 +64,9 @@ accesso federato o non cliente: invita ad accedere o a recuperare la password
 (vedi `docs/cart-checkout.md`, «Account e ospite»). La risposta dice che
 l'email ha un account; per limitare l'enumerazione il blocco ha un limite per
 email e per IP, usa lo stesso testo per ogni metodo di accesso e va nel
-registro degli accessi con l'hash dell'email, mai l'email.
+registro degli accessi con l'hash dell'email, mai l'email. Oltre quel limite
+la differenza tra email nota (`too_many_orders`) e nuova (l'ordine nasce)
+resta osservabile: il freno è `checkout.guest_order_limit` con reCAPTCHA.
 
 ## Configurazione
 
