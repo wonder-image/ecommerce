@@ -25,10 +25,10 @@ class Cart {
     }
 
     prepareAnimation() {
+        // Lo stato chiuso è già inline in mini-cart.php: qui si ribadisce
+        // nel caso il markup sia sovrascritto dal sito.
         if (this.backdrop) {
             this.backdrop.style.opacity = '0';
-            this.backdrop.style.transitionProperty = 'opacity';
-            this.backdrop.style.transitionDuration = '.3s';
         }
 
         // Tutti i pannelli fermi al bordo destro e spostati fuori schermo
@@ -38,6 +38,18 @@ class Cart {
         this.panels.forEach(function (panel) {
             panel.style.right = '0';
             panel.style.translate = '100vw 0';
+        });
+
+        // Reflow: lo stato chiuso viene applicato prima delle transition,
+        // così il caricamento della pagina non anima i pannelli.
+        void this.element.offsetWidth;
+
+        if (this.backdrop) {
+            this.backdrop.style.transitionProperty = 'opacity';
+            this.backdrop.style.transitionDuration = '.3s';
+        }
+
+        this.panels.forEach(function (panel) {
             panel.style.transitionProperty = 'translate';
             panel.style.transitionDuration = '.4s';
             panel.style.transitionTimingFunction = 'cubic-bezier(.22, 1, .36, 1)';
