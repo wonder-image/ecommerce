@@ -170,6 +170,9 @@ final class ExpressController
             }
 
             self::json(['success' => false, 'error' => 'rejected', 'message' => implode("\n", $error->errors())], 422);
+        } catch (GuestAccountExists $error) {
+            // Come nel checkout: l'email è di un account, il cliente deve accedere.
+            self::json(['success' => false, 'error' => 'account_exists', 'message' => $error->getMessage()], 409);
         } catch (UserError|RuntimeException $error) {
             self::json(['success' => false, 'error' => 'rejected', 'message' => $error->getMessage()], 422);
         } catch (Throwable $error) {

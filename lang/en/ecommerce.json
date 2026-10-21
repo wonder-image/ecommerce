@@ -182,7 +182,8 @@
             "invoice": "An invoice needs a tax code, or a company name and VAT number.",
             "consents": "Accept the required documents to place the order.",
             "too_many_coupons": "You have tried too many discount codes. Please try again in a few minutes.",
-            "too_many_orders": "You have placed too many orders in a short time. Please try again in a few minutes."
+            "too_many_orders": "You have placed too many orders in a short time. Please try again in a few minutes.",
+            "account_exists": "To order with this email, sign in to your account or recover your password."
         },
         "completed": {
             "title": "Order received",

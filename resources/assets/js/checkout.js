@@ -987,7 +987,7 @@ class Checkout {
             this.render(payload.summary);
             this.say([payload.message]);
         } else {
-            // L'ordine non nasce (giacenza finita, dati mancanti): lo dice un alert della lib, non una riga sotto la carta.
+            // L'ordine non nasce (giacenza finita, dati mancanti, email di un account): lo dice un alert della lib, non una riga sotto la carta.
             const errors = (payload.errors || [payload.message || payload.error || this.labels.summary_error]).filter(Boolean);
 
             this.say([payAlert(errors.join(' '), '[data-checkout-alert]')]);

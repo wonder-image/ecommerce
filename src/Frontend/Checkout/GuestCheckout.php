@@ -4,23 +4,31 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
+use Wonder\Auth\AuthLog;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
 use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
 /**
  * L'ospite che ordina: l'ordine va a un account. Con un'email nuova
- * l'account nasce senza password; con un'email nota si riusa così com'è.
+ * l'account nasce senza password; con l'email di un cliente del negozio senza
+ * password, anche disattivato, si riusa così com'è. Ogni altro account ferma
+ * l'ordine con `GuestAccountExists`.
  * La sessione resta da ospite: chi ordina non entra nell'account.
  */
 final class GuestCheckout
 {
     /** Il link per scegliere la password vale una settimana. */
     private const LINK_TTL = 7 * 86400;
+
+    // Quante volte il blocco può dire che un'email ha un account: i limiti del signup del core.
+    private const EXISTS_EMAIL = [3, 900];
+    private const EXISTS_IP = [10, 3600];
 
     /** Si accende nelle Impostazioni di Set Up, riquadro «Negozio online»; spento per default. */
     public static function enabled(): bool
@@ -45,6 +53,10 @@ final class GuestCheckout
 
         if ($found !== null) {
             $userId = (int) $found['id'];
+            // Un account con un modo per entrare è di chi lo possiede: l'ospite deve accedere.
+            if (self::claimed($users, $userId)) {
+                self::refuse($email, $userId);
+            }
             // La sua scheda, o collegata ora; 0 se quella con la sua email è di un altro account.
             $customerId = (int) (CustomerContact::forUser($userId)['id'] ?? 0);
 
@@ -91,16 +103,54 @@ final class GuestCheckout
     public static function passwordLink(int $userId, string $restorePath): string
     {
         $users = new UserAccountGateway();
-        if ($userId <= 0
-            || $users->hasLocalPassword($userId)
-            || !$users->canAccessArea($userId, 'frontend', ['client'])
-            || (new FederatedIdentityRepository())->findByUserId($userId) !== []) {
+        if ($userId <= 0 || self::claimed($users, $userId) || !$users->canAccessArea($userId, 'frontend', ['client'])) {
             return '';
         }
 
         $issued = (new PasswordReset(self::LINK_TTL))->issueForUser($userId, null, [], false);
 
         return $restorePath.'?token='.rawurlencode((string) $issued->token);
+    }
+
+    /**
+     * Il blocco dice che l'email ha un account: oltre i limiti la risposta
+     * torna quella generica dei troppi ordini. Il registro ha l'hash, non l'email.
+     */
+    private static function refuse(string $email, int $userId): never
+    {
+        $hash = hash('sha256', $email);
+        $ip = Throttle::ip();
+        $allowed = Throttle::attempt('guest_exists', 'email:'.$hash, ...self::EXISTS_EMAIL)
+            && Throttle::attempt('guest_exists', $ip === '' ? '' : 'ip:'.$ip, ...self::EXISTS_IP);
+
+        try {
+            AuthLog::write('guest_checkout_existing', $userId, 'frontend', false, ['email_hash' => $hash, 'limited' => !$allowed]);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.guest_exists_log');
+        }
+
+        if (!$allowed) {
+            throw new RuntimeException((string) \__t('ecommerce.checkout.errors.too_many_orders'));
+        }
+
+        throw new GuestAccountExists();
+    }
+
+    /**
+     * `true` se l'account ha una password, entra con un'identità federata o
+     * non è un cliente del negozio (area frontend, ruolo client). Il cliente
+     * senza password resta agganciabile anche se disattivato (Q-GUEST-NOPWD).
+     */
+    private static function claimed(UserAccountGateway $users, int $userId): bool
+    {
+        $user = $users->findUserById($userId);
+        $client = $user !== null && !$user['deleted']
+            && in_array('frontend', $user['area'], true)
+            && in_array('client', $user['authority'], true);
+
+        return !$client
+            || $users->hasLocalPassword($userId)
+            || (new FederatedIdentityRepository())->findByUserId($userId) !== [];
     }
 
     /**

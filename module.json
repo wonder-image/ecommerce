@@ -1,7 +1,7 @@
 {
     "name": "Wonder Ecommerce",
     "slug": "ecommerce",
-    "version": "0.1.0",
+    "version": "0.2.0-beta.1",
     "description": "Negozio online del gestionale: vetrina, carrello, checkout e account dei clienti.",
     "namespace": "Wonder\\Plugin\\Ecommerce\\",
     "entrypoint": "Wonder\\Plugin\\Ecommerce\\Ecommerce",
