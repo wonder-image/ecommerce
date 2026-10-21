@@ -16,6 +16,7 @@ use Wonder\Auth\Federated\FederatedIdentityPayload;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Auth\Frontend\UserAccountGateway;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
@@ -34,6 +35,18 @@ function tokenValido(string $link): bool
     parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
 
     return (new OneTimeToken('password_reset'))->inspect((string) ($query['token'] ?? '')) !== null;
+}
+
+/** `true` se l'ospite con quell'email viene fermato prima di account, contatto e ordine. */
+function fermato(string $email): bool
+{
+    try {
+        GuestCheckout::account(carrelloOspite($email, 'Intruso'), [], []);
+    } catch (GuestAccountExists) {
+        return true;
+    }
+
+    return false;
 }
 
 /** Un cliente del negozio senza password. */
@@ -124,13 +137,12 @@ try {
         ]);
         $locale = (int) ($creato->insert_id ?? 0);
         sqlModify('user', ['password' => hashPassword('password-locale-123')], 'id', $locale);
-        $collegato = GuestCheckout::account(carrelloOspite($conPassword, 'Intruso'), [], []);
+        $fermatoLocale = fermato($conPassword);
 
-        check('l\'email di un account con password collega l\'ordine e non manda link', fn () =>
+        check('l\'email di un account con password ferma l\'ospite: nessun contatto, nessun link', fn () =>
             $locale > 0
-            && $collegato['user_id'] === $locale
-            && $collegato['created'] === false
-            && $collegato['customer_id'] > 0
+            && $fermatoLocale
+            && empty(Contact::find(['user_id' => $locale], 1))
             && GuestCheckout::passwordLink($locale, '/account/password-restore/') === ''
             && (infoUser($locale, 'id')->name ?? '') === 'Ada'
         );
@@ -162,11 +174,11 @@ try {
             'area' => json_encode(['backend'], JSON_THROW_ON_ERROR),
             'active' => 'true',
         ])->insert_id ?? 0);
-        $collegatoBackend = GuestCheckout::account(carrelloOspite($delBackend), [], []);
+        $fermatoBackend = fermato($delBackend);
 
-        check('l\'email di un utente senza l\'area del negozio collega l\'ordine ma non manda link', fn () =>
+        check('l\'email di un utente senza l\'area del negozio ferma l\'ospite e non manda link', fn () =>
             $backend > 0
-            && $collegatoBackend['user_id'] === $backend
+            && $fermatoBackend
             && GuestCheckout::passwordLink($backend, '/account/password-restore/') === ''
         );
 
@@ -204,6 +216,12 @@ try {
 
         check('a chi entra con Google non parte il link per la password', fn () =>
             $google > 0 && GuestCheckout::passwordLink($google, '/account/password-restore/') === ''
+        );
+
+        $fermatoGoogle = fermato($delGoogle);
+
+        check('l\'email di chi entra con Google ferma l\'ospite senza toccare il contatto', fn () =>
+            $fermatoGoogle && empty(Contact::find(['user_id' => $google], 1))
         );
 
         $delNegozio = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';

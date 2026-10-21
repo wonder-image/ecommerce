@@ -14,7 +14,9 @@ use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
 /**
  * L'ospite che ordina: l'ordine va a un account. Con un'email nuova
- * l'account nasce senza password; con un'email nota si riusa così com'è.
+ * l'account nasce senza password; con l'email di un account senza password
+ * nato da un ordine dell'ospite si riusa così com'è. Ogni altro account
+ * ferma l'ordine con `GuestAccountExists`.
  * La sessione resta da ospite: chi ordina non entra nell'account.
  */
 final class GuestCheckout
@@ -45,6 +47,10 @@ final class GuestCheckout
 
         if ($found !== null) {
             $userId = (int) $found['id'];
+            // Un account con un modo per entrare è di chi lo possiede: l'ospite deve accedere.
+            if (self::claimed($users, $userId)) {
+                throw new GuestAccountExists();
+            }
             // La sua scheda, o collegata ora; 0 se quella con la sua email è di un altro account.
             $customerId = (int) (CustomerContact::forUser($userId)['id'] ?? 0);
 
@@ -91,16 +97,25 @@ final class GuestCheckout
     public static function passwordLink(int $userId, string $restorePath): string
     {
         $users = new UserAccountGateway();
-        if ($userId <= 0
-            || $users->hasLocalPassword($userId)
-            || !$users->canAccessArea($userId, 'frontend', ['client'])
-            || (new FederatedIdentityRepository())->findByUserId($userId) !== []) {
+        if ($userId <= 0 || self::claimed($users, $userId)) {
             return '';
         }
 
         $issued = (new PasswordReset(self::LINK_TTL))->issueForUser($userId, null, [], false);
 
         return $restorePath.'?token='.rawurlencode((string) $issued->token);
+    }
+
+    /**
+     * `true` se l'account ha una password, entra con un'identità federata o
+     * non è un cliente attivo del negozio. Resta agganciabile solo l'account
+     * senza password nato da un ordine dell'ospite.
+     */
+    private static function claimed(UserAccountGateway $users, int $userId): bool
+    {
+        return $users->hasLocalPassword($userId)
+            || !$users->canAccessArea($userId, 'frontend', ['client'])
+            || (new FederatedIdentityRepository())->findByUserId($userId) !== [];
     }
 
     /**
