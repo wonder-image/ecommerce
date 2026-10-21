@@ -59,9 +59,11 @@ check('le rotte backend del modulo ereditano il gruppo backend del core', functi
 });
 
 // Il backend e le tabelle sono del gestionale: il negozio non aggiunge pagine
-// al pannello, tabelle sue o comandi forge (4.1 della spec di architettura).
-check('non dichiara database né comandi', fn () =>
-    $manifest->get('database') === null
+// al pannello o comandi forge (4.1 della spec di architettura). Unica tabella
+// sua: i contatori dei limiti (Q-THROTTLE), senza migrazioni né default.
+check('database: solo i Model, cioè ecommerce_throttle; nessun comando', fn () =>
+    $manifest->get('database') === ['models' => 'src/Models']
+    && array_map('basename', glob(dirname(__DIR__).'/src/Models/*') ?: []) === ['Throttle.php']
     && $manifest->consoleCommands() === []
 );
 
