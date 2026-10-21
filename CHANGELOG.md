@@ -5,15 +5,22 @@ versionamento semantico.
 
 ## Unreleased
 
-### Modificato
+### BREAKING
 
 - CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
   campo è `_csrf` e ogni `fetch` manda anche l'header `X-WI-CSRF`. Il token di
-  sessione non cambia, quindi nessuno perde la sessione. Un modulo che manda
-  ancora `csrf_token` (pagina in cache, override del sito) riceve 419: va
-  rigenerato con `Csrf::field()`.
+  sessione non cambia, quindi nessuno perde la sessione. Gli override di viste
+  e JS del sito che mandano ancora `csrf_token` ricevono 419: vanno aggiornati
+  con `Csrf::field()` e l'header `X-WI-CSRF`. Resta `csrf_token` solo dove il
+  form va a una route del core (logout del checkout, accesso federato,
+  impersonificazione).
 - La ricerca del catalogo dichiara `->csrf()`: senza l'header `X-WI-CSRF`
-  risponde 403. Serve la lib wonder-image dalla #12.
+  risponde 403. Serve la lib wonder-image dalla #12, che manda l'header; con
+  una lib precedente la ricerca smette di funzionare finché non si aggiorna
+  con `npm install`.
+
+### Modificato
+
 - Limite agli ordini dell'ospite (`checkout.guest_order_limit`: ip `[10, 900]`,
   carrello `[5, 600]`, 0 spegne). I conteggi stanno nella nuova tabella
   `ecommerce_throttle`, che nasce con `php forge update`; se la tabella non
