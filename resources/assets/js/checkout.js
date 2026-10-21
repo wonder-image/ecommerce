@@ -27,6 +27,21 @@ function showAccountExists(payload) {
     box.hidden = false;
 }
 
+// I link si richiudono quando l'ospite riprova o cambia l'email.
+function hideAccountExists() {
+    const box = document.querySelector('[data-checkout-account-exists]');
+
+    if (box) {
+        box.hidden = true;
+    }
+}
+
+document.addEventListener('input', (event) => {
+    if (event.target.matches?.('#checkout [name="email"]')) {
+        hideAccountExists();
+    }
+});
+
 class Checkout {
     constructor() {
         this.root = document.querySelector('[data-checkout]');
@@ -986,6 +1001,7 @@ class Checkout {
 
     // L'ordine nasce qui: il server controlla che il totale sia quello che il cliente ha visto.
     async place() {
+        hideAccountExists();
         const response = await fetch(this.form.action, {
             method: 'POST',
             body: this.body({ expected_total: String(this.latest?.order?.total ?? '') }),
@@ -1850,6 +1866,7 @@ class Express {
             billing: { name: event.billingDetails?.name || '', address: event.billingDetails?.address || {} },
             rate: event.shippingRate?.id || '',
         };
+        hideAccountExists();
         const placed = await this.post('place', {
             wallet: JSON.stringify(wallet),
             type: event.expressPaymentType || '',

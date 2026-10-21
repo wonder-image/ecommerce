@@ -127,7 +127,8 @@ Il blocco risponde così:
   (il login con `continue` verso il checkout) e `recovery_url` (recupero della
   password). Non c'è `redirect`: `checkout.js` mostra il messaggio nell'alert,
   apre sotto l'email i link «Accedi» e «Recupera la password» e lascia il
-  modulo com'è;
+  modulo com'è. I link si richiudono al tentativo successivo o quando l'ospite
+  cambia l'email;
 - senza JavaScript, un messaggio flash e il ritorno al checkout con i dati già
   scritti; i due link compaiono sotto l'email;
 - il check-out rapido (`ExpressController::place`) risponde con lo stesso 409.

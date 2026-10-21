@@ -154,4 +154,15 @@ check('checkout.js mostra i link col 409 account_exists senza azzerare il modulo
         && !str_contains($funzione, '.reset(');
 });
 
+check('checkout.js richiude i link a ogni nuovo tentativo e al cambio dell\'email', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $place = substr($js, (int) strpos($js, '    async place() {'), 120);
+    $express = substr($js, (int) strpos($js, "const placed = await this.post('place', {") - 40, 80);
+
+    return str_contains($js, "function hideAccountExists() {\n    const box = document.querySelector('[data-checkout-account-exists]');")
+        && str_contains($js, "event.target.matches?.('#checkout [name=\"email\"]')")
+        && str_contains($place, 'hideAccountExists();')
+        && str_contains($express, 'hideAccountExists();');
+});
+
 summary();
