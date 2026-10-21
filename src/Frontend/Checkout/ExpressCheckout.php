@@ -5,7 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\View\View;

@@ -16,6 +16,10 @@ require $supporto.'/compra.php';
 require $supporto.'/spedizioni.php';
 require $supporto.'/FakeStripeHttp.php';
 
+use Wonder\App\Models\User\User;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRejected;
@@ -171,6 +175,62 @@ check('express: apple_pay crea l\'ordine online con provider_method, senza chiam
         && $esito['receipt']['order_id'] > 0
         && providerMethodDi($esito['receipt']['order_id']) === 'apple_pay'
         && $http->requests === [];
+}));
+
+check('express da cliente entrato: senza civico e provincia l\'ordine nasce e l\'indirizzo non entra in rubrica', fn () => prova(static function (): bool {
+    $email = 'express-cliente-'.bin2hex(random_bytes(6)).'@example.com';
+    $userId = (int) (User::create([
+        'name' => 'Maria', 'surname' => 'Rossi', 'email' => $email,
+        'username' => create_link(explode('@', $email)[0], 'user', 'username'),
+        'authority' => json_encode(['client'], JSON_THROW_ON_ERROR),
+        'area' => json_encode(['frontend'], JSON_THROW_ON_ERROR),
+        'active' => 'true',
+    ])->insert_id ?? 0);
+    $contactId = (int) (Contact::create([
+        'name' => 'Maria', 'surname' => 'Rossi', 'email' => $email,
+        'user_id' => $userId, 'is_customer' => 'true', 'active' => 'true',
+    ])->insert_id ?? 0);
+
+    // Il rifiuto della rubrica si scrive nel log, che il test legge da un file suo.
+    $log = (string) tempnam(sys_get_temp_dir(), 'express-log-');
+    $logPrima = ini_set('error_log', $log);
+
+    try {
+        $_SESSION['user_id'] = $userId;
+        stripeConTipi(['card', 'apple_pay']);
+        $metodo = metodoStripe();
+        $cartId = (int) carrello([[articolo(2.0, 10.0), 1]]);
+        $grezzo = [
+            'email' => $email,
+            'fulfillment_type' => 'shipping',
+            'shipping_name' => 'Maria', 'shipping_surname' => 'Rossi',
+            'shipping_country' => 'IT', 'shipping_province' => '', 'shipping_city' => 'Milano',
+            'shipping_cap' => '20100', 'shipping_street' => 'Via Roma 1', 'shipping_number' => '',
+            'shipping_phone_prefix' => '+39', 'shipping_phone' => '3330001111',
+            'same_as_shipping' => '1',
+            'payment_method_id' => $metodo.':apple_pay',
+        ];
+        foreach (CheckoutRules::askedConsents($userId) as $documento) {
+            $grezzo['accept_'.$documento] = '1';
+        }
+        $post = CheckoutRules::post($grezzo, CartSession::user());
+        $totale = CheckoutSummary::payload($cartId, $post, CartSession::user())['order']['total'];
+        $esito = CheckoutPlacement::place($cartId, $post, CartSession::user(), ['json' => true, 'expected_total' => $totale, 'express' => true]);
+        $ordine = (array) Order::findById((int) $esito['receipt']['order_id']);
+
+        return CartSession::customerId() === $contactId
+            && (int) ($ordine['customer_id'] ?? 0) === $contactId
+            && ($ordine['shipping_street'] ?? '') === 'Via Roma 1'
+            && ContactAddress::find(['contact_id' => $contactId]) === []
+            && str_contains((string) file_get_contents($log), 'address not remembered for contact '.$contactId.':')
+            && !str_contains((string) file_get_contents($log), $email);
+    } finally {
+        ini_set('error_log', $logPrima === false ? '' : $logPrima);
+        @unlink($log);
+        unset($_SESSION['user_id']);
+        // La scheda letta resta in memoria oltre l'annullamento.
+        CustomerContact::forget();
+    }
 }));
 
 check('express: l\'ordine in sospeso del checkout normale torna carrello vero, sulla stessa riga', fn () => prova(static function (): bool {

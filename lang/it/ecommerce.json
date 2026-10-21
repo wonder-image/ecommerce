@@ -236,22 +236,6 @@
             "password_optional": "Password locale (facoltativa)",
             "password_confirmation": "Conferma password"
         },
-        "validation": {
-            "title": "Controlla i dati",
-            "review": "Controlla i dati inseriti e riprova.",
-            "errors": {
-                "name_required": "Inserisci il nome.",
-                "surname_required": "Inserisci il cognome.",
-                "email_invalid": "Inserisci un indirizzo email valido.",
-                "privacy_required": "Devi accettare l’informativa sulla privacy.",
-                "terms_required": "Devi accettare i termini e le condizioni.",
-                "phone_required": "Inserisci un numero di cellulare valido di almeno 6 cifre.",
-                "phone_not_unique": "Questo numero di cellulare è già associato a un altro account.",
-                "password_too_short": "La password deve contenere almeno 8 caratteri.",
-                "password_mismatch": "Le password non coincidono.",
-                "token_invalid": "Il link utilizzato non è valido o è scaduto."
-            }
-        },
         "login": {
             "title": "Accedi",
             "forgot": "Hai dimenticato la password?",

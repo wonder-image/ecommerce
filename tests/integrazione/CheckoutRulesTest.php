@@ -18,7 +18,7 @@ require $supporto.'/spedizioni.php';
 use Wonder\Auth\Federated\FederatedIdentityPayload;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\Federated\FederatedLoginService;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
+use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Gestionale\Models\Locations\Location;
@@ -291,7 +291,7 @@ check('l\'ospite deve accettare tutti e due i documenti', fn () =>
 
 check('chi li ha già accettati non li rivede', fn () => prova(static function (): bool {
     $pid = 'tst-'.uniqid();
-    $service = new FederatedLoginService(new EcommerceUserAccountGateway(), new FederatedIdentityRepository());
+    $service = new FederatedLoginService(new UserAccountGateway(), new FederatedIdentityRepository());
     $userId = (int) $service->authenticate(new FederatedIdentityPayload('google', $pid, $pid.'@example.com', true, 'Ada', 'Lovelace', ['sub' => $pid, 'email_verified' => true]), 'frontend', ['client'])->userId;
     $input = [];
     foreach (CheckoutRules::CONSENTS as $tipo) {
@@ -307,7 +307,7 @@ check('i consensi registrati dentro una transazione non la confermano in anticip
     $metodo = prova(static function (): int {
         $metodo = metodo('Segnaposto '.uniqid());
         $pid = 'tst-'.uniqid();
-        $service = new FederatedLoginService(new EcommerceUserAccountGateway(), new FederatedIdentityRepository());
+        $service = new FederatedLoginService(new UserAccountGateway(), new FederatedIdentityRepository());
         $userId = (int) $service->authenticate(new FederatedIdentityPayload('google', $pid, $pid.'@example.com', true, 'Ada', 'Lovelace', ['sub' => $pid, 'email_verified' => true]), 'frontend', ['client'])->userId;
         $input = [];
         foreach (CheckoutRules::CONSENTS as $tipo) {

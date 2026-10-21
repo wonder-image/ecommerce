@@ -15,9 +15,9 @@ use Wonder\App\Models\User\User;
 use Wonder\Auth\Federated\FederatedIdentityPayload;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\OneTimeToken;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\EcommerceUserAccountGateway;
+use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Catalog\Code;
@@ -66,7 +66,7 @@ $email = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';
 
 try {
     Transaction::run(static function () use ($email): void {
-        $gateway = new EcommerceUserAccountGateway();
+        $gateway = new UserAccountGateway();
 
         $nuovo = GuestCheckout::account(carrelloOspite('  '.strtoupper($email).' '), [], []);
         $utente = $gateway->findUserById($nuovo['user_id']);

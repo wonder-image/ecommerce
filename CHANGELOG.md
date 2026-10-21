@@ -154,6 +154,22 @@ versionamento semantico.
   quello del core. La firma non cambia: `$userId` è accettato e ignorato.
   Serve il core con `Wonder\Frontend\Support\DataLayer`, altrimenti GTM non
   riceve più `user.id`.
+- **Scheda e indirizzi solo da customer-account**: la scheda del cliente entrato
+  la dà `CustomerContact::forUser()` (carrello, Panoramica, checkout ospite con
+  account esistente); l'ospite nuovo la collega con
+  `ContactAccount::linkKeepingIdentity()`; `EcommerceAuthProfile::afterUserSaved()`
+  chiama il genitore e l'assegnazione degli ordini passa in
+  `afterContactLinked()`; gli indirizzi del checkout si ricordano con
+  `AccountAddresses::save()`. Cellulare e prefisso proposti al checkout con
+  `AuthValidator::localPhone()`/`defaultPrefix()` del core.
+  Visibile al cliente: un indirizzo arrivato incompleto dal pagamento rapido
+  (Apple Pay, Google Pay, Link: senza civico o provincia) non entra più nella
+  rubrica; l'ordine nasce lo stesso. Il prefisso si toglie dal numero salvato
+  solo se questo comincia con `+`. Richiede `wonder-image/app` `fix/2026-10-1`
+  (`AuthValidator::localPhone()`/`defaultPrefix()`, commit `f2c594ba`, non
+  ancora in una release) e `wonder-image/customer-account` `fix/2026-10-1`
+  (`afterContactLinked()`, `ContactAccount::linkKeepingIdentity()`,
+  `AccountAddresses::save()`); con quelli vecchi il checkout va in errore.
 
 - **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
   fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
@@ -163,6 +179,16 @@ versionamento semantico.
   `Wonder\Auth\Frontend\ContactAccount` passano a
   `Wonder\Plugin\CustomerAccount\…`. Abilitare `customer-account` in
   `modules.php` prima di gestionale ed ecommerce ed eseguire `forge update`.
+
+- Contatti e indirizzi letti con `Contact` e `ContactAddress` di
+  `Wonder\Plugin\CustomerAccount\Models` invece delle sottoclassi
+  `Wonder\Plugin\Gestionale\Models\Contacts\*`: l'ecommerce non legge colonne
+  del gestionale. `CustomerAccountExtension` la registra solo customer-account
+  nelle proprie route; l'ecommerce registra la sua estensione dopo.
+- Carrello, checkout, abbonamenti e impersonazione usano direttamente le classi
+  del core: `Wonder\Auth\Frontend\{AuthSession,AuthValidator,UserAccountGateway}`
+  e `Wonder\Http\SafeRedirect`. Gli errori di registrazione usano le chiavi
+  `auth.validation.*` del core.
 
 - Area cliente: ogni ordine dell'elenco è una riga di `frontend.account.row`
   come «Dati personali» (Ordine, Data, Totale, **Visualizza**), al posto della
@@ -203,6 +229,15 @@ versionamento semantico.
   `pages/account/payment-methods.php` e le traduzioni `ecommerce.account.payment_methods.*`.
 - Le rotte `ecommerce.account.*` (tabella sotto), senza alias dei vecchi nomi né
   redirect dei vecchi URL.
+- Le facciate auth di compatibilità, che inoltravano al core:
+  `Wonder\Plugin\Ecommerce\Frontend\Auth\{AuthController,AuthSession,AuthValidator,AuthValidationAlert,EcommerceUserAccountGateway}`
+  e `Wonder\Plugin\Ecommerce\Support\SafeRedirect`; l'handler
+  `http/frontend/auth.php` e i sette stub `view/pages/auth/*.php`, che nessuna
+  rotta raggiungeva (le pagine auth sono quelle del core). Resta
+  `EcommerceAuthProfile`. Di conseguenza `pages/auth` esce da `views.sealed` di
+  `module.json`.
+- Il blocco `ecommerce.auth.validation` di `lang/{it,en}/ecommerce.json`
+  (titolo, riepilogo e dieci messaggi), identico a `auth.validation` del core.
 
 ### BREAKING — migrazione dei siti
 
@@ -252,3 +287,8 @@ pannello (`side-nav`, `row-table`, apertura dei modal dal server).
 - **Password.** `/account/password/` e la sua voce di menu non esistono più.
 - **Database.** Dopo l'aggiornamento lanciare `php forge update`: aggiunge la colonna
   `birth_date` alla scheda contatto. Senza, «Dati personali» non riesce a salvare.
+- **Facciate auth.** Un sito che importa una delle classi auth rimosse (vedi
+  «Rimosso») passa alla classe omonima del core in `Wonder\Auth\Frontend`
+  (`EcommerceUserAccountGateway` → `UserAccountGateway`, `SafeRedirect` →
+  `Wonder\Http\SafeRedirect`) e alle chiavi `auth.validation.*`. I siti di
+  riferimento non ne usano nessuna.

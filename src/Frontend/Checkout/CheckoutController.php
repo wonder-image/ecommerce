@@ -10,11 +10,12 @@ use Wonder\App\Security\RecaptchaGuard;
 use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
-use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
-use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
@@ -614,20 +615,18 @@ final class CheckoutController
         $values['billing_country'] = $values['billing_country'] ?: 'IT';
         $values['shipping_country'] = $values['shipping_country'] ?: 'IT';
 
-        // Il cellulare del contatto: il numero salvato porta il prefisso davanti.
+        // Il cellulare del contatto: il prefisso davanti al numero lo toglie il core.
         if ($values['shipping_phone'] === '') {
             $prefix = (string) ($contact['phone_prefix'] ?? '');
             $phone = (string) (($contact['phone'] ?? '') ?: ($user->phone ?? ''));
-            $digits = (string) preg_replace('/\D+/', '', $phone);
-            $prefixDigits = (string) preg_replace('/\D+/', '', $prefix);
-            if ($prefixDigits !== '' && str_starts_with($digits, $prefixDigits)) {
-                $phone = substr($digits, strlen($prefixDigits));
-            }
             $values['shipping_phone_prefix'] = $prefix;
-            $values['shipping_phone'] = $phone;
+            $values['shipping_phone'] = AuthValidator::localPhone($phone, $prefix);
         }
         if ($values['shipping_phone_prefix'] === '' && function_exists('countryPhonePrefix')) {
             $values['shipping_phone_prefix'] = (string) countryPhonePrefix($values['shipping_country']);
+        }
+        if ($values['shipping_phone_prefix'] === '') {
+            $values['shipping_phone_prefix'] = AuthValidator::defaultPrefix();
         }
 
         return $values;

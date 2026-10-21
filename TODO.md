@@ -74,7 +74,8 @@ solo quando ha una prova automatica o una verifica descritta.
   combinazioni dei cinque token auth configurate dal pannello colori.
 - [x] B16 `publish:module` nel core salta con avviso file e cartelle dichiarati
   `sealed`, anche per richieste puntuali e `--force`; verificato dal sito con
-  `pages/auth/login.php`.
+  una view sigillata del modulo (le view auth oggi sono del core e non sono
+  più sigillate dall'ecommerce).
 - [ ] B17 **Priorità alta**, tra le prime dopo la 1.0.0: slot di markup in
   carrello, checkout, area cliente e autenticazione; `config.slots` è predisposto
   ma non viene ancora consumato. Issue #25.
@@ -92,7 +93,7 @@ solo quando ha una prova automatica o una verifica descritta.
 - [x] C0b Condividere layout, navigazione e righe stile Elena tramite
   `AccountPanel`; estendere nav, riepilogo e campi personali con validazione e
   salvataggio espliciti. Test core indipendente e rendering transazionale.
-- [x] C0c Spostare nel core i modelli di `gst_contacts`,
+- [x] C0c Spostare in `wonder-image/customer-account` i modelli di `gst_contacts`,
   `gst_contact_addresses`, `gst_external_references` e il collegamento account;
   usare `contacts`, `contact_addresses`, `external_references` con migrazione
   conservativa dei nomi `gst_*`; conservare ID, FK e namespace del gestionale.

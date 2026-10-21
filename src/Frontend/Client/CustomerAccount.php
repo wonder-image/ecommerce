@@ -3,8 +3,9 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Client;
 
 use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthValidator;
+use Wonder\Auth\Frontend\AuthValidator;
 
 final class CustomerAccount
 {
@@ -39,11 +40,19 @@ final class CustomerAccount
         return (object) array_merge(['exists' => is_array($row) && !empty($row['id'])], is_array($row) ? $row : []);
     }
 
+    /**
+     * @deprecated La scheda la collega customer-account: usare
+     *             `ContactAccount::link()` o, senza toccarne l'identità,
+     *             `ContactAccount::linkKeepingIdentity()`.
+     */
     public static function linkContact(int $userId, array $input = []): object
     {
         if (isset($input['_ecommerce_contact_phone'])) {
             $input['phone'] = $input['_ecommerce_contact_phone'];
         }
-        return ContactAccount::link($userId, $input);
+        $linked = ContactAccount::link($userId, $input);
+        CustomerContact::forget($userId);
+
+        return $linked;
     }
 }

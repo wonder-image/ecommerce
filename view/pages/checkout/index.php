@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\App\ResourceSchema\FormField;
+use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Elements\Components\Button;
 use Wonder\Elements\Components\Choice;
 use Wonder\Elements\Components\ChoiceGroup;
@@ -138,7 +139,7 @@ View::head(DataLayer::script([
                 </div>
             </div>
             <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3 mt-4 mt-p-3">
-                <div class="w-100 <?=CheckoutFields::cols('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? '+39')?></div>
+                <div class="w-100 <?=CheckoutFields::cols('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? AuthValidator::defaultPrefix())?></div>
                 <div class="w-100 <?=CheckoutFields::cols('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
             </div>
             <?php if ($shipping): ?>
