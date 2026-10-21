@@ -110,25 +110,27 @@ disallineano in silenzio.
 
 ## dataLayer per Google Tag Manager
 
-Ogni pagina frontend del modulo invia i propri dati a GTM. La forma di base:
+Ogni pagina frontend del modulo invia i propri dati a GTM con
+`Frontend\Tracking\DataLayer::script()`, che produce:
 
 ```php
 <script>
     window.dataLayer = window.dataLayer || [];
-
-    window.dataLayer.push(<?=json_encode([
-        'user' => ['id' => $userId], // null se ospite
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG)?>);
+    window.dataLayer.push({"page":{"type":"product","language":"it","currency":"EUR"}});
 </script>
 ```
+
+`user.id` lo manda il core prima del loader GTM (`Wonder\Frontend\Support\DataLayer`),
+cifrato con `APP_KEY`, `null` per l'ospite. Il modulo non lo rimanda: GTM
+terrebbe l'ultimo valore e sovrascriverebbe quello del core.
 
 - Inizializza sempre con `window.dataLayer = window.dataLayer || [];`: il push
   deve funzionare anche se GTM è spento o caricato dopo. Il contenitore GTM lo
   carica il core nell'head, quando è attivo: il modulo non lo include mai.
 - Valori PHP solo tramite `json_encode`, mai `echo` diretto dentro lo script.
-- Nessun dato personale: niente email, nome, telefono, indirizzo. Dell'utente
-  passa solo l'identificativo interno, `null` per l'ospite.
-- Dati di pagina (utente, tipo di pagina, lingua, valuta) in un solo punto
+- Nessun dato personale: niente email, nome, telefono, indirizzo, né l'id
+  numerico dell'utente.
+- Dati di pagina (tipo di pagina, lingua, valuta) in un solo punto
   condiviso, non ripetuti vista per vista. Se quel punto non esiste ancora per
   il caso che stai trattando, proponilo invece di copiare lo snippet.
 - Eventi ecommerce con i nomi e la struttura GA4: `view_item_list`,

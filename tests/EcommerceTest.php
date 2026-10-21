@@ -144,16 +144,24 @@ check('Google federato conserva csrf senza dipendere da consensi o reCAPTCHA', f
         && !str_contains($component, 'AppleID');
 });
 
-check('il login manuale indirizza gli account senza password al provider federato', function () use ($root, $core) {
+// C-PWD-I5 del core: niente avviso in pagina, l'indicazione del provider va per mail.
+check('il login manuale di un account solo federato manda la mail del provider, senza avviso in pagina', function () use ($root, $core) {
     $controller = (string) file_get_contents($core.'/class/Auth/Frontend/AuthController.php');
-    $alerts = (string) file_get_contents($core.'/class/Auth/Frontend/AuthValidationAlert.php');
-    $translations = (string) file_get_contents($root.'/lang/it/ecommerce.json');
 
-    return str_contains($controller, 'hasLocalPassword')
+    foreach (['it', 'en'] as $locale) {
+        $mail = json_decode((string) file_get_contents($core.'/resources/lang/'.$locale.'/auth.json'), true)['email'] ?? [];
+        if (!isset($mail['federated_subject'], $mail['federated_body'])) {
+            return false;
+        }
+    }
+
+    return str_contains($controller, '=== 925')
+        && str_contains($controller, '$this->mailFederatedHint(')
+        && str_contains($controller, 'hasLocalPassword')
         && str_contains($controller, 'federatedProviderForUser')
-        && str_contains($controller, "'use_federated_login_'.\$provider")
-        && str_contains($alerts, 'use_federated_login_google')
-        && str_contains($translations, 'use_google');
+        && str_contains($controller, "__t('auth.email.federated_subject')")
+        && str_contains($controller, "__t('auth.email.federated_body'")
+        && !str_contains($controller, 'use_federated_login_');
 });
 
 check('auth e account valorizzano i metadati SEO', function () use ($root, $core) {

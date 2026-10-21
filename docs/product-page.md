@@ -55,9 +55,10 @@ Gli URL dell'indice e delle categorie sono configurabili in
 
 ## dataLayer
 
-La pagina inizializza sempre `window.dataLayer`, invia i dati comuni di utente
-(solo id interno), tipo pagina, lingua e valuta, azzera `ecommerce`, quindi
-pubblica l'evento custom richiesto `view_product`.
+La pagina inizializza sempre `window.dataLayer`, invia i dati comuni di pagina
+(tipo, lingua e valuta), azzera `ecommerce`, quindi pubblica l'evento custom
+richiesto `view_product`. `user.id` non parte da qui: lo manda il core prima di
+GTM, cifrato con `APP_KEY`.
 
 Il payload conserva l'oggetto storico `product` e aggiunge `ecommerce` con la
 struttura item di GA4. `item_id`, `productID` schema.org e id usato dal
