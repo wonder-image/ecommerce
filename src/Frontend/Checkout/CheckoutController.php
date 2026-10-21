@@ -10,7 +10,7 @@ use Wonder\App\Security\RecaptchaGuard;
 use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Http\Csrf;
 use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
@@ -95,7 +95,6 @@ final class CheckoutController
             'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
-            'csrf_token' => AuthSession::csrfToken(),
         ])->render();
     }
 
@@ -128,7 +127,7 @@ final class CheckoutController
     {
         self::requirePost();
         $json = self::wantsJson();
-        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if ($json && !Csrf::verify()) {
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf();
@@ -219,7 +218,7 @@ final class CheckoutController
     {
         $return = ($_POST['return'] ?? '') === 'cart' ? 'cart' : 'checkout';
         $json = self::wantsJson();
-        if (AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (Csrf::verify()) {
             // Il coupon cambia il totale: l'ordine in pagamento torna carrello.
             self::resume($json);
         }
@@ -286,7 +285,7 @@ final class CheckoutController
     {
         self::requirePost();
 
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (!Csrf::verify()) {
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
 
@@ -456,7 +455,6 @@ final class CheckoutController
             'client_secret' => $clientSecret,
             'stripe' => OnlinePayment::browserKeys(),
             'return_url' => self::route('ecommerce.checkout.return'),
-            'csrf_token' => AuthSession::csrfToken(),
             // Il checkout riapre l'ordine; quello della barra rapida non ha un checkout.
             'back_url' => ExpressCart::owns($orderId) ? '' : self::route('ecommerce.checkout.index'),
         ])->render();
@@ -471,7 +469,7 @@ final class CheckoutController
     {
         self::requirePost();
         $json = self::wantsJson();
-        if ($json && !AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if ($json && !Csrf::verify()) {
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf();
@@ -508,7 +506,7 @@ final class CheckoutController
     private static function declined(): never
     {
         self::requirePost();
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (!Csrf::verify()) {
             self::json(['success' => false], 419);
         }
 
@@ -676,7 +674,7 @@ final class CheckoutController
     private static function rememberErrors(array $errors, array $values = []): void
     {
         unset(
-            $values['csrf_token'],
+            $values[Csrf::FIELD],
             $values['g-recaptcha-token'],
             $values['g-recaptcha-action'],
             $values['g-recaptcha-type']
@@ -718,7 +716,7 @@ final class CheckoutController
 
     private static function requireCsrf(): void
     {
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (!Csrf::verify()) {
             http_response_code(419);
             exit('CSRF token invalid');
         }

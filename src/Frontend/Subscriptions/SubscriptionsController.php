@@ -6,7 +6,7 @@ use Throwable;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Http\Csrf;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -139,7 +139,6 @@ final class SubscriptionsController
             'plans_url' => self::route('ecommerce.subscriptions.plans'),
             'summary_url' => self::route('ecommerce.subscriptions.summary'),
             'action' => self::route('ecommerce.subscriptions.add', ['price' => $code]),
-            'csrf_token' => AuthSession::csrfToken(),
         ])->render();
     }
 
@@ -270,7 +269,6 @@ final class SubscriptionsController
             'plans_url' => self::route('ecommerce.subscriptions.plans'),
             'action' => $url,
             'remove_url' => self::route('ecommerce.subscriptions.remove'),
-            'csrf_token' => AuthSession::csrfToken(),
         ])->render();
     }
 
@@ -733,7 +731,7 @@ final class SubscriptionsController
 
     private static function verifyCsrf(): void
     {
-        if (!AuthSession::verify($_POST['csrf_token'] ?? '')) {
+        if (!Csrf::verify()) {
             http_response_code(419);
             exit('CSRF token invalid');
         }

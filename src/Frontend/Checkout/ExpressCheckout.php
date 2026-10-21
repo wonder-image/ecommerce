@@ -5,7 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 use Throwable;
 use Wonder\App\Security\RecaptchaGuard;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Auth\Frontend\AuthSession;
+use Wonder\Http\Csrf;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Support\Orders\Checkout;
 use Wonder\View\View;
@@ -53,7 +53,7 @@ final class ExpressCheckout
                     'place' => \__r('ecommerce.checkout.express.place'),
                     'cancel' => \__r('ecommerce.checkout.express.cancel'),
                 ],
-                'csrf' => AuthSession::csrfToken(),
+                'csrf' => Csrf::token(),
                 'stripe' => $keys,
                 'amount' => $amount,
                 'currency' => strtolower((string) ($order['currency'] ?? 'EUR')),

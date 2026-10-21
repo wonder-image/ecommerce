@@ -2,10 +2,11 @@
 
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Elements\Components\Button;
+use Wonder\Http\Csrf;
 ?>
 <?php // Lo stacco da ciò che sta sopra: nell'accordion del carrello basta quello che il titolo aperto ha già. ?>
 <form id="<?=e($id)?>" class="p-r f-start w-100 <?=e((string) ($spacing ?? 'mt-5'))?>" method="post" action="<?=e(__r('ecommerce.checkout.coupon'))?>" data-checkout-coupon>
-    <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+    <?=Csrf::field()?>
     <?=FormField::key('return')->hidden()->value($return)?>
 
     <div class="w-100 d-flex gap-3">

@@ -12,7 +12,7 @@ check('il modulo diventa i dati del gestionale, con la consegna e gli indirizzi'
         'email' => ' a@example.com ', 'phone' => '333', 'payment_method_id' => '7',
         'fulfillment_type' => 'pickup', 'shipping_method_id' => '3', 'location_id' => '5',
         'customer_note' => 'ciao', 'billing_city' => 'Milano', 'shipping_city' => 'Roma',
-        'csrf_token' => 'x',
+        '_csrf' => 'x',
     ]);
 
     return $dati['email'] === 'a@example.com'

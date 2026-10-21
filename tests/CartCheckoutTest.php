@@ -90,7 +90,7 @@ check('tutte le mutazioni del carrello e del checkout verificano il CSRF', funct
 
     return str_contains($cart, 'self::requireCsrf();')
         && str_contains($checkout, 'self::requireCsrf();')
-        && str_contains($add, "FormField::key('csrf_token')->hidden()")
+        && str_contains($add, '<?=Csrf::field()?>')
         && !str_contains($add, "render('wonder')");
 });
 

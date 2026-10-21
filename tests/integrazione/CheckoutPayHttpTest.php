@@ -42,28 +42,28 @@ check('il ritorno senza un pagamento in sessione è un 404', fn () => $status ==
 check('la pagina di pagamento senza ordine in sessione rimanda al carrello', fn () =>
     $status === 302 && preg_match('#^Location:\s*\S*/carrello/\s*$#mi', $head) === 1);
 
-[$status] = $request('/checkout/reopen/', ['csrf_token' => 'invalid']);
+[$status] = $request('/checkout/reopen/', ['_csrf' => 'invalid']);
 check('la riapertura con CSRF invalido viene rifiutata', fn () => $status === 419);
 
 $xhr = ['X-Requested-With: XMLHttpRequest', 'Accept: application/json'];
 
-[$status, , $body] = $request('/checkout/reopen/', ['csrf_token' => 'invalid'], $xhr);
+[$status, , $body] = $request('/checkout/reopen/', ['_csrf' => 'invalid'], $xhr);
 $risposta = json_decode($body, true);
 check('la riapertura in JSON con CSRF invalido risponde 419 in JSON', fn () =>
     $status === 419 && is_array($risposta) && ($risposta['success'] ?? null) === false);
 
-[$status] = $request('/checkout/abandon/', ['csrf_token' => 'invalid']);
+[$status] = $request('/checkout/abandon/', ['_csrf' => 'invalid']);
 check('l\'abbandono non c\'è più', fn () => $status === 404);
 
-[$status, , $body] = $request('/checkout/', ['csrf_token' => 'invalid'], $xhr);
+[$status, , $body] = $request('/checkout/', ['_csrf' => 'invalid'], $xhr);
 $risposta = json_decode($body, true);
 check('place in JSON con CSRF invalido risponde 419 in JSON', fn () =>
     $status === 419 && is_array($risposta) && ($risposta['success'] ?? null) === false);
 
 // Il token valido viene dalla pagina di login, nella stessa sessione.
 [, , $login] = $request('/account/auth/login/');
-preg_match('/name="csrf_token" value="([^"]+)"/', $login, $token);
-[$status, , $body] = $request('/checkout/', ['csrf_token' => $token[1] ?? ''], $xhr);
+preg_match('/name="(?:_csrf|csrf_token)" value="([^"]+)"/', $login, $token);
+[$status, , $body] = $request('/checkout/', ['_csrf' => $token[1] ?? ''], $xhr);
 $risposta = json_decode($body, true);
 check('place in JSON senza carrello risponde in JSON e non con una pagina', fn () =>
     ($token[1] ?? '') !== ''

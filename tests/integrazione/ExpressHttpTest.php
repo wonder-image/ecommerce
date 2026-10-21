@@ -50,7 +50,7 @@ $request = static function (string $path, ?array $post = null) use (&$cookie, $b
 check('le rotte rapide vogliono il POST', fn () => $status === 404);
 
 foreach (['start', 'shipping', 'place', 'cancel'] as $azione) {
-    [$status, $risposta] = $request("/checkout/express/{$azione}/", ['csrf_token' => 'invalid']);
+    [$status, $risposta] = $request("/checkout/express/{$azione}/", ['_csrf' => 'invalid']);
     check("{$azione} con CSRF invalido risponde 419 in JSON", fn () =>
         $status === 419 && is_array($risposta) && ($risposta['success'] ?? null) === false);
 }
@@ -64,7 +64,7 @@ unset($curl);
 if (preg_match('/Set-Cookie:\s*(PHPSESSID=[^;\r\n]+)/i', $login, $match)) {
     $cookie = $match[1];
 }
-preg_match('/name="csrf_token" value="([^"]+)"/', $login, $token);
+preg_match('/name="(?:_csrf|csrf_token)" value="([^"]+)"/', $login, $token);
 $csrf = $token[1] ?? '';
 
 // L'ospite passa solo se il negozio accetta gli ordini senza account.
@@ -74,23 +74,23 @@ $ospite = GuestCheckout::enabled();
 $verifica = class_exists(ExpressVerification::class);
 
 foreach (['shipping', 'place'] as $azione) {
-    [$status, $risposta] = $request("/checkout/express/{$azione}/", ['csrf_token' => $csrf]);
+    [$status, $risposta] = $request("/checkout/express/{$azione}/", ['_csrf' => $csrf]);
     check("{$azione} senza carrello rapido: ".($ospite ? '409' : '401 per l\'ospite'), fn () =>
         $csrf !== '' && $status === ($ospite ? 409 : 401) && is_array($risposta) && ($risposta['success'] ?? null) === false);
 }
 
-[$status, $risposta] = $request('/checkout/express/start/', ['csrf_token' => $csrf, 'source' => 'cart']);
+[$status, $risposta] = $request('/checkout/express/start/', ['_csrf' => $csrf, 'source' => 'cart']);
 check('start dal carrello vuoto: '.($ospite ? '422 con un messaggio' : '401 per l\'ospite'), fn () =>
     $status === ($ospite ? 422 : 401) && is_array($risposta) && ($risposta['success'] ?? null) === false
     && (!$ospite || ($risposta['message'] ?? '') !== ''));
 
-[$status, $risposta] = $request('/checkout/express/cancel/', ['csrf_token' => $csrf]);
+[$status, $risposta] = $request('/checkout/express/cancel/', ['_csrf' => $csrf]);
 check('cancel senza niente in corso: '.($ospite ? 'va bene' : '401 per l\'ospite'), fn () =>
     $status === ($ospite ? 200 : 401) && is_array($risposta) && ($risposta['success'] ?? null) === $ospite);
 
 if ($ospite && $verifica) {
     $primo = ((array) sqlSelect('gst_products', ['active' => 'true'], 20, 'id', 'ASC')->row)[0] ?? [];
-    [$status, $risposta] = $request('/checkout/express/start/', ['csrf_token' => $csrf, 'source' => 'product', 'product_id' => $primo['id'] ?? 0, 'quantity' => '1']);
+    [$status, $risposta] = $request('/checkout/express/start/', ['_csrf' => $csrf, 'source' => 'product', 'product_id' => $primo['id'] ?? 0, 'quantity' => '1']);
     check('start da un prodotto senza token reCAPTCHA: 422 con un messaggio', fn () =>
         $status === 422 && is_array($risposta) && ($risposta['success'] ?? null) === false && ($risposta['message'] ?? '') !== '');
 }
@@ -99,7 +99,7 @@ if ($ospite && !$verifica) {
     // Il primo articolo acquistabile del sito: il carrello a parte nasce davvero.
     $avviato = null;
     foreach ((array) sqlSelect('gst_products', ['active' => 'true'], 20, 'id', 'ASC')->row as $riga) {
-        [$status, $risposta] = $request('/checkout/express/start/', ['csrf_token' => $csrf, 'source' => 'product', 'product_id' => $riga['id'], 'quantity' => '1']);
+        [$status, $risposta] = $request('/checkout/express/start/', ['_csrf' => $csrf, 'source' => 'product', 'product_id' => $riga['id'], 'quantity' => '1']);
         if ($status === 200) {
             $avviato = $risposta;
             break;
@@ -111,7 +111,7 @@ if ($ospite && !$verifica) {
 
     $spedizione = Gestionale::feature('shipping');
     $indirizzo = json_encode(['country' => 'IT', 'state' => 'MI', 'city' => 'Milano', 'postal_code' => '20121']);
-    [$status, $risposta] = $request('/checkout/express/shipping/', ['csrf_token' => $csrf, 'address' => $indirizzo, 'rate' => 'pending']);
+    [$status, $risposta] = $request('/checkout/express/shipping/', ['_csrf' => $csrf, 'address' => $indirizzo, 'rate' => 'pending']);
     $tariffe = (array) ($risposta['rates'] ?? []);
     check('shipping in Italia: tariffe con id testuale e importo in centesimi', fn () =>
         $status === 200 && $tariffe !== [] && is_int($risposta['amount'] ?? null)
@@ -119,12 +119,12 @@ if ($ospite && !$verifica) {
         && ($spedizione ? $tariffe[0]['id'] !== '0' : $tariffe === [['id' => '0', 'displayName' => $tariffe[0]['displayName'], 'amount' => 0]]));
 
     if ($spedizione) {
-        [$status, $risposta] = $request('/checkout/express/shipping/', ['csrf_token' => $csrf, 'address' => json_encode(['country' => 'AQ']), 'rate' => '']);
+        [$status, $risposta] = $request('/checkout/express/shipping/', ['_csrf' => $csrf, 'address' => json_encode(['country' => 'AQ']), 'rate' => '']);
         check('shipping fuori zona: 422 no_shipping', fn () => $status === 422 && ($risposta['error'] ?? '') === 'no_shipping');
     }
 
-    [$status] = $request('/checkout/express/cancel/', ['csrf_token' => $csrf]);
-    [$dopo] = $request('/checkout/express/shipping/', ['csrf_token' => $csrf, 'address' => $indirizzo]);
+    [$status] = $request('/checkout/express/cancel/', ['_csrf' => $csrf]);
+    [$dopo] = $request('/checkout/express/shipping/', ['_csrf' => $csrf, 'address' => $indirizzo]);
     check('cancel butta il carrello rapido: shipping poi dà 409', fn () => $status === 200 && $dopo === 409);
 }
 

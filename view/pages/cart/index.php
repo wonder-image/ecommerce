@@ -1,12 +1,12 @@
 <?php
 
-use Wonder\App\ResourceSchema\FormField;
 use Wonder\Elements\Components\Accordion;
 use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 $order = (array) ($cart['order'] ?? []);
 $items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
@@ -99,13 +99,13 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                         </div>
                         <div class="w-100 wi-cart__foot">
                             <form id="cart_quantity_<?=e((string) $id)?>" method="post" action="<?=e(__r('ecommerce.cart.quantity', ['id' => $id]))?>" class="wi-cart__stepper" data-cart-action>
-                                <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+                                <?=Csrf::field()?>
                                 <?=$minus?>
                                 <span class="wi-cart__quantity" aria-label="<?=e(__t('ecommerce.cart.quantity'))?>"><?=e(CartPresenter::quantity($quantity))?></span>
                                 <?=Button::make('+')->type('submit')->size('sm')->variant('black')->outline()->attr('name', 'quantity')->attr('value', $step($quantity + 1))->attr('aria-label', (string) __t('ecommerce.cart.increase'))?>
                             </form>
                             <form id="cart_remove_<?=e((string) $id)?>" method="post" action="<?=e($remove)?>" data-cart-action>
-                                <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+                                <?=Csrf::field()?>
                                 <button class="wi-cart__remove text-small" type="submit" data-wi-confirm="<?=e($confirm[0])?>" data-wi-confirm-title="<?=e($confirm[1])?>" data-wi-confirm-ok="<?=e($confirm[2])?>"><i class="bi bi-trash3"></i> <?=e(__t('ecommerce.cart.remove'))?></button>
                             </form>
                         </div>
@@ -115,7 +115,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
         </div>
         <div class="w-100 d-flex d-column gap-5">
             <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), [
-                'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency, 'csrf_token' => $csrf_token,
+                'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency,
                 'coupons' => false, 'couponCode' => '', 'notices' => [],
                 // I bottoni rapidi stanno sopra «Procedi».
                 'express' => Ecommerce::config('cart.express', true) ? ExpressCheckout::render('cart', $order) : '',
@@ -128,7 +128,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                 <?php
                 $couponCode = (string) ($order['coupon_code'] ?? '');
                 // Il tema Wonder non rende `Text`: all'accordion basta un oggetto con render().
-                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['csrf_token' => $csrf_token, 'code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => ''])) {
+                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => ''])) {
                     public function __construct(private string $html) {}
                     public function render(): string { return $this->html; }
                 };

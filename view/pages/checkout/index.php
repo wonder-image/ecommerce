@@ -12,6 +12,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
+use Wonder\Http\Csrf;
 
 $order = (array) ($cart['order'] ?? []);
 $items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
@@ -49,7 +50,7 @@ $shippingNotice = $shippingOptions !== [] ? '' : ($addressComplete ? 'no_shippin
 $order = ($summary['order'] ?? null) !== null ? $summary['order'] + ['fulfillment_type' => $fulfillment] : $order;
 $aside = [
     'step' => 'checkout', 'items' => (array) ($summary['items'] ?? $items), 'order' => $order, 'currency' => $currency,
-    'csrf_token' => $csrf_token, 'coupons' => $coupons, 'couponCode' => $couponCode, 'notices' => (array) ($summary['notices'] ?? []),
+    'coupons' => $coupons, 'couponCode' => $couponCode, 'notices' => (array) ($summary['notices'] ?? []),
 ];
 
 $labels = [];
@@ -101,7 +102,7 @@ View::head(DataLayer::script([
         data-declined-url="<?=e(__r('ecommerce.checkout.declined'))?>"
         data-labels="<?=e(json_encode($labels, $flags))?>"
         data-initial="<?=e(json_encode($summary, $flags))?>">
-        <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+        <?=Csrf::field()?>
         <?php foreach ($express as $button): ?><?=$button?><?php endforeach; ?>
         <div id="contatti" class="w-100">
             <div class="w-100 d-flex gap-3 mb-3">
@@ -240,7 +241,7 @@ View::head(DataLayer::script([
 </div>
 <?php if (!$guest && $user_email !== ''): ?>
     <form id="checkout-logout" method="post" action="<?=e(__r('ecommerce.auth.logout'))?>" hidden>
-        <?=FormField::key('csrf_token')->hidden()->value($csrf_token)?>
+        <?=Csrf::field()?>
     </form>
 <?php endif; ?>
 <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
