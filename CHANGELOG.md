@@ -148,6 +148,13 @@ versionamento semantico.
 
 ### Modificato
 
+- **dataLayer senza `user`**: `DataLayer::script()` manda solo `page` e gli
+  eventi ecommerce. `user.id` lo manda il core prima di GTM, cifrato con
+  `APP_KEY`; il modulo mandava dopo l'id numerico in chiaro e sovrascriveva
+  quello del core. La firma non cambia: `$userId` è accettato e ignorato.
+  Serve il core con `Wonder\Frontend\Support\DataLayer`, altrimenti GTM non
+  riceve più `user.id`.
+
 - **Scheda cliente da `wonder-image/customer-account`**: collegamento utente↔scheda,
   fatturazione, indirizzi e data di nascita nell'area account arrivano dal nuovo
   modulo, dipendenza dichiarata in `module.json`; l'ecommerce tiene solo la parte

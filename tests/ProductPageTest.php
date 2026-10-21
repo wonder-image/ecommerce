@@ -84,7 +84,7 @@ check('view_product usa identificativo e numeri coerenti con schema e carrello',
         && $product->data()['selected_product_id'] === 42;
 });
 
-check('il dataLayer e inizializzato, anonimizza gli ospiti e resetta ecommerce', function () use ($product) {
+check('il dataLayer e inizializzato, lascia user al core e resetta ecommerce', function () use ($product) {
     $script = DataLayer::script([
         'type' => 'product',
         'language' => 'it',
@@ -93,7 +93,7 @@ check('il dataLayer e inizializzato, anonimizza gli ospiti e resetta ecommerce',
 
     return str_contains($script, 'window.dataLayer = window.dataLayer || [];')
         && str_contains($script, 'window.dataLayer.push({ ecommerce: null });')
-        && str_contains($script, '"user":{"id":null}')
+        && !str_contains($script, '"user"')
         && str_contains($script, '"event":"view_product"')
         && str_contains($script, '\\u003CVerde\\u003E')
         && !str_contains($script, '<Verde>');

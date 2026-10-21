@@ -21,7 +21,7 @@ ragionamento va riportato nel piano o nel riepilogo.
 3. Breadcrumb: visibile, JSON-LD e gerarchia degli URL allineati. Il JSON-LD
    lo genera la funzione `breadcrumb()` di `wonder-image/app` tramite
    `$SEO->breadcrumb`: non va riscritto nel modulo.
-4. dataLayer: dati di pagina ed eventi GA4 inviati a Google Tag Manager, a
-   partire da `window.dataLayer.push({ user: { id: ... } })` su ogni pagina.
+4. dataLayer: dati di pagina ed eventi GA4 inviati a Google Tag Manager.
+   `user.id` lo manda il core, cifrato: il modulo non lo manda.
 
 Backend, modelli, resource, seeding ed email sono fuori da queste regole.
