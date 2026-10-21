@@ -53,7 +53,8 @@ password, Google e in futuro Apple). Se un account possiede soltanto
 un'identità federata, il tentativo di login con email e password viene fermato
 dopo reCAPTCHA e l'alert di pagina indica il provider da usare.
 
-I POST dei form pubblici tradizionali sono protetti da CSRF e reCAPTCHA
+I POST dei form pubblici tradizionali sono protetti da CSRF (`Wonder\Http\Csrf`:
+campo `_csrf`, header `X-WI-CSRF`, meta `wi-csrf` del layout) e reCAPTCHA
 Enterprise con action distinte. La callback Google non dipende da reCAPTCHA:
 resta protetta da CSRF, nonce e verifica server-side dell'ID token. Gli errori
 sono mostrati nell'alert di pagina.

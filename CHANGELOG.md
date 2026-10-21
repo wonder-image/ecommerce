@@ -3,6 +3,25 @@
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 versionamento semantico.
 
+## Unreleased
+
+### Modificato
+
+- CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
+  campo è `_csrf` e ogni `fetch` manda anche l'header `X-WI-CSRF`. Il token di
+  sessione non cambia, quindi nessuno perde la sessione. Un modulo che manda
+  ancora `csrf_token` (pagina in cache, override del sito) riceve 419: va
+  rigenerato con `Csrf::field()`.
+- La ricerca del catalogo dichiara `->csrf()`: senza l'header `X-WI-CSRF`
+  risponde 403. Serve la lib wonder-image dalla #12.
+- Limite agli ordini dell'ospite (`checkout.guest_order_limit`: ip `[10, 900]`,
+  carrello `[5, 600]`, 0 spegne). I conteggi stanno nella nuova tabella
+  `ecommerce_throttle`, che nasce con `php forge update`; se la tabella non
+  risponde, l'ordine passa. L'IP viene da `ClientIp::resolve()`: dietro un
+  proxy serve `APP_TRUST_PROXY`.
+- Catalogo: `%` e `_` nella ricerca restano caratteri normali nel LIKE.
+  `nome_desc` e `prezzo_desc` ordinano al contrario anche in modalità variant.
+
 ## 0.1.0 — non rilasciata
 
 ### Aggiunto
