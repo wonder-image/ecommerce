@@ -2,7 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
-use Wonder\Plugin\Ecommerce\Frontend\Client\CustomerAccount;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 
@@ -101,15 +101,8 @@ final class CartSession
             return 0;
         }
 
-        $userId = (int) (self::user()->id ?? 0);
-        $contact = CustomerAccount::info($userId);
-
-        if (!($contact->exists ?? false)) {
-            CustomerAccount::linkContact($userId);
-            $contact = CustomerAccount::info($userId);
-        }
-
-        return (int) ($contact->id ?? 0);
+        // La scheda la legge (e se manca la collega) customer-account, una volta per richiesta.
+        return (int) (CustomerContact::forUser((int) (self::user()->id ?? 0))['id'] ?? 0);
     }
 
     public static function token(bool $create = true): string

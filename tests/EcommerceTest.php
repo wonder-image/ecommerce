@@ -36,7 +36,7 @@ check('la configurazione non porta il checkout ospite: si accende dal backend', 
         && $config['auth']['federated']['apple'] === false;
 });
 
-check('le view auth sono sigillate', fn () => in_array('pages/auth', Ecommerce::sealedViews(), true));
+check('le view auth sono del core e l\'ecommerce non le sigilla', fn () => !in_array('pages/auth', Ecommerce::sealedViews(), true));
 
 check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua estensione', function () use ($root, $core) {
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
@@ -78,7 +78,7 @@ check('l’alert auth appartiene al layout di pagina e non ai form', function ()
     $alertPosition = strpos($layout, '$authAlert');
     $sectionPosition = strpos($layout, '<section>');
 
-    foreach (glob($root.'/view/pages/auth/*.php') ?: [] as $page) {
+    foreach (glob($core.'/app/view/pages/frontend/auth/*.php') ?: [] as $page) {
         if (str_contains((string) file_get_contents($page), 'components/auth/errors.php')) {
             return false;
         }
@@ -172,11 +172,11 @@ check('auth e account valorizzano i metadati SEO', function () use ($root, $core
 
 check('i form espongono id semantici per Google Tag Manager', function () use ($root, $core) {
     $forms = [
-        'view/pages/auth/login.php' => 'login',
-        'view/pages/auth/signup-request.php' => 'sign_up',
-        'view/pages/auth/signup-completion.php' => 'sign_up_completion',
-        'view/pages/auth/password-recovery.php' => 'password_recovery',
-        'view/pages/auth/password-restore.php' => 'password_restore',
+        'app/view/pages/frontend/auth/login.php' => 'login',
+        'app/view/pages/frontend/auth/signup-request.php' => 'sign_up',
+        'app/view/pages/frontend/auth/signup-completion.php' => 'sign_up_completion',
+        'app/view/pages/frontend/auth/password-recovery.php' => 'password_recovery',
+        'app/view/pages/frontend/auth/password-restore.php' => 'password_restore',
         'app/view/components/frontend/account/navigation.php' => 'logout', // il menu dell'account è del core
         'view/pages/backend/impersonation.php' => 'impersonate_user',
         'view/pages/subscriptions/configure.php' => 'subscription_configure',
@@ -185,9 +185,8 @@ check('i form espongono id semantici per Google Tag Manager', function () use ($
     ];
 
     foreach ($forms as $file => $id) {
-        $authPage = str_starts_with($file, 'view/pages/auth/');
-        $navigation = str_starts_with($file, 'app/');
-        $path = $authPage ? $core.'/app/view/pages/frontend/auth/'.basename($file) : ($navigation ? $core.'/'.$file : $root.'/'.$file);
+        $authPage = str_starts_with($file, 'app/view/pages/frontend/auth/');
+        $path = str_starts_with($file, 'app/') ? $core.'/'.$file : $root.'/'.$file;
         $source = (string) file_get_contents($path);
         if (!str_contains($source, $authPage ? "'form_id' => '".$id."'" : 'id="'.$id.'"')) {
             return false;

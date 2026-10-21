@@ -3,7 +3,7 @@
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\View\View;
-use Wonder\Plugin\Ecommerce\Frontend\Auth\AuthSession;
+use Wonder\Auth\Frontend\AuthSession;
 
 $quantity = max(1, (float) ($quantity ?? 1));
 $continue = (string) ($continue ?? ($_SERVER['REQUEST_URI'] ?? '/carrello/'));

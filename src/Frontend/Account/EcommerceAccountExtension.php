@@ -5,7 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 use Wonder\Auth\Frontend\AccountRoutes;
 use Wonder\Auth\Frontend\BaseAccountExtension;
 use Wonder\Http\Route;
-use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
@@ -70,8 +70,7 @@ final class EcommerceAccountExtension extends BaseAccountExtension
     /** In Panoramica l'ultimo ordine del cliente, con il link al dettaglio; senza ordini, una riga che lo dice. */
     public function overviewRows(array $rows, object $user): array
     {
-        $contact = Contact::find(['user_id' => (int) ($user->id ?? 0)], 1);
-        $contactId = is_array($contact) ? (int) ($contact['id'] ?? 0) : 0;
+        $contactId = (int) (CustomerContact::forUser((int) ($user->id ?? 0))['id'] ?? 0);
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
         $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(AccountOrder::condition($contactId), 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
         $label = (string) __t('ecommerce.account.orders.last');

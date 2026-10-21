@@ -3,13 +3,13 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Wonder\App\Support\GoogleMaps;
-use Wonder\Plugin\Gestionale\Models\Contacts\ContactAddress;
+use Wonder\Plugin\CustomerAccount\Account\AccountAddresses;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
 /**
  * L'indirizzo di consegna di un ordine resta nell'account del cliente: al
- * prossimo checkout lo ritrova già scritto. Uno uguale non si ripete, e il
- * primo diventa il predefinito.
+ * prossimo checkout lo ritrova già scritto. Uno uguale non si ripete; posizione,
+ * predefinito e validazione sono quelli di customer-account.
  */
 final class AccountAddress
 {
@@ -25,22 +25,24 @@ final class AccountAddress
             return null;
         }
 
-        $saved = ContactAddress::find(['contact_id' => $contactId, 'deleted' => 'false']);
-        $saved = isset($saved['id']) ? [$saved] : array_values(array_filter((array) $saved, 'is_array'));
-        foreach ($saved as $row) {
+        foreach (AccountAddresses::all($contactId) as $row) {
             if (self::same($address, $row)) {
                 return null;
             }
         }
 
-        $positions = array_map(static fn (array $row): int => (int) ($row['position'] ?? 0), $saved);
-        $created = ContactAddress::create($address + [
-            'contact_id' => $contactId,
-            'is_default' => $saved === [] ? 'true' : 'false',
-            'position' => ($positions === [] ? 0 : max($positions)) + 1,
-        ]);
+        // Scrive customer-account, con la sua validazione: un indirizzo incompleto
+        // (dalla barra rapida, senza civico o provincia) non entra in rubrica e
+        // l'ordine va avanti lo stesso.
+        $saved = AccountAddresses::save($contactId, $address);
+        if (!($saved->success ?? false)) {
+            // Solo l'id della scheda e i messaggi della validazione: niente dati del cliente.
+            error_log('Ecommerce checkout address not remembered for contact '.$contactId.': '.implode(' | ', array_map('strval', (array) ($saved->messages ?? []))));
 
-        return (int) ($created->insert_id ?? 0) ?: null;
+            return null;
+        }
+
+        return (int) ($saved->id ?? 0) > 0 ? (int) $saved->id : null;
     }
 
     /**

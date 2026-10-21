@@ -2,7 +2,7 @@
 
 use Wonder\Auth\Impersonation;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Support\SafeRedirect;
+use Wonder\Http\SafeRedirect;
 use Wonder\View\View;
 
 $service = new Impersonation(
