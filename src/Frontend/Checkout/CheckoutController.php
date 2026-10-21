@@ -26,6 +26,8 @@ final class CheckoutController
 {
     private const FORM_STATE = 'ecommerce_checkout_form_state';
     private const COMPLETED = 'ecommerce_checkout_completed';
+    // Senza JavaScript: il modulo torna con i link per accedere o recuperare la password.
+    private const ACCOUNT_EXISTS = 'ecommerce_checkout_account_exists';
     // Dieci codici sbagliati in dieci minuti: abbastanza per un errore di battitura, poco per indovinarne uno.
     private const COUPON_LIMIT = 10;
     private const COUPON_WINDOW = 600;
@@ -95,6 +97,7 @@ final class CheckoutController
             'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
+            'account_exists' => self::pullAccountExists(),
         ])->render();
     }
 
@@ -192,6 +195,8 @@ final class CheckoutController
             }
 
             self::reject([$e->getMessage()], $post, $json);
+        } catch (GuestAccountExists $e) {
+            self::accountExists($e, $post, $json);
         } catch (UserError $error) {
             self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
@@ -356,6 +361,30 @@ final class CheckoutController
 
         self::rememberErrors($errors, CheckoutRules::rememberedPost($post, $_POST));
         self::redirect(self::route('ecommerce.checkout.index'));
+    }
+
+    /**
+     * L'email dell'ospite è di un account: in JSON un 409 con i link per
+     * accedere o recuperare la password, altrimenti il modulo torna com'era
+     * con l'avviso e gli stessi link.
+     */
+    private static function accountExists(GuestAccountExists $error, array $post, bool $json): never
+    {
+        if ($json) {
+            self::json(['success' => false, 'error' => 'account_exists', 'message' => $error->getMessage()] + GuestAccountExists::links(), 409);
+        }
+
+        $_SESSION[self::ACCOUNT_EXISTS] = true;
+        self::rememberErrors([$error->getMessage()], CheckoutRules::rememberedPost($post, $_POST));
+        self::redirect(self::route('ecommerce.checkout.index'));
+    }
+
+    private static function pullAccountExists(): bool
+    {
+        $exists = !empty($_SESSION[self::ACCOUNT_EXISTS]);
+        unset($_SESSION[self::ACCOUNT_EXISTS]);
+
+        return $exists;
     }
 
     private static function completed(): void
