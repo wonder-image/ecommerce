@@ -132,4 +132,17 @@ check('le chiavi account_exists, login_cta e recovery_cta esistono in italiano e
     return true;
 });
 
+check('checkout.js mostra i link col 409 account_exists senza azzerare il modulo', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $funzione = substr($js, (int) strpos($js, 'function showAccountExists('), 900);
+
+    return str_contains($js, "} else if (payload.error === 'account_exists') {\n            showAccountExists(payload);")
+        && str_contains($js, "if (placed.data.error === 'account_exists') {\n                showAccountExists(placed.data);")
+        && str_contains($funzione, "querySelector('[data-checkout-account-exists]')")
+        && str_contains($funzione, 'login.href = payload.login_url')
+        && str_contains($funzione, 'recovery.href = payload.recovery_url')
+        && str_contains($funzione, 'box.hidden = false')
+        && !str_contains($funzione, '.reset(');
+});
+
 summary();
