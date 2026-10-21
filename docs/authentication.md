@@ -59,6 +59,13 @@ Enterprise con action distinte. La callback Google non dipende da reCAPTCHA:
 resta protetta da CSRF, nonce e verifica server-side dell'ID token. Gli errori
 sono mostrati nell'alert di pagina.
 
+Il checkout da ospite non aggancia l'ordine a un account con password, con
+accesso federato o non cliente: invita ad accedere o a recuperare la password
+(vedi `docs/cart-checkout.md`, «Account e ospite»). La risposta dice che
+l'email ha un account; per limitare l'enumerazione il blocco ha un limite per
+email e per IP, usa lo stesso testo per ogni metodo di accesso e va nel
+registro degli accessi con l'hash dell'email, mai l'email.
+
 ## Configurazione
 
 `config/module.php` espone:

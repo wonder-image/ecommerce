@@ -3,10 +3,19 @@
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il
 versionamento semantico.
 
-## Unreleased
+## 0.2.0-beta.1 — non rilasciata
 
 ### BREAKING
 
+- Checkout da ospite: l'ospite che usa l'email di un account con password, con
+  accesso federato o non cliente viene invitato ad accedere o a recuperare la
+  password; l'ordine non viene più agganciato a quell'account. La risposta JSON
+  è 409 con `error: account_exists`, `login_url` e `recovery_url`, senza
+  `redirect`; senza JavaScript torna al checkout con i dati e i link. Il
+  check-out rapido risponde allo stesso modo. Gli account nati da un ordine da
+  ospite, senza password, si agganciano come prima. Il blocco ha un limite (3
+  ogni 15 minuti per email, 10 ogni ora per IP) e va nel registro degli
+  accessi come `guest_checkout_existing`, con l'hash dell'email.
 - CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
   campo è `_csrf` e ogni `fetch` manda anche l'header `X-WI-CSRF`. Il token di
   sessione non cambia, quindi nessuno perde la sessione. Gli override di viste
