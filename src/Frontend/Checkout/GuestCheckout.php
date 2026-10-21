@@ -4,11 +4,13 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use RuntimeException;
 use Throwable;
+use Wonder\Auth\AuthLog;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\PasswordReset;
 use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 
@@ -23,6 +25,10 @@ final class GuestCheckout
 {
     /** Il link per scegliere la password vale una settimana. */
     private const LINK_TTL = 7 * 86400;
+
+    // Quante volte il blocco può dire che un'email ha un account: i limiti del signup del core.
+    private const EXISTS_EMAIL = [3, 900];
+    private const EXISTS_IP = [10, 3600];
 
     /** Si accende nelle Impostazioni di Set Up, riquadro «Negozio online»; spento per default. */
     public static function enabled(): bool
@@ -49,7 +55,7 @@ final class GuestCheckout
             $userId = (int) $found['id'];
             // Un account con un modo per entrare è di chi lo possiede: l'ospite deve accedere.
             if (self::claimed($users, $userId)) {
-                throw new GuestAccountExists();
+                self::refuse($email, $userId);
             }
             // La sua scheda, o collegata ora; 0 se quella con la sua email è di un altro account.
             $customerId = (int) (CustomerContact::forUser($userId)['id'] ?? 0);
@@ -104,6 +110,30 @@ final class GuestCheckout
         $issued = (new PasswordReset(self::LINK_TTL))->issueForUser($userId, null, [], false);
 
         return $restorePath.'?token='.rawurlencode((string) $issued->token);
+    }
+
+    /**
+     * Il blocco dice che l'email ha un account: oltre i limiti la risposta
+     * torna quella generica dei troppi ordini. Il registro ha l'hash, non l'email.
+     */
+    private static function refuse(string $email, int $userId): never
+    {
+        $hash = hash('sha256', $email);
+        $ip = Throttle::ip();
+        $allowed = Throttle::attempt('guest_exists', 'email:'.$hash, ...self::EXISTS_EMAIL)
+            && Throttle::attempt('guest_exists', $ip === '' ? '' : 'ip:'.$ip, ...self::EXISTS_IP);
+
+        try {
+            AuthLog::write('guest_checkout_existing', $userId, 'frontend', false, ['email_hash' => $hash, 'limited' => !$allowed]);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.guest_exists_log');
+        }
+
+        if (!$allowed) {
+            throw new RuntimeException((string) \__t('ecommerce.checkout.errors.too_many_orders'));
+        }
+
+        throw new GuestAccountExists();
     }
 
     /**

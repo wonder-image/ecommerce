@@ -18,6 +18,7 @@ use Wonder\Auth\OneTimeToken;
 use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
+use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
@@ -145,6 +146,23 @@ try {
             && empty(Contact::find(['user_id' => $locale], 1))
             && GuestCheckout::passwordLink($locale, '/account/password-restore/') === ''
             && (infoUser($locale, 'id')->name ?? '') === 'Ada'
+        );
+
+        // Oltre il limite il blocco non conferma più l'account: risponde come ai troppi ordini.
+        Throttle::useStore(static fn (): int => 99);
+        try {
+            GuestCheckout::account(carrelloOspite($conPassword), [], []);
+            $oltre = 'nessun errore';
+        } catch (GuestAccountExists) {
+            $oltre = 'account_exists';
+        } catch (RuntimeException $errore) {
+            $oltre = $errore->getMessage();
+        } finally {
+            Throttle::useStore(null);
+        }
+
+        check('oltre il limite l\'email nota riceve l\'errore generico dei troppi ordini', fn () =>
+            $oltre === (string) __t('ecommerce.checkout.errors.too_many_orders')
         );
 
         $conflitto = 'ecommerce-ospite-'.bin2hex(random_bytes(6)).'@example.com';
