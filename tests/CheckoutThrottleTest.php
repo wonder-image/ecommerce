@@ -136,6 +136,20 @@ check('attempt: il fallimento va nel registro con Errors::internal', fn () =>
     str_contains(corpo($throttle, 'attempt'), 'Errors::internal(')
     && str_contains(corpo($throttle, 'attempt'), 'return true;'));
 
+check('ip: delega a Wonder\\Http\\ClientIp::resolve, niente REMOTE_ADDR letto a mano', fn () =>
+    str_contains(corpo($throttle, 'ip'), 'ClientIp::resolve()')
+    && !str_contains(corpo($throttle, 'ip'), 'REMOTE_ADDR'));
+
+check('ip: senza APP_TRUST_PROXY un X-Forwarded-For falso non conta', function (): bool {
+    $prima = $_SERVER;
+    $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
+    $_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.1';
+    $ip = Throttle::ip();
+    $_SERVER = $prima;
+
+    return $ip === '203.0.113.7' || \Wonder\Http\Cookie::trustsProxy();
+});
+
 $modello = (string) file_get_contents($root.'/src/Models/Throttle.php');
 $manifesto = json_decode((string) file_get_contents($root.'/module.json'), true);
 check('Models\Throttle: tabella ecommerce_throttle con chiave unica di 64, hits e window_start; il manifest la dichiara', fn () =>

@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Support;
 
 use RuntimeException;
 use Throwable;
+use Wonder\Http\ClientIp;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Sql\Connection;
 
@@ -118,10 +119,10 @@ final class Throttle
         fclose($handle);
     }
 
-    /** L'indirizzo di chi chiama, così come lo vede il server: un'intestazione si falsifica. */
+    /** L'indirizzo di chi chiama, quello del core: dietro un proxy fidato (APP_TRUST_PROXY) l'ultima voce di X-Forwarded-For. */
     public static function ip(): string
     {
-        return (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        return ClientIp::resolve();
     }
 
     /**
