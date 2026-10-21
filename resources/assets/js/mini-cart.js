@@ -1,3 +1,11 @@
+// Token CSRF della pagina: il meta del layout, poi il campo _csrf di un modulo, infine quello ricevuto dal server.
+function csrfToken(fallback = '') {
+    return document.querySelector('meta[name="wi-csrf"]')?.content
+        || document.querySelector('[name="_csrf"]')?.value
+        || fallback
+        || '';
+}
+
 class Cart {
     constructor(selector = '#cart-offpage') {
         this.element = document.querySelector(selector);
@@ -113,6 +121,7 @@ class Cart {
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
+                'X-WI-CSRF': csrfToken(),
             },
         }, options));
         const payload = await response.json();
