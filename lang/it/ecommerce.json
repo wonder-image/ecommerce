@@ -201,9 +201,7 @@
             "consents": "Accetta i documenti richiesti per ordinare.",
             "too_many_coupons": "Hai provato troppi codici sconto. Riprova tra qualche minuto.",
             "too_many_orders": "Hai inviato troppi ordini in poco tempo. Riprova tra qualche minuto.",
-            "account_exists": "Per ordinare con questa email accedi al tuo account o recupera la password.",
-            "login_cta": "Accedi",
-            "recovery_cta": "Recupera la password"
+            "account_exists": "Per ordinare con questa email accedi al tuo account o recupera la password."
         },
         "completed": {
             "title": "Ordine ricevuto",

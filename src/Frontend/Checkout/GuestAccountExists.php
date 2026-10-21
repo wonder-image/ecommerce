@@ -17,17 +17,4 @@ final class GuestAccountExists extends RuntimeException
     {
         parent::__construct((string) \__t('ecommerce.checkout.errors.account_exists'));
     }
-
-    /**
-     * Dove andare: l'accesso torna al checkout, il recupero manda il link per la password.
-     *
-     * @return array{login_url: string, recovery_url: string}
-     */
-    public static function links(): array
-    {
-        return [
-            'login_url' => (string) \__r('ecommerce.auth.login').'?continue='.rawurlencode((string) \__r('ecommerce.checkout.index')),
-            'recovery_url' => (string) \__r('ecommerce.auth.password.recovery'),
-        ];
-    }
 }

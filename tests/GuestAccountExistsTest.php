@@ -98,42 +98,50 @@ check('place intercetta GuestAccountExists prima di UserError e RuntimeException
         && str_contains($place, 'self::accountExists($e, $post, $json)');
 });
 
-check('in JSON è un 409 account_exists con i link e senza redirect (il JS lo seguirebbe)', fn () =>
-    str_contains($risposta, "self::json(['success' => false, 'error' => 'account_exists', 'message' => \$error->getMessage()] + GuestAccountExists::links(), 409)")
+check('in JSON è un 409 account_exists col solo messaggio, senza link e senza redirect (il JS lo seguirebbe)', fn () =>
+    str_contains($risposta, "self::json(['success' => false, 'error' => 'account_exists', 'message' => \$error->getMessage()], 409)")
     && !str_contains($risposta, "'redirect'"));
 
-check('senza JavaScript il modulo torna com\'era, con l\'avviso e i link', fn () =>
-    str_contains($risposta, '$_SESSION[self::ACCOUNT_EXISTS] = true')
-    && str_contains($risposta, 'self::rememberErrors([$error->getMessage()], CheckoutRules::rememberedPost($post, $_POST))')
+check('senza JavaScript il modulo torna com\'era con l\'avviso, senza stato per i link', fn () =>
+    str_contains($risposta, 'self::rememberErrors([$error->getMessage()], CheckoutRules::rememberedPost($post, $_POST))')
     && str_contains($risposta, "self::redirect(self::route('ecommerce.checkout.index'))")
-    && str_contains($controller, "'account_exists' => self::pullAccountExists()"));
+    && !str_contains($controller, 'ACCOUNT_EXISTS')
+    && !str_contains($controller, 'pullAccountExists'));
 
-check('i link: accesso con continue al checkout e recupero della password', fn () =>
-    str_contains($exists, "\\__r('ecommerce.auth.login').'?continue='.rawurlencode((string) \\__r('ecommerce.checkout.index'))")
-    && str_contains($exists, "\\__r('ecommerce.auth.password.recovery')"));
+check('GuestAccountExists non produce più link', fn () =>
+    !str_contains($exists, 'function links(')
+    && !str_contains($exists, 'login_url')
+    && !str_contains($exists, 'recovery_url'));
 
 check('Express risponde allo stesso modo, prima del rifiuto generico', function () use ($express) {
     $blocco = strpos($express, 'catch (GuestAccountExists $error)');
 
     return $blocco !== false
         && strpos($express, 'catch (UserError|RuntimeException $error)', $blocco) !== false
-        && str_contains($express, "'error' => 'account_exists', 'message' => \$error->getMessage()] + GuestAccountExists::links(), 409)");
+        && str_contains($express, "'error' => 'account_exists', 'message' => \$error->getMessage()], 409)")
+        && !str_contains($express, 'GuestAccountExists::links()');
 });
 
-check('la pagina del checkout ha i link, nascosti finché non servono', function () use ($root) {
+check('sotto l\'email non ci sono più i link: resta «Accedi» accanto a «Contatti» con continue al checkout', function () use ($root) {
     $vista = (string) file_get_contents($root.'/view/pages/checkout/index.php');
 
-    return str_contains($vista, 'data-checkout-account-exists<?=!empty($account_exists) ? \'\' : \' hidden\'?>')
-        && str_contains($vista, 'data-account-login href="<?=e($links[\'login_url\'])?>"')
-        && str_contains($vista, 'data-account-recovery href="<?=e($links[\'recovery_url\'])?>"');
+    return !str_contains($vista, 'data-checkout-account-exists')
+        && !str_contains($vista, 'data-account-login')
+        && !str_contains($vista, 'data-account-recovery')
+        && !str_contains($vista, 'GuestAccountExists')
+        && str_contains($vista, "__r('ecommerce.auth.login').'?continue='.rawurlencode((string) __r('ecommerce.checkout.index'))")
+        && str_contains($vista, "__t('ecommerce.checkout.login')");
 });
 
-check('le chiavi account_exists, login_cta e recovery_cta esistono in italiano e in inglese', function () use ($root) {
+check('account_exists esiste in italiano e in inglese, login_cta e recovery_cta non più', function () use ($root) {
     foreach (['it', 'en'] as $lingua) {
         $testi = json_decode((string) file_get_contents($root.'/lang/'.$lingua.'/ecommerce.json'), true, 64, JSON_THROW_ON_ERROR);
-        foreach (['account_exists', 'login_cta', 'recovery_cta'] as $chiave) {
-            if (trim((string) ($testi['checkout']['errors'][$chiave] ?? '')) === '') {
-                throw new RuntimeException($lingua.': manca '.$chiave);
+        if (trim((string) ($testi['checkout']['errors']['account_exists'] ?? '')) === '') {
+            throw new RuntimeException($lingua.': manca account_exists');
+        }
+        foreach (['login_cta', 'recovery_cta'] as $chiave) {
+            if (array_key_exists($chiave, (array) ($testi['checkout']['errors'] ?? []))) {
+                throw new RuntimeException($lingua.': resta '.$chiave);
             }
         }
     }
@@ -141,28 +149,15 @@ check('le chiavi account_exists, login_cta e recovery_cta esistono in italiano e
     return true;
 });
 
-check('checkout.js mostra i link col 409 account_exists senza azzerare il modulo', function () use ($root) {
+check('checkout.js col 409 account_exists mostra solo l\'alert, senza link e senza azzerare il modulo', function () use ($root) {
     $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
-    $funzione = substr($js, (int) strpos($js, 'function showAccountExists('), 900);
 
-    return str_contains($js, "} else if (payload.error === 'account_exists') {\n            showAccountExists(payload);")
-        && str_contains($js, "if (placed.data.error === 'account_exists') {\n                showAccountExists(placed.data);")
-        && str_contains($funzione, "querySelector('[data-checkout-account-exists]')")
-        && str_contains($funzione, 'login.href = payload.login_url')
-        && str_contains($funzione, 'recovery.href = payload.recovery_url')
-        && str_contains($funzione, 'box.hidden = false')
-        && !str_contains($funzione, '.reset(');
-});
-
-check('checkout.js richiude i link a ogni nuovo tentativo e al cambio dell\'email', function () use ($root) {
-    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
-    $place = substr($js, (int) strpos($js, '    async place() {'), 120);
-    $express = substr($js, (int) strpos($js, "const placed = await this.post('place', {") - 40, 80);
-
-    return str_contains($js, "function hideAccountExists() {\n    const box = document.querySelector('[data-checkout-account-exists]');")
-        && str_contains($js, "event.target.matches?.('#checkout [name=\"email\"]')")
-        && str_contains($place, 'hideAccountExists();')
-        && str_contains($express, 'hideAccountExists();');
+    return !str_contains($js, 'AccountExists')
+        && !str_contains($js, 'data-checkout-account-exists')
+        && !str_contains($js, 'login_url')
+        && !str_contains($js, 'recovery_url')
+        && str_contains($js, "const errors = (payload.errors || [payload.message || payload.error || this.labels.summary_error]).filter(Boolean);")
+        && str_contains($js, "this.say(placed.data.message || this.labels.error);");
 });
 
 summary();

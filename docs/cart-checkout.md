@@ -123,16 +123,17 @@ con lo stesso testo per tutti.
 
 Il blocco risponde così:
 
-- col JavaScript, 409 con `error: account_exists`, il messaggio, `login_url`
-  (il login con `continue` verso il checkout) e `recovery_url` (recupero della
-  password). Non c'è `redirect`: `checkout.js` mostra il messaggio nell'alert,
-  apre sotto l'email i link «Accedi» e «Recupera la password» e lascia il
-  modulo com'è. I link si richiudono al tentativo successivo o quando l'ospite
-  cambia l'email;
+- col JavaScript, 409 con `error: account_exists` e il messaggio. Non c'è
+  `redirect`: `checkout.js` mostra il messaggio nell'alert e lascia il modulo
+  com'è;
 - senza JavaScript, un messaggio flash e il ritorno al checkout con i dati già
-  scritti; i due link compaiono sotto l'email;
-- il check-out rapido (`ExpressController::place`) risponde con lo stesso 409.
-  Nella pagina del checkout apre gli stessi link, altrove resta il messaggio.
+  scritti;
+- il check-out rapido (`ExpressController::place`) risponde con lo stesso 409
+  e mostra il messaggio.
+
+Sotto l'email non compaiono link: per accedere c'è «Accedi» accanto a
+«Contatti», che porta al login con `continue` verso il checkout; dal login si
+recupera la password.
 
 Il testo è uguale per password, Google e account non cliente, quindi non dice
 quale metodo di accesso ha l'account. Dice però che l'email ha un account:

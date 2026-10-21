@@ -10,9 +10,9 @@ versionamento semantico.
 - Checkout da ospite: l'ospite che usa l'email di un account con password, con
   accesso federato o non cliente viene invitato ad accedere o a recuperare la
   password; l'ordine non viene più agganciato a quell'account. La risposta JSON
-  è 409 con `error: account_exists`, `login_url` e `recovery_url`, senza
-  `redirect`; senza JavaScript torna al checkout con i dati e i link. Il
-  check-out rapido risponde allo stesso modo. I clienti senza password (come
+  è 409 con `error: account_exists` e il messaggio, senza `redirect`; senza
+  JavaScript torna al checkout con i dati e l'avviso. Per accedere resta
+  «Accedi» accanto a «Contatti». Il check-out rapido risponde allo stesso modo. I clienti senza password (come
   gli account nati da un ordine da ospite), anche disattivati, si agganciano
   come prima. Il blocco ha un limite (3
   ogni 15 minuti per email, 10 ogni ora per IP) e va nel registro degli

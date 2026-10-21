@@ -6,42 +6,6 @@ function csrfToken(fallback = '') {
         || '';
 }
 
-// L'email dell'ospite è di un account (409 account_exists): sotto l'email compaiono «Accedi» e «Recupera la password».
-// Il modulo resta com'è. Fuori dal checkout (barra rapida altrove) basta il messaggio.
-function showAccountExists(payload) {
-    const box = document.querySelector('[data-checkout-account-exists]');
-
-    if (!box) {
-        return;
-    }
-
-    const login = box.querySelector('[data-account-login]');
-    const recovery = box.querySelector('[data-account-recovery]');
-
-    if (login && payload.login_url) {
-        login.href = payload.login_url;
-    }
-    if (recovery && payload.recovery_url) {
-        recovery.href = payload.recovery_url;
-    }
-    box.hidden = false;
-}
-
-// I link si richiudono quando l'ospite riprova o cambia l'email.
-function hideAccountExists() {
-    const box = document.querySelector('[data-checkout-account-exists]');
-
-    if (box) {
-        box.hidden = true;
-    }
-}
-
-document.addEventListener('input', (event) => {
-    if (event.target.matches?.('#checkout [name="email"]')) {
-        hideAccountExists();
-    }
-});
-
 class Checkout {
     constructor() {
         this.root = document.querySelector('[data-checkout]');
@@ -1001,7 +965,6 @@ class Checkout {
 
     // L'ordine nasce qui: il server controlla che il totale sia quello che il cliente ha visto.
     async place() {
-        hideAccountExists();
         const response = await fetch(this.form.action, {
             method: 'POST',
             body: this.body({ expected_total: String(this.latest?.order?.total ?? '') }),
@@ -1023,11 +986,8 @@ class Checkout {
         if (payload.error === 'total_changed' && payload.summary) {
             this.render(payload.summary);
             this.say([payload.message]);
-        } else if (payload.error === 'account_exists') {
-            showAccountExists(payload);
-            this.say([payAlert(payload.message, '[data-checkout-alert]')]);
         } else {
-            // L'ordine non nasce (giacenza finita, dati mancanti): lo dice un alert della lib, non una riga sotto la carta.
+            // L'ordine non nasce (giacenza finita, dati mancanti, email di un account): lo dice un alert della lib, non una riga sotto la carta.
             const errors = (payload.errors || [payload.message || payload.error || this.labels.summary_error]).filter(Boolean);
 
             this.say([payAlert(errors.join(' '), '[data-checkout-alert]')]);
@@ -1866,7 +1826,6 @@ class Express {
             billing: { name: event.billingDetails?.name || '', address: event.billingDetails?.address || {} },
             rate: event.shippingRate?.id || '',
         };
-        hideAccountExists();
         const placed = await this.post('place', {
             wallet: JSON.stringify(wallet),
             type: event.expressPaymentType || '',
@@ -1875,9 +1834,6 @@ class Express {
 
         if (!placed.ok) {
             event.paymentFailed({ reason: placed.data.error === 'no_shipping' ? 'address_unserviceable' : 'fail' });
-            if (placed.data.error === 'account_exists') {
-                showAccountExists(placed.data);
-            }
             this.say(placed.data.message || this.labels.error);
 
             return;

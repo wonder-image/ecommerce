@@ -9,7 +9,6 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
-use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -114,13 +113,6 @@ View::head(DataLayer::script([
             </div>
             <?php if ($guest || $user_email === ''): ?>
                 <?=FormField::key('email')->email()->label((string) __t('ecommerce.auth.fields.email'))->required()->value($values['email'] ?? '')?>
-                <?php if ($guest): $links = GuestAccountExists::links(); ?>
-                    <?php // L'email è di un account: aperto dal server senza JavaScript, da checkout.js col 409. ?>
-                    <p class="w-100 d-flex gap-3 text-small mt-2" data-checkout-account-exists<?=!empty($account_exists) ? '' : ' hidden'?>>
-                        <a class="a-r" data-account-login href="<?=e($links['login_url'])?>"><?=e(__t('ecommerce.checkout.errors.login_cta'))?></a>
-                        <a class="a-r" data-account-recovery href="<?=e($links['recovery_url'])?>"><?=e(__t('ecommerce.checkout.errors.recovery_cta'))?></a>
-                    </p>
-                <?php endif; ?>
             <?php else: ?>
                 <div class="w-100 d-flex gap-3">
                     <p class="text"><?=e($user_email)?></p>
