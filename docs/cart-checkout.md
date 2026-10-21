@@ -98,17 +98,52 @@ Gli ordini senza account si accendono nel riquadro «Negozio online» delle
 Impostazioni di Set Up (`checkout_guest`, spento per default); come il resto di
 quella pagina, in produzione si leggono soltanto. L'ospite vede «Accedi» nei Contatti e
 scrive la sua email; l'invio è protetto da reCAPTCHA (action
-`ecommerce_checkout`). Al «Ordina» `GuestCheckout` trova l'account con quella
-email o lo crea senza password, collega il contatto e salva i consensi
-(`registerLeadConsents` per un account che c'era già, i cui dati non cambiano).
-Una scheda del commerciante con quella email e senza account si collega senza
-cambiarne nome e telefono. Se l'account è un cliente del negozio attivo, senza
-password e senza accesso con Google, l'email dell'ordine porta il link «Scegli
-la password» (7 giorni, i link già mandati restano validi); scegliendola l'email
-risulta verificata. Se l'account non si può creare (per esempio l'email di un
-utente cancellato) l'errore va nel log e l'ordine nasce lo stesso, senza account.
+`ecommerce_checkout`). Al «Ordina» `GuestCheckout` cerca l'account con quella
+email.
+
+- Se l'account ha una password, un accesso federato (Google) o non è un cliente
+  del negozio (area frontend con ruolo client), l'ordine si ferma (`GuestAccountExists`) e l'ospite viene
+  invitato ad accedere o a recuperare la password. L'ordine non si aggancia più
+  a quell'account e il contatto non viene collegato.
+- Se l'account è un cliente senza password e senza accesso federato (per
+  esempio nato da un ordine da ospite), l'ordine si aggancia come prima, anche
+  se il cliente è disattivato: il contatto si collega, i consensi passano da
+  `registerLeadConsents` e i dati dell'account non cambiano. L'email
+  dell'ordine porta il link «Scegli la password» (7 giorni, i link già mandati
+  restano validi) solo se il cliente è attivo; scegliendola l'email risulta
+  verificata.
+- Se l'account non c'è, `GuestCheckout` lo crea senza password, collega il
+  contatto e salva i consensi. Una scheda del commerciante con quella email e
+  senza account si collega senza cambiarne nome e telefono. Se l'account non si
+  può creare (per esempio l'email di un utente cancellato) l'errore va nel log
+  e l'ordine nasce lo stesso, senza account.
+
 La sessione resta da ospite. La conferma dice all'ospite che l'email è partita,
-con lo stesso testo per tutti: non rivela se l'account ha già una password.
+con lo stesso testo per tutti.
+
+Il blocco risponde così:
+
+- col JavaScript, 409 con `error: account_exists` e il messaggio. Non c'è
+  `redirect`: `checkout.js` mostra il messaggio nell'alert e lascia il modulo
+  com'è;
+- senza JavaScript, un messaggio flash e il ritorno al checkout con i dati già
+  scritti;
+- il check-out rapido (`ExpressController::place`) risponde con lo stesso 409
+  e mostra il messaggio.
+
+Sotto l'email non compaiono link: per accedere c'è «Accedi» accanto a
+«Contatti», che porta al login con `continue` verso il checkout; dal login si
+recupera la password.
+
+Il testo è uguale per password, Google e account non cliente, quindi non dice
+quale metodo di accesso ha l'account. Dice però che l'email ha un account:
+per frenare chi prova molte email, il blocco conta i tentativi in
+`ecommerce_throttle` (bucket `guest_exists`: 3 ogni 15 minuti per hash
+dell'email, 10 ogni ora per IP). Oltre il limite l'ospite vede il generico
+`too_many_orders`. Ogni blocco scrive nel registro degli accessi del core
+l'evento `guest_checkout_existing` con l'id dell'account, `email_hash`
+(sha256) e `limited`; l'email in chiaro non viene salvata. L'invio resta
+protetto da reCAPTCHA.
 
 Gli ordini dell'ospite hanno un limite, in `checkout.guest_order_limit` della
 config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
@@ -121,6 +156,13 @@ richieste insieme non superano il limite. Se la tabella non risponde,
 l'ordine passa e l'errore va nel registro (`ecommerce.throttle`). L'indirizzo
 è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
 `APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
+
+Limite di quanto sopra: anche oltre il limite di `guest_exists` la differenza
+resta osservabile. Un'email con un account riceve `too_many_orders`, una
+nuova crea l'ordine (e un account senza password). Il limite per email non
+frena chi prova molte email diverse: il freno vero all'enumerazione è
+`checkout.guest_order_limit` per IP, insieme a reCAPTCHA. Non spegnere quel
+limite (`0`) senza reCAPTCHA attivo.
 
 ## CSRF
 

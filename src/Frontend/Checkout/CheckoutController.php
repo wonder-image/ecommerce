@@ -192,6 +192,8 @@ final class CheckoutController
             }
 
             self::reject([$e->getMessage()], $post, $json);
+        } catch (GuestAccountExists $e) {
+            self::accountExists($e, $post, $json);
         } catch (UserError $error) {
             self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
@@ -355,6 +357,20 @@ final class CheckoutController
         }
 
         self::rememberErrors($errors, CheckoutRules::rememberedPost($post, $_POST));
+        self::redirect(self::route('ecommerce.checkout.index'));
+    }
+
+    /**
+     * L'email dell'ospite è di un account: in JSON un 409 col messaggio,
+     * altrimenti il modulo torna com'era con l'avviso.
+     */
+    private static function accountExists(GuestAccountExists $error, array $post, bool $json): never
+    {
+        if ($json) {
+            self::json(['success' => false, 'error' => 'account_exists', 'message' => $error->getMessage()], 409);
+        }
+
+        self::rememberErrors([$error->getMessage()], CheckoutRules::rememberedPost($post, $_POST));
         self::redirect(self::route('ecommerce.checkout.index'));
     }
 

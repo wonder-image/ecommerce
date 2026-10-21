@@ -1,0 +1,163 @@
+<?php
+/** php tests/GuestAccountExistsTest.php */
+declare(strict_types=1);
+
+require __DIR__.'/../vendor/autoload.php';
+require __DIR__.'/harness.php';
+
+$root = dirname(__DIR__);
+$guest = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestCheckout.php');
+
+/** Il corpo di un metodo statico fino al metodo dopo. */
+function corpoMetodo(string $sorgente, string $metodo): string
+{
+    if (!preg_match('/(private|public) static function '.preg_quote($metodo, '/').'\\(/', $sorgente, $trovato, PREG_OFFSET_CAPTURE)) {
+        return '';
+    }
+    $inizio = $trovato[0][1];
+    $fine = preg_match('/(private|public) static function /', $sorgente, $dopo, PREG_OFFSET_CAPTURE, $inizio + 1) ? $dopo[0][1] : false;
+
+    return substr($sorgente, $inizio, $fine === false ? null : $fine - $inizio);
+}
+
+$account = corpoMetodo($guest, 'account');
+$claimed = corpoMetodo($guest, 'claimed');
+
+check('account(): il blocco arriva prima di consensi, contatto e creazione', function () use ($account) {
+    $blocco = strpos($account, 'self::refuse($email, $userId)');
+    if ($blocco === false) {
+        throw new RuntimeException('manca il blocco');
+    }
+    foreach (['registerLeadConsents(', 'CustomerContact::forUser(', 'createUserWithoutPassword('] as $dopo) {
+        $posizione = strpos($account, $dopo);
+        if ($posizione === false || $posizione < $blocco) {
+            throw new RuntimeException($dopo.' prima del blocco');
+        }
+    }
+
+    return true;
+});
+
+check('l\'account è di qualcuno con password, Google o se non è un cliente del negozio', fn () =>
+    str_contains($claimed, '->hasLocalPassword($userId)')
+    && str_contains($claimed, "in_array('frontend', \$user['area'], true)")
+    && str_contains($claimed, "in_array('client', \$user['authority'], true)")
+    && str_contains($claimed, 'FederatedIdentityRepository())->findByUserId($userId) !== []'));
+
+check('il cliente disattivato senza password si aggancia come prima (Q-GUEST-NOPWD)', fn () =>
+    !str_contains($claimed, 'canAccessArea(')
+    && !str_contains($claimed, "['active']"));
+
+check('il link per la password usa la stessa regola, solo per un cliente attivo', function () use ($guest) {
+    $link = corpoMetodo($guest, 'passwordLink');
+
+    return str_contains($link, 'self::claimed($users, $userId)')
+        && str_contains($link, "!\$users->canAccessArea(\$userId, 'frontend', ['client'])");
+});
+
+check('GuestAccountExists è un RuntimeException con il testo del modulo', function () use ($root) {
+    $classe = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestAccountExists.php');
+
+    return is_subclass_of(\Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists::class, RuntimeException::class)
+        && str_contains($classe, "'ecommerce.checkout.errors.account_exists'");
+});
+
+$refuse = corpoMetodo($guest, 'refuse');
+
+check('il blocco conta per hash dell\'email (3/900) e per IP (10/3600), poi risponde come ai troppi ordini', function () use ($guest, $refuse, $account) {
+    $tentativo = strpos($refuse, "Throttle::attempt('guest_exists', 'email:'.\$hash");
+    $generico = strpos($refuse, "'ecommerce.checkout.errors.too_many_orders'");
+    $blocco = strpos($refuse, 'throw new GuestAccountExists()');
+
+    return str_contains($guest, 'EXISTS_EMAIL = [3, 900]')
+        && str_contains($guest, 'EXISTS_IP = [10, 3600]')
+        && str_contains($refuse, "\$hash = hash('sha256', \$email)")
+        && str_contains($refuse, "Throttle::attempt('guest_exists', \$ip === '' ? '' : 'ip:'.\$ip")
+        && $tentativo !== false && $generico !== false && $blocco !== false
+        && $tentativo < $generico && $generico < $blocco
+        && str_contains($account, 'self::refuse($email, $userId)')
+        && !str_contains($account, 'throw new GuestAccountExists()');
+});
+
+check('il registro ha l\'hash dell\'email, mai l\'email', fn () =>
+    str_contains($refuse, "AuthLog::write('guest_checkout_existing', \$userId, 'frontend', false, ['email_hash' => \$hash")
+    && !preg_match('/AuthLog::write\([^;]*\$email\b/', $refuse));
+
+$controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+$express = (string) file_get_contents($root.'/src/Frontend/Checkout/ExpressController.php');
+$exists = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestAccountExists.php');
+$place = corpoMetodo($controller, 'place');
+$risposta = corpoMetodo($controller, 'accountExists');
+
+check('place intercetta GuestAccountExists prima di UserError e RuntimeException', function () use ($place) {
+    $blocco = strpos($place, 'catch (GuestAccountExists $e)');
+
+    return $blocco !== false
+        && $blocco < strpos($place, 'catch (UserError $error)')
+        && $blocco < strpos($place, 'catch (RuntimeException $error)')
+        && str_contains($place, 'self::accountExists($e, $post, $json)');
+});
+
+check('in JSON è un 409 account_exists col solo messaggio, senza link e senza redirect (il JS lo seguirebbe)', fn () =>
+    str_contains($risposta, "self::json(['success' => false, 'error' => 'account_exists', 'message' => \$error->getMessage()], 409)")
+    && !str_contains($risposta, "'redirect'"));
+
+check('senza JavaScript il modulo torna com\'era con l\'avviso, senza stato per i link', fn () =>
+    str_contains($risposta, 'self::rememberErrors([$error->getMessage()], CheckoutRules::rememberedPost($post, $_POST))')
+    && str_contains($risposta, "self::redirect(self::route('ecommerce.checkout.index'))")
+    && !str_contains($controller, 'ACCOUNT_EXISTS')
+    && !str_contains($controller, 'pullAccountExists'));
+
+check('GuestAccountExists non produce più link', fn () =>
+    !str_contains($exists, 'function links(')
+    && !str_contains($exists, 'login_url')
+    && !str_contains($exists, 'recovery_url'));
+
+check('Express risponde allo stesso modo, prima del rifiuto generico', function () use ($express) {
+    $blocco = strpos($express, 'catch (GuestAccountExists $error)');
+
+    return $blocco !== false
+        && strpos($express, 'catch (UserError|RuntimeException $error)', $blocco) !== false
+        && str_contains($express, "'error' => 'account_exists', 'message' => \$error->getMessage()], 409)")
+        && !str_contains($express, 'GuestAccountExists::links()');
+});
+
+check('sotto l\'email non ci sono più i link: resta «Accedi» accanto a «Contatti» con continue al checkout', function () use ($root) {
+    $vista = (string) file_get_contents($root.'/view/pages/checkout/index.php');
+
+    return !str_contains($vista, 'data-checkout-account-exists')
+        && !str_contains($vista, 'data-account-login')
+        && !str_contains($vista, 'data-account-recovery')
+        && !str_contains($vista, 'GuestAccountExists')
+        && str_contains($vista, "__r('ecommerce.auth.login').'?continue='.rawurlencode((string) __r('ecommerce.checkout.index'))")
+        && str_contains($vista, "__t('ecommerce.checkout.login')");
+});
+
+check('account_exists esiste in italiano e in inglese, login_cta e recovery_cta non più', function () use ($root) {
+    foreach (['it', 'en'] as $lingua) {
+        $testi = json_decode((string) file_get_contents($root.'/lang/'.$lingua.'/ecommerce.json'), true, 64, JSON_THROW_ON_ERROR);
+        if (trim((string) ($testi['checkout']['errors']['account_exists'] ?? '')) === '') {
+            throw new RuntimeException($lingua.': manca account_exists');
+        }
+        foreach (['login_cta', 'recovery_cta'] as $chiave) {
+            if (array_key_exists($chiave, (array) ($testi['checkout']['errors'] ?? []))) {
+                throw new RuntimeException($lingua.': resta '.$chiave);
+            }
+        }
+    }
+
+    return true;
+});
+
+check('checkout.js col 409 account_exists mostra solo l\'alert, senza link e senza azzerare il modulo', function () use ($root) {
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+
+    return !str_contains($js, 'AccountExists')
+        && !str_contains($js, 'data-checkout-account-exists')
+        && !str_contains($js, 'login_url')
+        && !str_contains($js, 'recovery_url')
+        && str_contains($js, "const errors = (payload.errors || [payload.message || payload.error || this.labels.summary_error]).filter(Boolean);")
+        && str_contains($js, "this.say(placed.data.message || this.labels.error);");
+});
+
+summary();
