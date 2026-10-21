@@ -3,11 +3,20 @@ declare(strict_types=1);
 
 require __DIR__.'/../harness.php';
 
-$request = static function (string $path, ?array $post = null): array {
+// Una sola sessione: il token della ricerca è quello del meta wi-csrf della pagina.
+$cookies = tempnam(sys_get_temp_dir(), 'eco-search');
+register_shutdown_function(static fn () => @unlink($cookies));
+$csrf = '';
+$request = static function (string $path, ?array $post = null, ?string $token = null) use ($cookies, &$csrf): array {
     $curl = curl_init((getenv('WI_TEST_URL') ?: 'https://ecommerce.test').$path);
     curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
-        CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0]);
-    if ($post !== null) curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($post));
+        CURLOPT_SSL_VERIFYPEER => false, CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_COOKIEJAR => $cookies, CURLOPT_COOKIEFILE => $cookies]);
+    if ($post !== null) {
+        curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($post));
+        $token ??= $csrf;
+        if ($token !== '') curl_setopt($curl, CURLOPT_HTTPHEADER, ['X-WI-CSRF: '.$token]);
+    }
     $body = curl_exec($curl);
     if (!is_string($body)) throw new RuntimeException(curl_error($curl));
     return [curl_getinfo($curl, CURLINFO_HTTP_CODE), $body];
@@ -16,6 +25,7 @@ $request = static function (string $path, ?array $post = null): array {
 foreach (['/prodotti/' => 'Tutti i prodotti', '/prodotti/?ordina=nome_asc' => 'Tutti i prodotti',
     '/prodotti/?prezzo_a=30' => 'Prodotti filtrati', '/cerca/?q=maglietta' => 'Prodotti filtrati'] as $path => $title) {
     [$status, $html] = $request($path);
+    if ($csrf === '' && preg_match('~<meta name="wi-csrf" content="([^"]+)"~', $html, $meta)) $csrf = $meta[1];
     check('titolo e schema coerenti su '.$path, function () use ($status, $html, $title) {
         preg_match('~<h1[^>]*>(.*?)</h1>~s', $html, $h1);
         preg_match('~<script type="application/ld\+json">(.*?)</script>~s', $html, $json);
@@ -24,6 +34,12 @@ foreach (['/prodotti/' => 'Tutti i prodotti', '/prodotti/?ordina=nome_asc' => 'T
         return $status === 200 && ($h1[1] ?? '') === $title && ($itemList['name'] ?? '') === $title
             && str_contains($html, 'data-wi-search-url="'.(getenv('WI_TEST_URL') ?: 'https://ecommerce.test').'/api/ecommerce/catalog/products/search/"');
     });
+}
+
+check('la pagina del catalogo emette il token wi-csrf', fn () => $csrf !== '');
+foreach (['senza token' => '-', 'con un token sbagliato' => 'sbagliato'] as $caso => $token) {
+    [$status] = $request('/api/ecommerce/catalog/products/search/', ['search' => 'maglietta'], $token === '-' ? '' : $token);
+    check('la ricerca rifiuta la POST '.$caso, fn () => $status === 403);
 }
 
 foreach (['', 'maglietta', '<script>', ['malformed']] as $term) {

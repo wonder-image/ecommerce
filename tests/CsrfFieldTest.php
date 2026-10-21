@@ -103,4 +103,12 @@ check('i moduli POST delle viste emettono Csrf::field()', function () use ($root
     return true;
 });
 
+check('la ricerca POST del catalogo passa dal guard CSRF del core', function () use ($root) {
+    $routes = (string) file_get_contents($root.'/config/routes/route.api.php');
+    $search = substr($routes, (int) strpos($routes, "'/catalog/products/search/'"));
+    $search = substr($search, 0, (int) strpos($search, ';'));
+
+    return str_contains($search, "->name('catalog.products.search')") && str_contains($search, '->csrf()');
+});
+
 summary();
