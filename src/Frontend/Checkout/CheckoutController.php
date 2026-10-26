@@ -227,7 +227,8 @@ final class CheckoutController
             self::json(['success' => true] + $started);
         } catch (CheckoutRejected $e) {
             // Il Payment Element mostra un importo: se è cambiato, il cliente lo rivede prima di pagare.
-            if ($e->totalChanged()) {
+            // Senza JSON (metodo manuale) il modulo torna col messaggio e il totale nuovo.
+            if ($e->totalChanged() && $json) {
                 self::json(['success' => false, 'error' => 'total_changed', 'message' => $e->getMessage(), 'summary' => $e->summary()], 409);
             }
 
