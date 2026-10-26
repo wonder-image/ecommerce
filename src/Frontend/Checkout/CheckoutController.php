@@ -12,6 +12,7 @@ use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
 use Wonder\Auth\Frontend\AuthValidator;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
@@ -40,6 +41,9 @@ final class CheckoutController
 
     public static function handle(string $action): void
     {
+        // Chi è entrato ritrova gli ordini fatti con la sua email senza account.
+        OrderClaim::run();
+
         match ($action) {
             'index' => self::index(),
             'place' => self::place(),

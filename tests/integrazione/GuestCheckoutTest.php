@@ -16,6 +16,9 @@ use Wonder\Auth\Federated\FederatedIdentityPayload;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Auth\Frontend\UserAccountGateway;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\Ecommerce\Frontend\Account\AccountOrder;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
@@ -326,6 +329,47 @@ try {
             && (int) ($ordine['user_id'] ?? 0) === $nuovoUtente
             && is_array($scheda) && (int) ($ordine['customer_id'] ?? 0) === (int) $scheda['id']
         );
+
+        // L'ordine rapido slegato entra nell'account quando il cliente, entrato e verificato, apre l'area cliente.
+        $rapido = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'order',
+            'email' => $conPassword,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        $sessione = $_SESSION ?? null;
+        $_SESSION = ['user_id' => $locale];
+        $nonVerificato = OrderClaim::run();
+        $dopoNonVerificato = (int) (Order::findById($rapido)['user_id'] ?? -1);
+        markUserEmailVerified($locale, date('Y-m-d H:i:s'));
+        $presi = OrderClaim::run();
+        $agganciato = (array) Order::findById($rapido);
+        $schedaLocale = (int) (CustomerContact::forUser($locale)['id'] ?? 0);
+        $visibile = array_column(array_filter((array) Order::find(AccountOrder::condition($schedaLocale)), 'is_array'), 'id');
+
+        check('il cliente non verificato non prende l\'ordine rapido; verificato sì, e lo vede negli ordini', fn () =>
+            $rapido > 0
+            && $nonVerificato === 0 && $dopoNonVerificato === 0
+            && $presi >= 1
+            && (int) ($agganciato['user_id'] ?? 0) === $locale
+            && $schedaLocale > 0 && (int) ($agganciato['customer_id'] ?? 0) === $schedaLocale
+            && in_array((string) $rapido, array_map('strval', $visibile), true)
+        );
+
+        $delloStaff = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'order',
+            'email' => $delBackend,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        markUserEmailVerified($backend, date('Y-m-d H:i:s'));
+        $_SESSION = ['user_id' => $backend];
+        $presiStaff = OrderClaim::run();
+
+        check('lo staff, anche verificato, non prende mai gli ordini con la sua email', fn () =>
+            $delloStaff > 0 && $presiStaff === 0 && (int) (Order::findById($delloStaff)['user_id'] ?? -1) === 0
+        );
+        $sessione === null ? $_SESSION = [] : $_SESSION = $sessione;
 
         throw new AnnullaGuestCheckout();
     });

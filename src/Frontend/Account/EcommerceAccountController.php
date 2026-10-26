@@ -9,6 +9,7 @@ use Wonder\Http\Csrf;
 use Wonder\Http\Route;
 use Wonder\Plugin\CustomerAccount\Account\Concerns\ManagesContact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
@@ -41,6 +42,8 @@ class EcommerceAccountController extends AccountController
     {
         $this->action = $action;
         $this->parameters = $parameters;
+        // Prima di leggere gli ordini: quelli fatti con la sua email senza account diventano suoi.
+        OrderClaim::run();
 
         match ($action) {
             'payment-methods' => $this->paymentMethods(),
