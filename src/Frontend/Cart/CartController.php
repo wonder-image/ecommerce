@@ -209,8 +209,12 @@ final class CartController
             ], 419);
         }
 
-        http_response_code(419);
-        exit('CSRF token invalid');
+        // Pagina scaduta: avviso 929 e ritorno da dove si veniva.
+        Csrf::flashFailure();
+        self::redirect(SafeRedirect::fromRequest(
+            $_POST['continue'] ?? '',
+            self::route('ecommerce.cart.index')
+        ));
     }
 
     private static function number(mixed $value): float
