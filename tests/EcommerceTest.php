@@ -135,7 +135,7 @@ check('Google federato conserva csrf senza dipendere da consensi o reCAPTCHA', f
     $controller = (string) file_get_contents($core.'/class/Auth/Frontend/AuthController.php');
 
     return str_contains($component, 'accounts.google.com/gsi/client')
-        && str_contains($controller, '$this->requireCsrf();')
+        && str_contains($controller, '$this->csrfValid()')
         && !str_contains($component, 'accept_privacy_policy')
         && !str_contains($component, 'accept_terms_conditions')
         && !str_contains($controller, 'federated_consents_required')

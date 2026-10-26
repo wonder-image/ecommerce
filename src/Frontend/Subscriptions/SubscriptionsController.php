@@ -147,14 +147,6 @@ final class SubscriptionsController
     {
         self::requirePost();
         $back = self::configureUrl($code);
-        self::verifyCsrf();
-        self::requireLogin($back);
-        $found = PlanCatalog::find($code, self::configureUrl(...));
-
-        if ($found === null) {
-            self::notFound();
-        }
-
         $customization = [];
 
         foreach (is_array($_POST['customization'] ?? null) ? $_POST['customization'] : [] as $id => $value) {
@@ -168,6 +160,13 @@ final class SubscriptionsController
             'customization' => $customization,
             'parent' => ctype_digit($parent) ? (int) $parent : -1,
         ];
+        self::verifyCsrf($back, static fn () => self::rememberConfigureState($code, $item));
+        self::requireLogin($back);
+        $found = PlanCatalog::find($code, self::configureUrl(...));
+
+        if ($found === null) {
+            self::notFound();
+        }
 
         try {
             $index = SubscriptionSelection::add($item);
@@ -282,8 +281,6 @@ final class SubscriptionsController
     {
         self::requirePost();
         $back = self::route('ecommerce.subscriptions.summary');
-        self::verifyCsrf();
-        self::requireLogin($back);
         $billing = array_filter(
             (array) $_POST,
             static fn ($value, $key): bool => is_string($key) && str_starts_with($key, 'billing_') && is_scalar($value),
@@ -293,6 +290,8 @@ final class SubscriptionsController
         $billing = array_map(static fn ($value): string => trim((string) $value), $billing);
         $coupon = trim((string) ($_POST['coupon'] ?? ''));
         $state = $billing + ['coupon' => $coupon];
+        self::verifyCsrf($back, static fn () => self::rememberFormState($state));
+        self::requireLogin($back);
 
         if ((string) ($_POST['intent'] ?? '') === 'apply') {
             self::rememberFormState($state);
@@ -345,7 +344,7 @@ final class SubscriptionsController
     {
         self::requirePost();
         $back = self::route('ecommerce.subscriptions.summary');
-        self::verifyCsrf();
+        self::verifyCsrf($back);
         self::requireLogin($back);
         $raw = (string) ($_POST['index'] ?? '');
         $items = SubscriptionSelection::items();
@@ -680,20 +679,24 @@ final class SubscriptionsController
         return array_values(array_map(static fn (array $row): string => (string) $row['code'], $rows));
     }
 
-    /** @param array<string, mixed> $item */
-    private static function rememberConfigureState(string $code, array $item, UserError $error): void
+    /**
+     * Senza errore (token scaduto) si ricordano solo i valori: l'avviso lo dà verifyCsrf.
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function rememberConfigureState(string $code, array $item, ?UserError $error = null): void
     {
-        $field = $error->field();
+        $field = $error?->field() ?? 0;
         $_SESSION[self::CONFIGURE_STATE] = [
             'price' => $code,
             'quantity' => (string) $item['quantity'],
             'customization' => $item['customization'],
             'parent' => $item['parent'] >= 0 ? (string) $item['parent'] : '',
             'field' => max(0, $field),
-            'message' => $error->getMessage(),
+            'message' => $error?->getMessage() ?? '',
         ];
 
-        if ($field <= 0) {
+        if ($error !== null && $field <= 0) {
             FlashMessage::error($error->getMessage(), (string) __t('ecommerce.subscriptions.error_title'));
         }
     }
@@ -729,12 +732,18 @@ final class SubscriptionsController
         }
     }
 
-    private static function verifyCsrf(): void
+    /** Token non valido (pagina scaduta): avviso 929, valori ricordati da `$remember` e ritorno a `$back`. */
+    private static function verifyCsrf(string $back, ?callable $remember = null): void
     {
-        if (!Csrf::verify()) {
-            http_response_code(419);
-            exit('CSRF token invalid');
+        if (Csrf::verify()) {
+            return;
         }
+
+        if ($remember !== null) {
+            $remember();
+        }
+        Csrf::flashFailure();
+        self::redirect($back);
     }
 
     /**

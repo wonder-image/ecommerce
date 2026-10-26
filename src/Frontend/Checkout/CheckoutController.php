@@ -25,6 +25,14 @@ use Wonder\View\View;
 final class CheckoutController
 {
     private const FORM_STATE = 'ecommerce_checkout_form_state';
+
+    /** Da non rimettere nel modulo dopo un token scaduto, oltre a token e password già esclusi dal core. */
+    private const SECRET_FIELDS = [
+        'card_number', 'card_cvc', 'card_expiry', 'cvc', 'cvv', 'iban',
+        'client_secret', 'payment_intent', 'stripe_token',
+        'g-recaptcha-token', 'g-recaptcha-action', 'g-recaptcha-type',
+    ];
+
     private const COMPLETED = 'ecommerce_checkout_completed';
     // Dieci codici sbagliati in dieci minuti: abbastanza per un errore di battitura, poco per indovinarne uno.
     private const COUPON_LIMIT = 10;
@@ -130,7 +138,7 @@ final class CheckoutController
         if ($json && !Csrf::verify()) {
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
-        self::requireCsrf();
+        self::requireCsrf(remember: true);
 
         if (!self::guestAllowed() && !CartSession::authenticated()) {
             self::leave(self::loginUrl(), $json, 401);
@@ -225,9 +233,9 @@ final class CheckoutController
             self::resume($json);
         }
         // Il coupon si prova già dal carrello, prima del login.
-        $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart');
-        $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
         $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
+        $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart', $back);
+        $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
 
         $status = 200;
 
@@ -303,10 +311,10 @@ final class CheckoutController
     }
 
     /** Le stesse guardie per la pagina senza JavaScript. */
-    private static function guardPage(bool $login = true): int
+    private static function guardPage(bool $login = true, string $back = ''): int
     {
         self::requirePost();
-        self::requireCsrf();
+        self::requireCsrf($back);
 
         if ($login && !self::guestAllowed() && !CartSession::authenticated()) {
             self::redirect(self::loginUrl());
@@ -730,11 +738,22 @@ final class CheckoutController
         }
     }
 
-    private static function requireCsrf(): void
+    /**
+     * Token non valido (pagina scaduta): avviso 929 e ritorno alla pagina, di
+     * norma il checkout. Con `$remember` il modulo torna com'era, senza token
+     * né dati di pagamento.
+     */
+    private static function requireCsrf(string $back = '', bool $remember = false): void
     {
         if (!Csrf::verify()) {
-            http_response_code(419);
-            exit('CSRF token invalid');
+            if ($remember) {
+                self::rememberErrors([], Csrf::oldInput(
+                    CheckoutRules::rememberedPost(CheckoutRules::post($_POST, CartSession::user()), $_POST),
+                    self::SECRET_FIELDS
+                ));
+            }
+            Csrf::flashFailure();
+            self::redirect($back !== '' ? $back : self::route('ecommerce.checkout.index'));
         }
     }
 
