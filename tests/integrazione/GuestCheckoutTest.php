@@ -21,7 +21,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Account\AccountOrder;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
-use Wonder\Plugin\Ecommerce\Support\Throttle;
+use Wonder\Plugin\Gestionale\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Models\System\Setting;

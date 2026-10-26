@@ -5,7 +5,7 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
-use Wonder\Plugin\Ecommerce\Support\Throttle;
+use Wonder\Plugin\Gestionale\Support\Throttle;
 
 $root = dirname(__DIR__);
 $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
@@ -24,140 +24,32 @@ function corpo(string $sorgente, string $metodo): string
     return substr($sorgente, $inizio, $fine === false ? null : $fine - $inizio);
 }
 
-// Il contatore scrive in una cartella temporanea, mai nel pacchetto.
-$cartella = sys_get_temp_dir().'/wi-throttle-'.getmypid();
-Throttle::useDirectory($cartella);
-
-check('Throttle: sotto il limite si prova, al limite no', function (): bool {
-    for ($i = 0; $i < 3; $i++) {
-        if (!Throttle::allowed('prova', 'a', 3, 60)) {
+// La classe è del gestionale (allowed/hit/attempt si provano lì): qui solo chiavi, limiti e chiamanti.
+$guest = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestCheckout.php');
+check('i chiamanti importano Throttle del gestionale, non quello del negozio', function () use ($controller, $placement, $guest): bool {
+    foreach ([$controller, $placement, $guest] as $sorgente) {
+        if (!str_contains($sorgente, "use Wonder\\Plugin\\Gestionale\\Support\\Throttle;")
+            || str_contains($sorgente, 'Ecommerce\\Support\\Throttle')) {
             return false;
         }
-        Throttle::hit('prova', 'a', 60);
     }
 
-    return !Throttle::allowed('prova', 'a', 3, 60);
+    return true;
 });
 
-check('Throttle: chiavi e gruppi diversi non si sommano', fn () =>
-    Throttle::allowed('prova', 'b', 3, 60) && Throttle::allowed('altro', 'a', 3, 60));
+$alias = (string) file_get_contents($root.'/src/Support/Throttle.php');
+check('Support\\Throttle del negozio: alias deprecato della classe del gestionale, caricato dall\'autoload', fn () =>
+    str_contains($alias, 'class_alias(')
+    && str_contains($alias, '@deprecated 0.2.0-beta.1')
+    && str_contains($alias, 'Si toglie nella 0.3.0.')
+    && !str_contains($alias, 'class Throttle')
+    && class_exists(\Wonder\Plugin\Ecommerce\Support\Throttle::class)
+    && (new ReflectionClass(\Wonder\Plugin\Ecommerce\Support\Throttle::class))->getName() === Throttle::class);
 
-check('Throttle: i tentativi fuori dalla finestra non contano più', function () use ($cartella): bool {
-    Throttle::hit('vecchi', 'a', 60);
-    Throttle::hit('vecchi', 'a', 60);
-    $file = glob($cartella.'/*.json') ?: [];
-    // Si invecchiano a mano i tempi salvati: due minuti fa.
-    foreach ($file as $percorso) {
-        $tempi = json_decode((string) file_get_contents($percorso), true);
-        if (is_array($tempi) && count($tempi) === 2) {
-            file_put_contents($percorso, json_encode(array_map(static fn (int $t): int => $t - 120, $tempi)));
-        }
-    }
-
-    return Throttle::allowed('vecchi', 'a', 2, 60);
-});
-
-check('Throttle: una chiave vuota non si limita e non scrive', function () use ($cartella): bool {
-    $prima = count(glob($cartella.'/*.json') ?: []);
-    Throttle::hit('prova', '', 60);
-
-    return Throttle::allowed('prova', '', 0, 60) && count(glob($cartella.'/*.json') ?: []) === $prima;
-});
-
-foreach (glob($cartella.'/*') ?: [] as $file) {
-    unlink($file);
-}
-@rmdir($cartella);
-Throttle::useDirectory(null);
-
-// attempt(): la tabella si sostituisce con una finestra fissa in memoria, la stessa regola dell'upsert.
-$righe = [];
-$adesso = 1_000_000;
-Throttle::useStore(function (string $hash, int $now, int $since) use (&$righe, &$adesso): int {
-    $now = $adesso;
-    $riga = $righe[$hash] ?? null;
-    if ($riga === null) {
-        $righe[$hash] = ['hits' => 1, 'window_start' => $now];
-    } else {
-        $scaduta = $riga['window_start'] <= $since + ($adesso - time());
-        $righe[$hash] = ['hits' => $scaduta ? 1 : $riga['hits'] + 1, 'window_start' => $scaduta ? $now : $riga['window_start']];
-    }
-
-    return $righe[$hash]['hits'];
-});
-
-check('attempt: dentro il limite sì, oltre no', function (): bool {
-    $esiti = [];
-    for ($i = 0; $i < 4; $i++) {
-        $esiti[] = Throttle::attempt('prova', 'x', 3, 60);
-    }
-
-    return $esiti === [true, true, true, false];
-});
-
-check('attempt: scaduta la finestra il conto riparte', function () use (&$adesso): bool {
-    $adesso += 61;
-
-    return Throttle::attempt('prova', 'x', 3, 60) && Throttle::attempt('prova', 'x', 3, 60);
-});
-
-check('attempt: chiave vuota o limite 0 non limitano e non contano', function () use (&$righe): bool {
-    $prima = count($righe);
-
-    return Throttle::attempt('prova', '', 1, 60) && Throttle::attempt('prova', '', 1, 60)
-        && Throttle::attempt('prova', 'y', 0, 60) && Throttle::attempt('prova', 'y', 0, 60)
-        && count($righe) === $prima;
-});
-
-check('attempt: gruppi diversi, contatori diversi (sha256 di gruppo|chiave)', function () use (&$righe): bool {
-    Throttle::attempt('uno', 'k', 5, 60);
-    Throttle::attempt('due', 'k', 5, 60);
-
-    return isset($righe[hash('sha256', 'uno|k')], $righe[hash('sha256', 'due|k')]);
-});
-
-check('attempt: se il contatore non risponde l\'ordine passa (fail-open)', function (): bool {
-    Throttle::useStore(static function (): int {
-        throw new RuntimeException('tabella assente');
-    });
-    $esito = Throttle::attempt('prova', 'z', 1, 60) && Throttle::attempt('prova', 'z', 1, 60);
-
-    return $esito;
-});
-Throttle::useStore(null);
-
-$throttle = (string) file_get_contents($root.'/src/Support/Throttle.php');
-check('attempt: un solo INSERT … ON DUPLICATE KEY UPDATE, hits aggiornato prima di window_start', fn () =>
-    str_contains(Throttle::UPSERT, 'ON DUPLICATE KEY UPDATE')
-    && strpos(Throttle::UPSERT, 'hits = IF(') < strpos(Throttle::UPSERT, 'window_start = IF(')
-    && substr_count(Throttle::UPSERT, 'INSERT') === 1);
-
-check('attempt: il fallimento va nel registro con Errors::internal', fn () =>
-    str_contains(corpo($throttle, 'attempt'), 'Errors::internal(')
-    && str_contains(corpo($throttle, 'attempt'), 'return true;'));
-
-check('ip: delega a Wonder\\Http\\ClientIp::resolve, niente REMOTE_ADDR letto a mano', fn () =>
-    str_contains(corpo($throttle, 'ip'), 'ClientIp::resolve()')
-    && !str_contains(corpo($throttle, 'ip'), 'REMOTE_ADDR'));
-
-check('ip: senza APP_TRUST_PROXY un X-Forwarded-For falso non conta', function (): bool {
-    $prima = $_SERVER;
-    $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
-    $_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.1';
-    $ip = Throttle::ip();
-    $_SERVER = $prima;
-
-    return $ip === '203.0.113.7' || \Wonder\Http\Cookie::trustsProxy();
-});
-
-$modello = (string) file_get_contents($root.'/src/Models/Throttle.php');
-$manifesto = json_decode((string) file_get_contents($root.'/module.json'), true);
-check('Models\Throttle: tabella ecommerce_throttle con chiave unica di 64, hits e window_start; il manifest la dichiara', fn () =>
-    str_contains($modello, "'ecommerce_throttle'")
-    && preg_match("/Column::key\('throttle_key'\)->type\('CHAR'\)->length\(64\).*->unique\(\)/", $modello) === 1
-    && str_contains($modello, "Column::key('hits')->int()")
-    && str_contains($modello, "Column::key('window_start')->int()")
-    && ($manifesto['database']['models'] ?? '') === 'src/Models');
+check('niente Model del negozio per i contatori: la tabella è gst_throttles del gestionale', fn () =>
+    !is_file($root.'/src/Models/Throttle.php')
+    && !class_exists('Wonder\\Plugin\\Ecommerce\\Models\\Throttle')
+    && str_contains(Throttle::UPSERT, 'INSERT INTO gst_throttles '));
 
 $coupon = corpo($controller, 'coupon');
 $placed = corpo($placement, 'place');
