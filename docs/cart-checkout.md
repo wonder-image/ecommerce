@@ -165,7 +165,7 @@ recupera la password.
 Il testo è uguale per password, Google e account non cliente, quindi non dice
 quale metodo di accesso ha l'account. Dice però che l'email ha un account:
 per frenare chi prova molte email, il blocco conta i tentativi in
-`ecommerce_throttle` (bucket `guest_exists`: 3 ogni 15 minuti per hash
+`gst_throttles` (bucket `guest_exists`: 3 ogni 15 minuti per hash
 dell'email, 10 ogni ora per IP). Oltre il limite l'ospite vede il generico
 `too_many_orders`. Ogni blocco scrive nel registro degli accessi del core
 l'evento `guest_checkout_existing` con l'id dell'account, `email_hash`
@@ -177,10 +177,11 @@ config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
 indirizzo) e `cart` vale `[5, 600]` (5 ogni 10 minuti per carrello). Con `0` al
 posto della coppia quel limite si spegne. Superato il limite, l'ospite vede
 `ecommerce.checkout.errors.too_many_orders`. I conteggi stanno nella tabella
-`ecommerce_throttle` (Model `Throttle`, dichiarato in `database.models`), che
-nasce con `php forge update`. Ogni tentativo è un solo UPSERT, quindi due
-richieste insieme non superano il limite. Se la tabella non risponde,
-l'ordine passa e l'errore va nel registro (`ecommerce.throttle`). L'indirizzo
+`gst_throttles` del gestionale (Model `System\Throttle`, classe
+`Wonder\Plugin\Gestionale\Support\Throttle`), che nasce con
+`php forge update`. Ogni tentativo è un solo UPSERT, quindi due richieste
+insieme non superano il limite. Se la tabella non risponde,
+l'ordine passa e l'errore va nel registro (`gestionale.throttle`). L'indirizzo
 è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
 `APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
 

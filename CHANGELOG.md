@@ -56,10 +56,20 @@ versionamento semantico.
   ricaricato, il form non manda `_csrf`: va rigenerato con `Csrf::field()`.
   Richiede `wonder-image/app` `^2.4.0-beta.5`.
 - Limite agli ordini dell'ospite (`checkout.guest_order_limit`: ip `[10, 900]`,
-  carrello `[5, 600]`, 0 spegne). I conteggi stanno nella nuova tabella
-  `ecommerce_throttle`, che nasce con `php forge update`; se la tabella non
-  risponde, l'ordine passa. L'IP viene da `ClientIp::resolve()`: dietro un
-  proxy serve `APP_TRUST_PROXY`.
+  carrello `[5, 600]`, 0 spegne). I conteggi stanno nella tabella
+  `gst_throttles` del gestionale, che nasce con `php forge update`; se la
+  tabella non risponde, l'ordine passa. L'IP viene da `ClientIp::resolve()`:
+  dietro un proxy serve `APP_TRUST_PROXY`.
+- Limiti di tentativi: il negozio usa `Wonder\Plugin\Gestionale\Support\Throttle`
+  e la tabella `gst_throttles` (Model `System\Throttle` del gestionale). Via
+  il Model `Throttle` e la chiave `database` da `module.json`:
+  `ecommerce_throttle` resta nel DB, non è più usata e si può eliminare a mano.
+  `Wonder\Plugin\Ecommerce\Support\Throttle` è un alias deprecato della
+  classe del gestionale e si toglie nella 0.3.0. Il canale dell'errore diventa
+  `gestionale.throttle` (era `ecommerce.throttle`). I contatori su file
+  passano da `storage/ecommerce/throttle` a `storage/gestionale/throttle`: al
+  cambio ripartono da zero e la vecchia cartella si può cancellare. Richiede
+  `wonder-image/gestionale` con `Support\Throttle` e `gst_throttles`.
 - Catalogo: `%` e `_` nella ricerca restano caratteri normali nel LIKE.
   `nome_desc` e `prezzo_desc` ordinano al contrario anche in modalità variant.
 
