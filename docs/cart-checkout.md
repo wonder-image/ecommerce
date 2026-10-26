@@ -146,9 +146,14 @@ Il registro degli accessi scrive `guest_checkout_existing_unlinked` con l'id
 dell'account e `email_hash`, mai l'email.
 
 L'ordine entra nell'account dopo, con `OrderClaim::run()`. Si chiama solo
-sulle pagine che mostrano ordini: nell'area cliente (`EcommerceAccountController`)
-`index`, `orders` e `orders.show`; nel checkout `index`, `completed` e `return`.
-Non sulle azioni (`summary`, `coupon`, `place`, abbonamenti...). Senza segno in
+sulle pagine che mostrano ordini: nell'area cliente `orders` e `orders.show`
+(`EcommerceAccountController`) e la Panoramica; nel checkout `index`,
+`completed` e `return`. La Panoramica (`/account/`) la serve il controller del
+core, non quello del negozio: l'aggancio sta in
+`EcommerceAccountExtension::overviewRows()`, prima della riga dell'ultimo
+ordine. Con la Panoramica spenta `/account/` rimanda alla prima voce del menu,
+che è «Ordini» (aggancia lì) a meno che il sito la tolga o la sposti con
+`account.navigation`; il checkout aggancia comunque. Non sulle azioni (`summary`, `coupon`, `place`, abbonamenti...). Senza segno in
 sessione: a ogni apertura riprova, così si aggancia anche un ordine fatto da un
 altro dispositivo. Agisce solo per un account con ruolo cliente nel frontend
 (area frontend e authority `client`, anche se ha pure il backend, come

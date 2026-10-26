@@ -108,11 +108,25 @@ check('solo sulle pagine che mostrano ordini: non su summary, coupon, place né 
         && str_contains($sorgente, "if (in_array(\$action, self::CLAIM_ACTIONS, true)) {\n            OrderClaim::run();");
 
     return $filtrato($account) && $filtrato($checkout)
-        && str_contains($account, "private const CLAIM_ACTIONS = ['index', 'orders', 'orders.show'];")
+        && str_contains($account, "private const CLAIM_ACTIONS = ['orders', 'orders.show'];")
         && str_contains($checkout, "private const CLAIM_ACTIONS = ['index', 'completed', 'return'];")
         && str_contains($checkout, "'completed' => self::completed(),")
         && str_contains($checkout, "'return' => self::returned(),")
         && str_contains($account, "'orders.show' => \$this->order(");
+});
+
+check('la panoramica è del controller del core: aggancia overviewRows() prima di cercare l\'ultimo ordine', function () use ($root) {
+    $estensione = (string) file_get_contents($root.'/src/Frontend/Account/EcommerceAccountExtension.php');
+    $core = (string) @file_get_contents($root.'/vendor/wonder-image/app/class/Auth/Frontend/AccountRoutes.php');
+    $inizio = (int) strpos($estensione, 'public function overviewRows(');
+    $claim = strpos($estensione, 'OrderClaim::run();', $inizio);
+    $ultimo = strpos($estensione, 'Order::find(', $inizio);
+
+    return substr_count($estensione, 'OrderClaim::run();') === 1
+        && $claim !== false && $ultimo !== false && $claim < $ultimo
+        && strpos($estensione, 'public function personalRows(') > $claim
+        // `/account/` va al gestore del core, non a quello del negozio.
+        && ($core === '' || str_contains($core, "Route::get('/', \$handler, ['account_action' => 'index'])"));
 });
 
 summary();

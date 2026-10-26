@@ -46,6 +46,12 @@ versionamento semantico.
 
 ### Modificato
 
+- Panoramica dell'account: `OrderClaim::run()` ora scatta anche su `/account/`,
+  da `EcommerceAccountExtension::overviewRows()`, prima dell'ultimo ordine. La
+  Panoramica la serve il controller del core, quindi `index` in
+  `EcommerceAccountController::CLAIM_ACTIONS` non veniva mai raggiunto via HTTP
+  ed è stato tolto. Con la Panoramica spenta `/account/` rimanda alla prima voce
+  del menu («Ordini» di default), che aggancia.
 - Check-out rapido, `place` oltre un limite di ordini: 422 con
   `error: too_many_orders` invece di `rejected`, stesso messaggio. I limiti
   lanciano `TooManyOrders` (una `RuntimeException`), quindi il checkout normale
