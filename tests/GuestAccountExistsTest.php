@@ -83,6 +83,30 @@ check('il registro ha l\'hash dell\'email, mai l\'email', fn () =>
     str_contains($refuse, "AuthLog::write('guest_checkout_existing', \$userId, 'frontend', false, ['email_hash' => \$hash")
     && !preg_match('/AuthLog::write\([^;]*\$email\b/', $refuse));
 
+$unlinked = corpoMetodo($guest, 'unlinked');
+
+check('dal rapido l\'account con un modo per entrare non ferma l\'ordine: nasce slegato', function () use ($guest, $account) {
+    $rifiuto = strpos($account, "if (!\$express) {\n                    self::refuse(\$email, \$userId);");
+    $slegato = strpos($account, 'self::unlinked($email, $userId)');
+    $ritorno = strpos($account, "return ['user_id' => 0, 'customer_id' => 0, 'created' => false];");
+
+    return str_contains($guest, 'public static function account(array $order, array $post, array $asked, bool $express = false): array')
+        && $rifiuto !== false && $slegato !== false && $ritorno !== false
+        && $rifiuto < $slegato && $slegato < $ritorno
+        && strpos($account, 'registerLeadConsents($email, $post, $context)', $slegato) < $ritorno
+        && $ritorno < strpos($account, 'CustomerContact::forUser(');
+});
+
+check('l\'ordine slegato va nel registro con l\'hash, mai l\'email, e senza limite guest_exists', fn () =>
+    str_contains($unlinked, "AuthLog::write('guest_checkout_existing_unlinked', \$userId, 'frontend', null, ['email_hash' => hash('sha256', \$email)])")
+    && !preg_match('/AuthLog::write\([^;]*[^(]\$email\b[^)]/', $unlinked)
+    && !str_contains($unlinked, 'Throttle::'));
+
+$placement = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
+
+check('il piazzamento passa a account() se l\'ordine viene dal rapido', fn () =>
+    str_contains($placement, "GuestCheckout::account(\$order, \$post, \$asked, (bool) (\$options['express'] ?? false))"));
+
 $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
 $express = (string) file_get_contents($root.'/src/Frontend/Checkout/ExpressController.php');
 $exists = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestAccountExists.php');
@@ -113,7 +137,7 @@ check('GuestAccountExists non produce più link', fn () =>
     && !str_contains($exists, 'login_url')
     && !str_contains($exists, 'recovery_url'));
 
-check('Express risponde allo stesso modo, prima del rifiuto generico', function () use ($express) {
+check('Express tiene il 409 solo come difesa, prima del rifiuto generico', function () use ($express) {
     $blocco = strpos($express, 'catch (GuestAccountExists $error)');
 
     return $blocco !== false

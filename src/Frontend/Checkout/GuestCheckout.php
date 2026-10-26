@@ -18,7 +18,8 @@ use Wonder\Plugin\Gestionale\Support\Errors\Errors;
  * L'ospite che ordina: l'ordine va a un account. Con un'email nuova
  * l'account nasce senza password; con l'email di un cliente del negozio senza
  * password, anche disattivato, si riusa così com'è. Ogni altro account ferma
- * l'ordine con `GuestAccountExists`.
+ * l'ordine con `GuestAccountExists`; dal check-out rapido l'ordine nasce invece
+ * senza account e si aggancia dopo, da `OrderClaim`.
  * La sessione resta da ospite: chi ordina non entra nell'account.
  */
 final class GuestCheckout
@@ -42,9 +43,10 @@ final class GuestCheckout
      * @param array<string, mixed> $order il carrello riletto dopo l'anteprima
      * @param array<string, mixed> $post
      * @param list<string> $asked i documenti chiesti dalla pagina
+     * @param bool $express dal check-out rapido: l'email viene dal wallet
      * @return array{user_id: int, customer_id: int, created: bool}
      */
-    public static function account(array $order, array $post, array $asked): array
+    public static function account(array $order, array $post, array $asked, bool $express = false): array
     {
         $users = new UserAccountGateway();
         $email = strtolower(trim((string) ($order['email'] ?? '')));
@@ -55,7 +57,14 @@ final class GuestCheckout
             $userId = (int) $found['id'];
             // Un account con un modo per entrare è di chi lo possiede: l'ospite deve accedere.
             if (self::claimed($users, $userId)) {
-                self::refuse($email, $userId);
+                if (!$express) {
+                    self::refuse($email, $userId);
+                }
+                // Il wallet ha già pagato: l'ordine nasce slegato, senza dire nulla dell'account.
+                self::unlinked($email, $userId);
+                self::consents(static fn () => consentService()->registerLeadConsents($email, $post, $context), $asked);
+
+                return ['user_id' => 0, 'customer_id' => 0, 'created' => false];
             }
             // La sua scheda, o collegata ora; 0 se quella con la sua email è di un altro account.
             $customerId = (int) (CustomerContact::forUser($userId)['id'] ?? 0);
@@ -134,6 +143,16 @@ final class GuestCheckout
         }
 
         throw new GuestAccountExists();
+    }
+
+    /** L'ordine rapido con l'email di un account resta senza account: il registro ha l'hash, non l'email. */
+    private static function unlinked(string $email, int $userId): void
+    {
+        try {
+            AuthLog::write('guest_checkout_existing_unlinked', $userId, 'frontend', null, ['email_hash' => hash('sha256', $email)]);
+        } catch (Throwable $error) {
+            Errors::internal($error, 'ecommerce.checkout.guest_unlinked_log');
+        }
     }
 
     /**

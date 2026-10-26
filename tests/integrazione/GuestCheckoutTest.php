@@ -148,6 +148,29 @@ try {
             && (infoUser($locale, 'id')->name ?? '') === 'Ada'
         );
 
+        // Dal rapido niente blocco e niente limite guest_exists: anche col limite pieno l'ordine passa slegato.
+        Throttle::useStore(static fn (): int => 99);
+        try {
+            $daRapido = GuestCheckout::account(carrelloOspite($conPassword), [], [], true);
+        } catch (Throwable $errore) {
+            $daRapido = ['errore' => $errore->getMessage()];
+        } finally {
+            Throttle::useStore(null);
+        }
+        $registro = sqlSelect('auth_log', ['event' => 'guest_checkout_existing_unlinked', 'user_id' => $locale], 1);
+        $meta = json_decode((string) ($registro->row['meta'] ?? ''), true);
+
+        check('dal check-out rapido l\'email di un account con password non ferma: ordine senza account né contatto', fn () =>
+            $daRapido === ['user_id' => 0, 'customer_id' => 0, 'created' => false]
+            && empty(Contact::find(['user_id' => $locale], 1))
+        );
+
+        check('l\'ordine rapido slegato va nel registro con l\'hash dell\'email, mai l\'email', fn () =>
+            ($registro->exists ?? false)
+            && ($meta['email_hash'] ?? '') === hash('sha256', $conPassword)
+            && !str_contains((string) ($registro->row['meta'] ?? ''), $conPassword)
+        );
+
         // Oltre il limite il blocco non conferma più l'account: risponde come ai troppi ordini.
         Throttle::useStore(static fn (): int => 99);
         try {
