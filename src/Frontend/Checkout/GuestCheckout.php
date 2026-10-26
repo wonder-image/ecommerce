@@ -10,7 +10,7 @@ use Wonder\Auth\PasswordReset;
 use Wonder\Auth\Frontend\UserAccountGateway;
 use Wonder\Plugin\CustomerAccount\Account\ContactAccount;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
-use Wonder\Plugin\Ecommerce\Support\Throttle;
+use Wonder\Plugin\Gestionale\Support\Throttle;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 

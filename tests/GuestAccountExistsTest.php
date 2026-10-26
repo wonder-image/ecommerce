@@ -79,6 +79,10 @@ check('il blocco conta per hash dell\'email (3/900) e per IP (10/3600), poi risp
         && !str_contains($account, 'throw new GuestAccountExists()');
 });
 
+check('il blocco conta con Throttle del gestionale, su gst_throttles', fn () =>
+    str_contains($guest, "use Wonder\\Plugin\\Gestionale\\Support\\Throttle;")
+    && !str_contains($guest, 'Ecommerce\\Support\\Throttle'));
+
 // Che il registro non abbia l'email in chiaro lo prova integrazione/GuestCheckoutTest sulla riga scritta.
 check('il registro ha l\'hash dell\'email', fn () =>
     str_contains($refuse, "AuthLog::write('guest_checkout_existing', \$userId, 'frontend', false, ['email_hash' => \$hash"));

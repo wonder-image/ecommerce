@@ -174,7 +174,7 @@ recupera la password.
 Il testo è uguale per password, Google e account non cliente, quindi non dice
 quale metodo di accesso ha l'account. Dice però che l'email ha un account:
 per frenare chi prova molte email, il blocco conta i tentativi in
-`ecommerce_throttle` (bucket `guest_exists`: 3 ogni 15 minuti per hash
+`gst_throttles` (bucket `guest_exists`: 3 ogni 15 minuti per hash
 dell'email, 10 ogni ora per IP). Oltre il limite l'ospite vede il generico
 `too_many_orders`. Ogni blocco scrive nel registro degli accessi del core
 l'evento `guest_checkout_existing` con l'id dell'account, `email_hash`
@@ -186,12 +186,24 @@ config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
 indirizzo) e `cart` vale `[5, 600]` (5 ogni 10 minuti per carrello). Con `0` al
 posto della coppia quel limite si spegne. Superato il limite, l'ospite vede
 `ecommerce.checkout.errors.too_many_orders`. I conteggi stanno nella tabella
-`ecommerce_throttle` (Model `Throttle`, dichiarato in `database.models`), che
-nasce con `php forge update`. Ogni tentativo è un solo UPSERT, quindi due
-richieste insieme non superano il limite. Se la tabella non risponde,
-l'ordine passa e l'errore va nel registro (`ecommerce.throttle`). L'indirizzo
+`gst_throttles` del gestionale (Model `System\Throttle`, classe
+`Wonder\Plugin\Gestionale\Support\Throttle`), che nasce con
+`php forge update`. Ogni tentativo è un solo UPSERT, quindi due richieste
+insieme non superano il limite. Se la tabella non risponde,
+l'ordine passa e l'errore va nel registro (`gestionale.throttle`). L'indirizzo
 è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
 `APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
+
+Ordine di deploy per il passaggio alla classe del gestionale: prima
+`wonder-image/gestionale` con `Support\Throttle` (branch
+`fix/2026-10-6a-throttle-gst`), poi il `composer.lock` del sito aggiornato e
+`php forge update --local` (o il deploy) che crea `gst_throttles`, e solo
+dopo la versione del negozio che la usa. Il fail-open vale per la tabella che
+non risponde, non per la classe che manca: senza `Support\Throttle` del
+gestionale il checkout va in errore fatale (500 su ogni ordine e su «applica
+coupon»). Al cambio i contatori ripartono da zero, sia quelli in tabella
+(`ecommerce_throttle` → `gst_throttles`) sia quelli su file
+(`storage/ecommerce/throttle` → `storage/gestionale/throttle`).
 
 Limite di quanto sopra: anche oltre il limite di `guest_exists` la differenza
 resta osservabile. Un'email con un account riceve `too_many_orders`, una
