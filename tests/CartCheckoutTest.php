@@ -543,7 +543,13 @@ check('le tasse seguono la fatturazione: anteprima e prima visita passano dalle 
     $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
     $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
 
-    return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post($values, CartSession::user())')
+    $s = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutSnapshot.php');
+
+    // La prima visita passa dall'anteprima con il post delle regole, anche quando la riusa.
+    return str_contains($c, 'CheckoutSnapshot::page(')
+        && str_contains($c, 'CheckoutRules::post($values, CartSession::user())')
+        && str_contains($c, 'CheckoutRules::post(self::pageValues($cart, []), CartSession::user())')
+        && str_contains($s, 'CheckoutSummary::payload($cartId, $post, $user, $keepCart)')
         && str_contains($js, '[name^="billing_"]') && str_contains($js, '[name="same_as_shipping"]') && str_contains($js, '[name="invoice"]');
 });
 

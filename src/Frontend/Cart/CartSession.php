@@ -61,6 +61,27 @@ final class CartSession
     }
 
     /**
+     * Il carrello come sta nel database, senza aprirlo, ricalcolarlo né
+     * bloccarlo. Se c'è da unire quello dell'ospite a quello del cliente si
+     * unisce, e l'unione ricalcola come in current().
+     *
+     * @return array{order: array<string, mixed>, items: list<array<string, mixed>>, removed: list<string>}
+     */
+    public static function peek(): array
+    {
+        $customerId = self::customerId();
+        $guest = self::guest(self::token(false));
+
+        if ($customerId > 0 && is_array($guest)) {
+            return self::current(false);
+        }
+
+        $cart = $customerId > 0 ? self::customerCart($customerId) : $guest;
+
+        return is_array($cart) ? Cart::contents((int) $cart['id']) + ['removed' => []] : self::empty();
+    }
+
+    /**
      * Quanti articoli ci sono nel carrello, senza aprirlo né ricalcolarlo:
      * serve a ogni pagina per il numerino sull'icona del nav.
      */

@@ -63,24 +63,38 @@ final class CheckoutController
 
         // Il carrello è diventato l'ordine in pagamento: torna carrello e il checkout resta modificabile.
         self::resume(false);
-        $cart = CartSession::current(false);
+        // Senza ricalcolo: lo fa l'anteprima, una volta, e solo se il carrello è cambiato.
+        $cart = CartSession::peek();
         if ((array) ($cart['items'] ?? []) === []) {
             self::redirect(self::route('ecommerce.cart.index'));
         }
 
         $formState = self::pullFormState();
-        $fromCart = array_filter(CheckoutPlacement::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
-        // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
-        $values = $formState !== [] ? self::defaults($formState) : CheckoutRules::choices((array) ($cart['order'] ?? [])) + $fromCart + self::defaults([]);
+        $values = self::pageValues($cart, $formState);
         // Riaperto dopo un pagamento rifiutato: torna spuntata la scelta Stripe di prima (Klarna…), non la carta.
         $choice = OnlinePayment::pullChoice();
-        if ($formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0)) {
+        $chosen = $formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0);
+        if ($chosen) {
             $values['payment_method_id'] = $choice;
         }
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
-        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $formState === []);
+        // Si riusa solo la pagina fatta dal carrello: col modulo tornato indietro l'anteprima riscrive i valori.
+        $page = CheckoutSnapshot::page(
+            $cart,
+            CheckoutRules::post($values, CartSession::user()),
+            CartSession::user(),
+            $formState === [],
+            $formState === [] && !$chosen
+                ? static fn (array $cart): array => CheckoutRules::post(self::pageValues($cart, []), CartSession::user())
+                : null
+        );
+        $summary = $page['summary'];
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
-        $cart = CartSession::current(false);
+        $cart = $page['cart'];
+        // Il ricalcolo dell'anteprima può aver tolto tutto (prodotti spenti): come prima, si torna al carrello.
+        if ((array) ($cart['items'] ?? []) === []) {
+            self::redirect(self::route('ecommerce.cart.index'));
+        }
         $user = CartSession::user();
         $billing = Order::billingAddress()->formSchema($values['billing_country'] ?? null);
 
@@ -107,22 +121,23 @@ final class CheckoutController
     }
 
     /**
-     * La prima anteprima, già nella pagina: le scelte di consegna si vedono
-     * anche senza JavaScript. Se il gestionale non risponde, la pagina resta
-     * quella di prima e il JavaScript riprova al primo cambiamento.
+     * I valori del modulo: quelli tornati indietro, altrimenti quelli del carrello e del cliente.
      *
-     * @param array<string, string> $values
-     * @return array<string, mixed>|null
+     * @param array<string, mixed> $cart
+     * @param array<string, mixed> $formState
+     * @return array<string, string>
      */
-    private static function initialSummary(int $cartId, array $values, bool $keepCart): ?array
+    private static function pageValues(array $cart, array $formState): array
     {
-        try {
-            return CheckoutSummary::payload($cartId, CheckoutRules::post($values, CartSession::user()), CartSession::user(), $keepCart);
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.checkout.index');
-
-            return null;
+        if ($formState !== []) {
+            return self::defaults($formState);
         }
+
+        $order = (array) ($cart['order'] ?? []);
+        $fromCart = array_filter(CheckoutPlacement::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0');
+
+        // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
+        return CheckoutRules::choices($order) + $fromCart + self::defaults([]);
     }
 
 
