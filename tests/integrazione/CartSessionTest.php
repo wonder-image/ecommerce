@@ -3,10 +3,21 @@
 declare(strict_types=1);
 
 define('SITE', getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site');
+const PACCHETTO = __DIR__.'/../..';
 
 chdir(SITE);
 $GLOBALS['ROOT'] = SITE;
 require SITE.'/vendor/autoload.php';
+// Le classi dell'ecommerce sono quelle di questo pacchetto, non quelle installate nel sito.
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'Wonder\\Plugin\\Ecommerce\\';
+    if (str_starts_with($class, $prefix)) {
+        $file = PACCHETTO.'/src/'.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
+        if (is_file($file)) {
+            require_once $file;
+        }
+    }
+}, true, true);
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 require __DIR__.'/dns-fixture.php';
@@ -48,8 +59,22 @@ try {
         $guest = Cart::open(['cart_token' => $token, 'channel' => 'online']);
         $customer = Cart::open(['customer_id' => $contactId, 'channel' => 'online']);
 
+        // Ospite con un cookie senza carrello: peek() non ne apre uno.
+        $_COOKIE[CartSession::COOKIE] = bin2hex(random_bytes(32));
+        $vuoto = CartSession::peek();
+        check('peek(): ospite senza carrello, vuoto e nessun carrello creato', fn () =>
+            $vuoto === ['order' => [], 'items' => [], 'removed' => []]
+            && Order::find(['cart_token' => $_COOKIE[CartSession::COOKIE]], 1) === []
+        );
+
         $_SESSION['user_id'] = $userId;
         $_COOKIE[CartSession::COOKIE] = $token;
+        $peeked = CartSession::peek();
+        check('peek(): cliente con carrello ospite, unisce come current(false)', fn () =>
+            (int) ($peeked['order']['id'] ?? 0) === (int) ($customer['id'] ?? 0)
+            && Order::findById((int) ($guest['id'] ?? 0)) === []
+            && array_key_exists('removed', $peeked)
+        );
         $merged = CartSession::current(false);
 
         check('al login il carrello ospite confluisce nel carrello del cliente', fn () =>
@@ -72,6 +97,12 @@ try {
         $_SESSION['user_id'] = $senzaScheda;
         $nuovaScheda = CartSession::customerId();
         $letta = Contact::find(['user_id' => $senzaScheda], 1);
+        $senzaCarrello = CartSession::peek();
+
+        check('peek(): cliente senza carrello, vuoto e nessun carrello creato', fn () =>
+            $senzaCarrello === ['order' => [], 'items' => [], 'removed' => []]
+            && Order::find(['customer_id' => $nuovaScheda, 'stage' => 'cart'], 1) === []
+        );
 
         check('senza scheda customerId() la collega e la rilegge da customer-account', fn () =>
             $nuovaScheda > 0

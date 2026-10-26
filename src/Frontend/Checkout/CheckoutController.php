@@ -63,24 +63,38 @@ final class CheckoutController
 
         // Il carrello è diventato l'ordine in pagamento: torna carrello e il checkout resta modificabile.
         self::resume(false);
-        $cart = CartSession::current(false);
+        // Senza ricalcolo: lo fa l'anteprima, una volta, e solo se il carrello è cambiato.
+        $cart = CartSession::peek();
         if ((array) ($cart['items'] ?? []) === []) {
             self::redirect(self::route('ecommerce.cart.index'));
         }
 
         $formState = self::pullFormState();
-        $fromCart = array_filter(CheckoutPlacement::fromCart((array) ($cart['order'] ?? [])), static fn (string $v): bool => $v !== '' && $v !== '0');
-        // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
-        $values = $formState !== [] ? self::defaults($formState) : CheckoutRules::choices((array) ($cart['order'] ?? [])) + $fromCart + self::defaults([]);
+        $values = self::pageValues($cart, $formState);
         // Riaperto dopo un pagamento rifiutato: torna spuntata la scelta Stripe di prima (Klarna…), non la carta.
         $choice = OnlinePayment::pullChoice();
-        if ($formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0)) {
+        $chosen = $formState === [] && $choice !== '' && CheckoutRules::splitPayment($choice)[0] === (int) ($values['payment_method_id'] ?? 0);
+        if ($chosen) {
             $values['payment_method_id'] = $choice;
         }
         // Alla prima visita le scelte di consegna e pagamento restano quelle del carrello.
-        $summary = self::initialSummary((int) ($cart['order']['id'] ?? 0), $values, $formState === []);
+        // Si riusa solo la pagina fatta dal carrello: col modulo tornato indietro l'anteprima riscrive i valori.
+        $page = CheckoutSnapshot::page(
+            $cart,
+            CheckoutRules::post($values, CartSession::user()),
+            CartSession::user(),
+            $formState === [],
+            $formState === [] && !$chosen
+                ? self::firstPost(...)
+                : null
+        );
+        $summary = $page['summary'];
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
-        $cart = CartSession::current(false);
+        $cart = $page['cart'];
+        // Il ricalcolo dell'anteprima può aver tolto tutto (prodotti spenti): come prima, si torna al carrello.
+        if ((array) ($cart['items'] ?? []) === []) {
+            self::redirect(self::route('ecommerce.cart.index'));
+        }
         $user = CartSession::user();
         $billing = Order::billingAddress()->formSchema($values['billing_country'] ?? null);
 
@@ -107,22 +121,36 @@ final class CheckoutController
     }
 
     /**
-     * La prima anteprima, già nella pagina: le scelte di consegna si vedono
-     * anche senza JavaScript. Se il gestionale non risponde, la pagina resta
-     * quella di prima e il JavaScript riprova al primo cambiamento.
+     * L'input dell'anteprima alla prima visita, senza modulo tornato indietro:
+     * quello che la prossima GET darebbe a questo carrello. Pubblico per i test.
      *
-     * @param array<string, string> $values
-     * @return array<string, mixed>|null
+     * @internal
+     * @param array<string, mixed> $cart
+     * @return array<string, mixed>
      */
-    private static function initialSummary(int $cartId, array $values, bool $keepCart): ?array
+    public static function firstPost(array $cart): array
     {
-        try {
-            return CheckoutSummary::payload($cartId, CheckoutRules::post($values, CartSession::user()), CartSession::user(), $keepCart);
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.checkout.index');
+        return CheckoutRules::post(self::pageValues($cart, []), CartSession::user());
+    }
 
-            return null;
+    /**
+     * I valori del modulo: quelli tornati indietro, altrimenti quelli del carrello e del cliente.
+     *
+     * @param array<string, mixed> $cart
+     * @param array<string, mixed> $formState
+     * @return array<string, string>
+     */
+    private static function pageValues(array $cart, array $formState): array
+    {
+        if ($formState !== []) {
+            return self::defaults($formState);
         }
+
+        $order = (array) ($cart['order'] ?? []);
+        $fromCart = array_filter(CheckoutPlacement::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0');
+
+        // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
+        return CheckoutRules::choices($order) + $fromCart + self::defaults([]);
     }
 
 
@@ -139,6 +167,8 @@ final class CheckoutController
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf(remember: true);
+        // I POST che scrivono sul carrello buttano l'anteprima della GET.
+        CheckoutSnapshot::forget();
 
         if (!self::guestAllowed() && !CartSession::authenticated()) {
             self::leave(self::loginUrl(), $json, 401);
@@ -215,6 +245,7 @@ final class CheckoutController
     private static function summary(): never
     {
         $cartId = self::guardJson();
+        CheckoutSnapshot::forget();
 
         try {
             self::json(['success' => true] + CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user()));
@@ -236,6 +267,7 @@ final class CheckoutController
         $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
         $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart', $back);
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+        CheckoutSnapshot::forget();
 
         $status = 200;
 
@@ -497,6 +529,7 @@ final class CheckoutController
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf();
+        CheckoutSnapshot::forget();
 
         $reopened = self::resume($json, false);
         if (!$json) {

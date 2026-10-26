@@ -32,6 +32,14 @@ versionamento semantico.
 
 ### Modificato
 
+- GET `/checkout/`: il carrello si legge senza ricalcolarlo
+  (`CartSession::peek()`) e lo ricalcola solo l'anteprima, invece di due
+  ricalcoli in più attorno a lei. Se righe, prezzi e campagne dei prodotti,
+  input e lingua sono quelli dell'ultima anteprima (meno di 2 minuti fa, senza
+  coupon), la pagina la riusa dalla sessione: niente ricalcolo né `FOR UPDATE`
+  (`CheckoutSnapshot`). Il POST che crea l'ordine ricalcola sempre; i POST
+  del checkout che scrivono sul carrello (ordine, riepilogo, coupon,
+  riapertura) buttano l'anteprima.
 - Pagina scaduta (token CSRF non valido) sui form HTML di checkout, carrello,
   abbonamenti, area cliente e impersonazione: invece del 419 con il testo nudo,
   un 302 alla pagina di partenza con l'avviso 929. Checkout e abbonamenti
