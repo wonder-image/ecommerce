@@ -39,14 +39,9 @@ check('i chiamanti importano Throttle del gestionale, non quello del negozio', f
     return true;
 });
 
-$alias = (string) file_get_contents($root.'/src/Support/Throttle.php');
-check('Support\\Throttle del negozio: alias deprecato della classe del gestionale, caricato dall\'autoload', fn () =>
-    str_contains($alias, 'class_alias(')
-    && str_contains($alias, '@deprecated 0.2.0-beta.1')
-    && str_contains($alias, 'Si toglie nella 0.3.0.')
-    && !str_contains($alias, 'class Throttle')
-    && class_exists(\Wonder\Plugin\Ecommerce\Support\Throttle::class)
-    && (new ReflectionClass(\Wonder\Plugin\Ecommerce\Support\Throttle::class))->getName() === Throttle::class);
+check('niente più alias Support\\Throttle del negozio: si usa la classe del gestionale', fn () =>
+    !is_file($root.'/src/Support/Throttle.php')
+    && !class_exists('Wonder\\Plugin\\Ecommerce\\Support\\Throttle'));
 
 check('niente Model del negozio per i contatori: la tabella è gst_throttles del gestionale', fn () =>
     !is_file($root.'/src/Models/Throttle.php')
