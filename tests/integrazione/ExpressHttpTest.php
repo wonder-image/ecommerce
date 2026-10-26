@@ -10,6 +10,7 @@ require SITE.'/vendor/autoload.php';
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 
+use Wonder\App\Environment;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressVerification;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -71,7 +72,8 @@ $csrf = $token[1] ?? '';
 $ospite = GuestCheckout::enabled();
 
 // Con la verifica dell'ospite l'avvio vuole un token reCAPTCHA, che da qui non si può avere.
-$verifica = class_exists(ExpressVerification::class);
+// Con APP_ENV=local RecaptchaGuard salta la verifica: l'avvio passa e si prova quello.
+$verifica = class_exists(ExpressVerification::class) && !Environment::isLocal();
 
 foreach (['shipping', 'place'] as $azione) {
     [$status, $risposta] = $request("/checkout/express/{$azione}/", ['_csrf' => $csrf]);
