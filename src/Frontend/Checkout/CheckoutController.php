@@ -12,6 +12,7 @@ use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
 use Wonder\Auth\Frontend\AuthValidator;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
@@ -38,8 +39,16 @@ final class CheckoutController
     private const COUPON_LIMIT = 10;
     private const COUPON_WINDOW = 600;
 
+    /** Le pagine del checkout: le altre azioni (summary, coupon a ogni modifica del modulo) non pagano l'aggancio. */
+    private const CLAIM_ACTIONS = ['index', 'completed', 'return'];
+
     public static function handle(string $action): void
     {
+        // Chi è entrato ritrova gli ordini fatti con la sua email senza account: solo sulle pagine, non su summary/coupon.
+        if (in_array($action, self::CLAIM_ACTIONS, true)) {
+            OrderClaim::run();
+        }
+
         match ($action) {
             'index' => self::index(),
             'place' => self::place(),

@@ -88,7 +88,7 @@ final class CheckoutPlacement
             if (!self::guestAllowed($cartId)) {
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'));
             }
-            $account = GuestCheckout::account($order, $post, $asked);
+            $account = GuestCheckout::account($order, $post, $asked, (bool) ($options['express'] ?? false));
             $userId = $account['user_id'];
             $customerId = $account['customer_id'];
             // Online il link parte con la conferma, dal modulo (Ecommerce::orderEmailExtras).

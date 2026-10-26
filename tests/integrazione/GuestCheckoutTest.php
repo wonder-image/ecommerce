@@ -16,6 +16,9 @@ use Wonder\Auth\Federated\FederatedIdentityPayload;
 use Wonder\Auth\Federated\FederatedIdentityRepository;
 use Wonder\Auth\OneTimeToken;
 use Wonder\Auth\Frontend\UserAccountGateway;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\Ecommerce\Frontend\Account\AccountOrder;
+use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestAccountExists;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\GuestCheckout;
 use Wonder\Plugin\Ecommerce\Support\Throttle;
@@ -114,6 +117,14 @@ try {
                 && ($contatto['phone'] ?? '') === '3330001111';
         });
 
+        // Dal rapido un cliente senza password (non claimed) si aggancia come dal checkout normale.
+        $rapidoSenzaPassword = GuestCheckout::account(carrelloOspite($email), [], [], true);
+
+        check('dal check-out rapido l\'email di un cliente senza password aggancia account e contatto come prima', fn () =>
+            $rapidoSenzaPassword === ['user_id' => $nuovo['user_id'], 'customer_id' => $nuovo['customer_id'], 'created' => false]
+            && empty(sqlSelect('auth_log', ['event' => 'guest_checkout_existing_unlinked', 'user_id' => $nuovo['user_id']], 1)->exists)
+        );
+
         $link = GuestCheckout::passwordLink($nuovo['user_id'], '/account/password-restore/');
         $secondo = GuestCheckout::passwordLink($nuovo['user_id'], '/account/password-restore/');
 
@@ -139,6 +150,8 @@ try {
         $locale = (int) ($creato->insert_id ?? 0);
         sqlModify('user', ['password' => hashPassword('password-locale-123')], 'id', $locale);
         $fermatoLocale = fermato($conPassword);
+        $registroBlocco = sqlSelect('auth_log', ['event' => 'guest_checkout_existing', 'user_id' => $locale], 1);
+        $metaBlocco = json_decode((string) ($registroBlocco->row['meta'] ?? ''), true);
 
         check('l\'email di un account con password ferma l\'ospite: nessun contatto, nessun link', fn () =>
             $locale > 0
@@ -146,6 +159,36 @@ try {
             && empty(Contact::find(['user_id' => $locale], 1))
             && GuestCheckout::passwordLink($locale, '/account/password-restore/') === ''
             && (infoUser($locale, 'id')->name ?? '') === 'Ada'
+        );
+
+        check('il blocco va nel registro con l\'hash dell\'email, mai l\'email', fn () =>
+            ($registroBlocco->exists ?? false)
+            && ($metaBlocco['email_hash'] ?? '') === hash('sha256', $conPassword)
+            && ($metaBlocco['limited'] ?? null) === false
+            && !str_contains((string) ($registroBlocco->row['meta'] ?? ''), $conPassword)
+        );
+
+        // Dal rapido niente blocco e niente limite guest_exists: anche col limite pieno l'ordine passa slegato.
+        Throttle::useStore(static fn (): int => 99);
+        try {
+            $daRapido = GuestCheckout::account(carrelloOspite($conPassword), [], [], true);
+        } catch (Throwable $errore) {
+            $daRapido = ['errore' => $errore->getMessage()];
+        } finally {
+            Throttle::useStore(null);
+        }
+        $registro = sqlSelect('auth_log', ['event' => 'guest_checkout_existing_unlinked', 'user_id' => $locale], 1);
+        $meta = json_decode((string) ($registro->row['meta'] ?? ''), true);
+
+        check('dal check-out rapido l\'email di un account con password non ferma: ordine senza account né contatto', fn () =>
+            $daRapido === ['user_id' => 0, 'customer_id' => 0, 'created' => false]
+            && empty(Contact::find(['user_id' => $locale], 1))
+        );
+
+        check('l\'ordine rapido slegato va nel registro con l\'hash dell\'email, mai l\'email', fn () =>
+            ($registro->exists ?? false)
+            && ($meta['email_hash'] ?? '') === hash('sha256', $conPassword)
+            && !str_contains((string) ($registro->row['meta'] ?? ''), $conPassword)
         );
 
         // Oltre il limite il blocco non conferma più l'account: risponde come ai troppi ordini.
@@ -303,6 +346,58 @@ try {
             && (int) ($ordine['user_id'] ?? 0) === $nuovoUtente
             && is_array($scheda) && (int) ($ordine['customer_id'] ?? 0) === (int) $scheda['id']
         );
+
+        // L'ordine rapido slegato entra nell'account quando il cliente, entrato e verificato, apre l'area cliente.
+        $rapido = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'order',
+            'email' => $conPassword,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        // Carrello lasciato da un ospite con la stessa email: non deve entrare nell'account.
+        $carrelloAltrui = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'cart',
+            'email' => $conPassword,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        $sessione = $_SESSION ?? null;
+        $_SESSION = ['user_id' => $locale];
+        $nonVerificato = OrderClaim::run();
+        $dopoNonVerificato = (int) (Order::findById($rapido)['user_id'] ?? -1);
+        markUserEmailVerified($locale, date('Y-m-d H:i:s'));
+        $presi = OrderClaim::run();
+        $agganciato = (array) Order::findById($rapido);
+        $schedaLocale = (int) (CustomerContact::forUser($locale)['id'] ?? 0);
+        $visibile = array_column(array_filter((array) Order::find(AccountOrder::condition($schedaLocale)), 'is_array'), 'id');
+
+        check('un carrello con la sua email resta all\'ospite (serve il gestionale con la correzione di OrderOwner::claim)', fn () =>
+            $carrelloAltrui > 0 && (int) (Order::findById($carrelloAltrui)['user_id'] ?? -1) === 0
+        );
+
+        check('il cliente non verificato non prende l\'ordine rapido; verificato sì, e lo vede negli ordini', fn () =>
+            $rapido > 0
+            && $nonVerificato === 0 && $dopoNonVerificato === 0
+            && $presi === 1
+            && (int) ($agganciato['user_id'] ?? 0) === $locale
+            && $schedaLocale > 0 && (int) ($agganciato['customer_id'] ?? 0) === $schedaLocale
+            && in_array((string) $rapido, array_map('strval', $visibile), true)
+        );
+
+        $delloStaff = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'order',
+            'email' => $delBackend,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
+        markUserEmailVerified($backend, date('Y-m-d H:i:s'));
+        $_SESSION = ['user_id' => $backend];
+        $presiStaff = OrderClaim::run();
+
+        check('lo staff, anche verificato, non prende mai gli ordini con la sua email', fn () =>
+            $delloStaff > 0 && $presiStaff === 0 && (int) (Order::findById($delloStaff)['user_id'] ?? -1) === 0
+        );
+        $sessione === null ? $_SESSION = [] : $_SESSION = $sessione;
 
         throw new AnnullaGuestCheckout();
     });
