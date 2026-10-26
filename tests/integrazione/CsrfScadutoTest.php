@@ -212,4 +212,23 @@ $togli = scaduto(['controller' => 'subscriptions', 'action' => 'remove', 'post' 
 check('abbonamenti remove: 302 al riepilogo con l\'avviso 929', fn () =>
     $togli['status'] === 302 && percorso($togli['location']) === $riepilogo && avviso929($togli) && $togli['token_kept']);
 
+// Impersonazione dal backend: si torna alla conferma con l'avviso 929, nessun token emesso.
+$conferma = percorso((string) __r('backend.ecommerce.impersonation.confirm'));
+$imp = scaduto(['controller' => 'impersonation', 'post' => [
+    'csrf_token' => 'scaduto',
+    'user_id' => '42',
+    'continue' => '/account/ordini/',
+    'return' => 'https://altro.example/',
+]]);
+parse_str((string) parse_url($imp['location'], PHP_URL_QUERY), $query);
+check('impersonazione: 302 alla conferma con user_id e continue, return esterno ignorato', fn () =>
+    $imp['status'] === 302 && percorso($imp['location']) === $conferma
+    && ($query['user_id'] ?? '') === '42'
+    && ($query['continue'] ?? '') === '/account/ordini/'
+    && ($query['return'] ?? '') === '/backend/');
+check('impersonazione: avviso 929 del backend, niente token emesso né «CSRF» in pagina', fn () =>
+    ($imp['session'][FlashAlert::KEY] ?? []) === ['code' => (string) Csrf::ALERT]
+    && !str_contains($imp['location'], 'token=')
+    && !preg_match('/csrf|token/i', $imp['body']));
+
 summary();

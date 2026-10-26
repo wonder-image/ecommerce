@@ -1,6 +1,8 @@
 <?php
 
 use Wonder\Auth\Impersonation;
+use Wonder\Backend\Support\FlashAlert;
+use Wonder\Http\Csrf;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\SafeRedirect;
 use Wonder\View\View;
@@ -26,8 +28,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
 }
 
 if (!$service->verifyCsrf((string) ($_POST['csrf_token'] ?? ''), 'issue')) {
-    http_response_code(419);
-    exit('CSRF token invalid');
+    // Pagina scaduta: si torna alla conferma con l'avviso 929, nessuna sessione impersonata.
+    FlashAlert::code(Csrf::ALERT);
+    header('Location: '.__r('backend.ecommerce.impersonation.confirm').'?'.http_build_query([
+        'user_id' => $subjectUserId,
+        'continue' => SafeRedirect::fromRequest($_POST['continue'] ?? '', '/account/'),
+        'return' => SafeRedirect::fromRequest($_POST['return'] ?? '', '/backend/'),
+    ]));
+    exit;
 }
 
 $issued = $service->issue(
