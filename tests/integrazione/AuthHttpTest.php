@@ -39,6 +39,15 @@ check('il server rifiuta captcha assente con un solo alert fuori dal form', fn (
     $status === 200 && $xpath->query($selector)->length === 1
     && $xpath->query('//form'.$selector)->length === 0
 );
-[$status] = $request('/account/auth/login/', ['csrf_token' => 'invalid']);
-check('il POST con CSRF invalido viene rifiutato', fn () => $status === 419);
+[$status, $expired] = $request('/account/auth/login/', ['csrf_token' => 'invalid', 'email' => 'cliente@example.com']);
+$dom = new DOMDocument();
+$previous = libxml_use_internal_errors(true);
+$dom->loadHTML($expired);
+libxml_clear_errors();
+libxml_use_internal_errors($previous);
+$alert = implode(' ', array_map(static fn (DOMNode $node): string => $node->textContent, iterator_to_array((new DOMXPath($dom))->query($selector))));
+check('il POST con CSRF invalido ridà il login con l\'avviso 929, senza «CSRF» né «token»', fn () =>
+    $status === 200 && str_contains($alert, 'Ricarica la pagina')
+    && !preg_match('/csrf|token/i', $alert)
+    && str_contains($expired, 'value="cliente@example.com"'));
 summary();
