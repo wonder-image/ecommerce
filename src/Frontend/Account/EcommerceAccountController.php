@@ -5,6 +5,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 use Throwable;
 use Wonder\Auth\Frontend\AccountController;
 use Wonder\Auth\Frontend\AccountPagination;
+use Wonder\Http\Csrf;
 use Wonder\Http\Route;
 use Wonder\Plugin\CustomerAccount\Account\Concerns\ManagesContact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
@@ -33,8 +34,14 @@ class EcommerceAccountController extends AccountController
     /** Aggiungi servizio fra un passo e l'altro: valori, errore e anteprima, legati all'abbonamento. */
     private const ADD_STATE = 'ecommerce_account_subscription_add';
 
+    /** @var array<string, mixed> i parametri della rotta, per tornare alla pagina giusta dopo un token scaduto */
+    private array $parameters = [];
+
     public function handle(string $action, array $parameters = []): void
     {
+        $this->action = $action;
+        $this->parameters = $parameters;
+
         match ($action) {
             'payment-methods' => $this->paymentMethods(),
             'orders' => $this->orders(),
@@ -412,6 +419,37 @@ class EcommerceAccountController extends AccountController
         }
 
         $this->redirect($url !== '' ? $url : Route::url('account.subscriptions'));
+    }
+
+    /** Pagina scaduta sulle azioni degli abbonamenti: si torna alla pagina col messaggio 929, i valori scritti restano. */
+    protected function renderCsrfFailure(): void
+    {
+        $code = (string) ($this->parameters['code'] ?? '');
+
+        switch ($this->action) {
+            case 'subscriptions.add.preview':
+                $price = trim($this->text($_POST['price'] ?? ''));
+                $this->saveAddState($code, $price, $this->addValues(), null, Csrf::failureMessage());
+                $this->redirect(Route::url('account.subscriptions.add', ['code' => $code]).'?price='.rawurlencode($price));
+            case 'subscriptions.add.confirm':
+                // L'anteprima resta: basta confermare di nuovo.
+                $state = $this->addState($code);
+                $price = (string) ($state['price'] ?? '');
+                $values = is_array($state['values'] ?? null) ? $state['values'] : [];
+                $this->saveAddState($code, $price, $values, null, Csrf::failureMessage(), is_array($state['preview'] ?? null) ? $state['preview'] : null);
+                if ($price === '') {
+                    // Senza un servizio scelto la pagina non mostra lo stato: l'avviso va in cima.
+                    Csrf::flashFailure();
+                }
+                $this->redirect(Route::url('account.subscriptions.add', ['code' => $code]).($price !== '' ? '?price='.rawurlencode($price) : ''));
+            case 'subscriptions.item.remove':
+            case 'subscriptions.item.change':
+            case 'subscriptions.cancel':
+            case 'subscriptions.card':
+                $this->subscriptionError(Csrf::failureMessage());
+            default:
+                parent::renderCsrfFailure();
+        }
     }
 
     /** @return array{0: array<string, mixed>} l'abbonamento del cliente, dopo POST e CSRF */
