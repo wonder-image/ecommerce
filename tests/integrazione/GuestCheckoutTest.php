@@ -354,6 +354,13 @@ try {
             'email' => $conPassword,
             'total' => '10.00',
         ])->insert_id ?? 0);
+        // Carrello lasciato da un ospite con la stessa email: non deve entrare nell'account.
+        $carrelloAltrui = (int) (Order::create([
+            'code' => Code::make(Order::class, Codes::ORDER),
+            'stage' => 'cart',
+            'email' => $conPassword,
+            'total' => '10.00',
+        ])->insert_id ?? 0);
         $sessione = $_SESSION ?? null;
         $_SESSION = ['user_id' => $locale];
         $nonVerificato = OrderClaim::run();
@@ -363,6 +370,10 @@ try {
         $agganciato = (array) Order::findById($rapido);
         $schedaLocale = (int) (CustomerContact::forUser($locale)['id'] ?? 0);
         $visibile = array_column(array_filter((array) Order::find(AccountOrder::condition($schedaLocale)), 'is_array'), 'id');
+
+        check('un carrello con la sua email resta all\'ospite (serve il gestionale con la correzione di OrderOwner::claim)', fn () =>
+            $carrelloAltrui > 0 && (int) (Order::findById($carrelloAltrui)['user_id'] ?? -1) === 0
+        );
 
         check('il cliente non verificato non prende l\'ordine rapido; verificato sì, e lo vede negli ordini', fn () =>
             $rapido > 0
