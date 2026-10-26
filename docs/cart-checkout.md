@@ -178,8 +178,13 @@ Moduli e richieste del negozio usano `Wonder\Http\Csrf` del core.
   che verifica ancora `csrf_token`, quindi scrive `Csrf::field('csrf_token')`.
 
 Il token di sessione è lo stesso di prima, quindi nessuno perde la sessione.
-Un modulo che manda ancora il vecchio campo `csrf_token` (una pagina in cache
-o un override del sito) riceve 419: va rigenerato con `Csrf::field()`.
+Con un token non valido (pagina scaduta) i form HTML tornano alla pagina di
+partenza con l'avviso 929; checkout e abbonamenti ripropongono i valori
+scritti. I `fetch` ricevono 419 in JSON.
+
+Se il 929 compare a ogni invio, anche dopo aver ricaricato la pagina, il
+modulo non manda `_csrf`: di solito è un override del sito con il vecchio
+campo `csrf_token`. Va rigenerato con `Csrf::field()`.
 
 La ricerca del catalogo (`POST`, route `catalog.products.search`) dichiara
 `->csrf()`. Senza un token valido nell'header `X-WI-CSRF` il guard del core

@@ -199,6 +199,10 @@ class EcommerceAccountController extends AccountController
         $candidate = isset($options[$priceCode]) ? $this->candidate($candidates, $priceCode) : null;
 
         if ($candidate === null || (string) ($state['price'] ?? '') !== $priceCode) {
+            // Il servizio non è più tra le opzioni: l'avviso di pagina scaduta passa in cima.
+            if ((string) ($state['message'] ?? '') === Csrf::failureMessage()) {
+                Csrf::flashFailure();
+            }
             $state = [];
         }
 
@@ -426,6 +430,7 @@ class EcommerceAccountController extends AccountController
     {
         $code = (string) ($this->parameters['code'] ?? '');
 
+        // Niente break: redirect() e subscriptionError() sono never.
         switch ($this->action) {
             case 'subscriptions.add.preview':
                 $price = trim($this->text($_POST['price'] ?? ''));

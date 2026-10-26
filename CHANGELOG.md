@@ -20,8 +20,9 @@ versionamento semantico.
 - CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
   campo è `_csrf` e ogni `fetch` manda anche l'header `X-WI-CSRF`. Il token di
   sessione non cambia, quindi nessuno perde la sessione. Gli override di viste
-  e JS del sito che mandano ancora `csrf_token` ricevono 419: vanno aggiornati
-  con `Csrf::field()` e l'header `X-WI-CSRF`. Resta `csrf_token` solo dove il
+  e JS del sito che mandano ancora `csrf_token` vanno aggiornati con
+  `Csrf::field()` e l'header `X-WI-CSRF`: i `fetch` ricevono 419 in JSON, i
+  form HTML tornano alla pagina con l'avviso «pagina scaduta». Resta `csrf_token` solo dove il
   form va a una route del core (logout del checkout, accesso federato,
   impersonificazione).
 - La ricerca del catalogo dichiara `->csrf()`: senza l'header `X-WI-CSRF`
@@ -31,6 +32,13 @@ versionamento semantico.
 
 ### Modificato
 
+- Pagina scaduta (token CSRF non valido) sui form HTML di checkout, carrello,
+  abbonamenti, area cliente e impersonazione: invece del 419 con il testo nudo,
+  un 302 alla pagina di partenza con l'avviso 929. Checkout e abbonamenti
+  ripropongono i valori scritti, senza i dati di pagamento. Le risposte JSON
+  restano 419 come prima. Se il 929 compare a ogni invio, anche dopo aver
+  ricaricato, il form non manda `_csrf`: va rigenerato con `Csrf::field()`.
+  Richiede `wonder-image/app` `^2.4.0-beta.5`.
 - Limite agli ordini dell'ospite (`checkout.guest_order_limit`: ip `[10, 900]`,
   carrello `[5, 600]`, 0 spegne). I conteggi stanno nella nuova tabella
   `ecommerce_throttle`, che nasce con `php forge update`; se la tabella non
