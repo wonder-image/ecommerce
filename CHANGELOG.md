@@ -62,7 +62,11 @@ versionamento semantico.
   riepilogo nuovo): in JSON lo stesso 409 `error: total_changed`, senza JSON il
   modulo torna con l'avviso e il totale aggiornato. Se manca o è vuoto (senza
   JavaScript, o un `checkout.js` vecchio in cache) l'ordine nasce come prima. Il
-  check-out rapido è solo Stripe e non cambia.
+  check-out rapido è solo Stripe e non cambia. Il testo di
+  `ecommerce.checkout.errors.total_changed` è cambiato per tutti i metodi,
+  online compresi: non nomina più «Paga». Un sito che sovrascrive la chiave
+  tiene il suo testo. `OnlinePayment::sameTotal` considera diverso un totale
+  non finito (es. `1e400`) invece di convertirlo con un avviso.
 - Panoramica dell'account: `OrderClaim::run()` ora scatta anche su `/account/`,
   da `EcommerceAccountExtension::overviewRows()`, prima dell'ultimo ordine. La
   Panoramica la serve il controller del core, quindi `index` in

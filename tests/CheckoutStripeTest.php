@@ -38,6 +38,19 @@ check('«Paga»: prima Stripe controlla la carta, poi nasce l\'ordine col totale
         && str_contains($js, 'new URL(this.placed.return_url, window.location.href)');
 });
 
+check('sameTotal: un totale infinito non coincide e non dà avvisi', function (): bool {
+    $avvisi = 0;
+    set_error_handler(static function () use (&$avvisi): bool { $avvisi++; return true; });
+    try {
+        $esito = !OnlinePayment::sameTotal('1e400', 10) && !OnlinePayment::sameTotal('-1e400', 10)
+            && !OnlinePayment::sameTotal(10, '1e400') && OnlinePayment::sameTotal('10.00', 10);
+    } finally {
+        restore_error_handler();
+    }
+
+    return $esito && $avvisi === 0;
+});
+
 check('un metodo manuale manda col modulo il totale visto, in un campo nascosto', function () use ($js): bool {
     $guard = strpos($js, 'guardSubmit() {');
     $call = strpos($js, 'this.expectedTotal();', (int) $guard);

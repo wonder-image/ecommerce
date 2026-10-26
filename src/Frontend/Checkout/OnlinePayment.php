@@ -149,7 +149,8 @@ final class OnlinePayment
     /** Il totale visto dal cliente è quello dell'ordine, al centesimo. */
     public static function sameTotal(mixed $seen, mixed $actual): bool
     {
-        if (!is_numeric($seen) || !is_numeric($actual)) {
+        // `1e400` è numerico ma infinito: non coincide con nessun totale.
+        if (!is_numeric($seen) || !is_numeric($actual) || !is_finite((float) $seen) || !is_finite((float) $actual)) {
             return false;
         }
 
