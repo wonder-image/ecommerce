@@ -18,10 +18,13 @@ use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
  */
 final class CheckoutSnapshot
 {
-    private const SESSION = 'ecommerce_checkout_snapshot';
+    public const SESSION = 'ecommerce_checkout_snapshot';
 
-    /** Oltre questo l'anteprima si rifà comunque: copre listini, metodi e impostazioni che l'impronta non legge. */
-    public const TTL = 600;
+    /**
+     * Oltre questo l'anteprima si rifà comunque: copre listini, metodi e impostazioni che l'impronta non legge.
+     * Breve perché bonifico e contrassegno non mandano il totale visto: al piazzamento nessuno lo confronta.
+     */
+    public const TTL = 120;
 
     /** Colonne che l'anteprima riscrive a ogni giro senza cambiare niente. */
     private const VOLATILE = ['last_activity_at', 'last_modified', 'creation'];
@@ -36,7 +39,8 @@ final class CheckoutSnapshot
     {
         $cartId = (int) ($cart['order']['id'] ?? 0);
 
-        if ($next !== null) {
+        // L'impronta costa una lettura per prodotto: si calcola solo se c'è un'anteprima da riusare.
+        if ($next !== null && self::candidate($cartId)) {
             $summary = self::reuse($cartId, self::fingerprint($cart, $post));
             if ($summary !== null) {
                 return ['summary' => $summary, 'cart' => $cart, 'reused' => true];
@@ -106,13 +110,15 @@ final class CheckoutSnapshot
 
         ksort($products);
 
-        return hash('sha256', (string) json_encode(self::sorted([
+        $json = json_encode(self::sorted([
             'order' => array_diff_key($order, array_flip(self::VOLATILE)),
             'items' => $lines,
             'products' => $products,
             'post' => $post,
             'lang' => function_exists('__l') ? (string) \__l() : '',
-        ]), JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+        ]), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        return $json === false ? '' : hash('sha256', $json);
     }
 
     /**
@@ -123,17 +129,12 @@ final class CheckoutSnapshot
      */
     public static function reuse(int $cartId, string $fingerprint): ?array
     {
-        $saved = $_SESSION[self::SESSION] ?? null;
-
-        if ($fingerprint === '' || !is_array($saved)
-            || (int) ($saved['cart_id'] ?? 0) !== $cartId
-            || !hash_equals((string) ($saved['fingerprint'] ?? ''), $fingerprint)
-            || time() - (int) ($saved['at'] ?? 0) >= self::TTL
-            || !is_array($saved['summary'] ?? null)) {
+        if ($fingerprint === '' || !self::candidate($cartId)
+            || !hash_equals((string) ($_SESSION[self::SESSION]['fingerprint'] ?? ''), $fingerprint)) {
             return null;
         }
 
-        $summary = $saved['summary'];
+        $summary = $_SESSION[self::SESSION]['summary'];
         $summary['notices'] = [];
         if (isset($summary['coupon']) && is_array($summary['coupon'])) {
             $summary['coupon']['dropped'] = '';
@@ -152,6 +153,17 @@ final class CheckoutSnapshot
         }
 
         $_SESSION[self::SESSION] = ['cart_id' => $cartId, 'fingerprint' => $fingerprint, 'at' => time(), 'summary' => $summary];
+    }
+
+    /** C'è un'anteprima di questo carrello, non scaduta: resta da confrontare l'impronta. */
+    public static function candidate(int $cartId): bool
+    {
+        $saved = $_SESSION[self::SESSION] ?? null;
+
+        return $cartId > 0 && is_array($saved)
+            && (int) ($saved['cart_id'] ?? 0) === $cartId
+            && time() - (int) ($saved['at'] ?? 0) < self::TTL
+            && is_array($saved['summary'] ?? null);
     }
 
     public static function forget(): void

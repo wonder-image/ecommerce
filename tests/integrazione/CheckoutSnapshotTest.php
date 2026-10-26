@@ -34,7 +34,12 @@ require $supporto.'/compra.php';
 require $supporto.'/spedizioni.php';
 require $supporto.'/FakeStripeHttp.php';
 
+use Wonder\App\Models\User\User;
+use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutController;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutPlacement;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRejected;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
@@ -72,6 +77,8 @@ function prova(callable $corpo): mixed
         unset($_COOKIE[CartSession::COOKIE]);
         PaymentProviders::reset();
         StripeProvider::forget();
+        // La scheda letta resta in memoria oltre l'annullamento.
+        CustomerContact::forget();
     }
 
     return $esito;
@@ -114,6 +121,50 @@ function postPagina(int $metodo, string $tipo = ''): array
 function pagina(array $post): array
 {
     return CheckoutSnapshot::page(CartSession::peek(), $post, CartSession::user(), true, static fn (array $cart): array => $post);
+}
+
+/** Una GET come la fa il controller: input e chiusura sono quelli veri di index(). */
+function paginaVera(): array
+{
+    $cart = CartSession::peek();
+
+    return CheckoutSnapshot::page($cart, CheckoutController::firstPost($cart), CartSession::user(), true, CheckoutController::firstPost(...));
+}
+
+/** L'impronta che calcolerebbe adesso la GET successiva, come quella salvata. */
+function stessaImpronta(): bool
+{
+    $cart = CartSession::peek();
+    $salvata = (string) ($_SESSION[CheckoutSnapshot::SESSION]['fingerprint'] ?? '');
+
+    return $salvata !== '' && hash_equals($salvata, CheckoutSnapshot::fingerprint($cart, CheckoutController::firstPost($cart)));
+}
+
+/** Un cliente entrato con scheda e indirizzo predefinito, e il suo carrello. */
+function carrelloCliente(): array
+{
+    $email = 'snapshot-'.bin2hex(random_bytes(6)).'@example.com';
+    $userId = (int) (User::create([
+        'name' => 'Maria', 'surname' => 'Rossi', 'email' => $email,
+        'username' => create_link(explode('@', $email)[0], 'user', 'username'),
+        'authority' => json_encode(['client']), 'area' => json_encode(['frontend']), 'active' => 'true',
+    ])->insert_id ?? 0);
+    $contactId = (int) (Contact::create([
+        'name' => 'Maria', 'surname' => 'Rossi', 'email' => $email, 'user_id' => $userId,
+        'is_customer' => 'true', 'active' => 'true', 'country' => 'IT',
+    ])->insert_id ?? 0);
+    ContactAddress::create([
+        'contact_id' => $contactId, 'label' => 'Casa', 'name' => 'Maria', 'surname' => 'Rossi',
+        'country' => 'IT', 'province' => 'MI', 'city' => 'Milano', 'cap' => '20100',
+        'street' => 'Via Roma', 'number' => '1', 'phone_prefix' => '+39', 'phone' => '3330001111',
+        'is_default' => 'true',
+    ]);
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+    spegniFunzionalita(['shipping']);
+    Order::update(['customer_id' => $contactId], $cart);
+    $_SESSION['user_id'] = $userId;
+
+    return [$cart, $contactId];
 }
 
 function invecchia(int $cart): void
@@ -204,11 +255,57 @@ check('GET con un input diverso o anteprima scaduta: ricalcola', fn () => prova(
     pagina($post);
     $diverso = pagina(['customer_note' => 'altro'] + $post)['reused'] === false;
     pagina($post);
-    $_SESSION['ecommerce_checkout_snapshot']['at'] = time() - CheckoutSnapshot::TTL;
+    $_SESSION[CheckoutSnapshot::SESSION]['at'] = time() - CheckoutSnapshot::TTL;
     invecchia($cart);
     $scaduta = pagina($post);
 
     return $diverso && $scaduta['reused'] === false && attivita($cart) !== VECCHIO;
+}));
+
+check('GET vera da ospite: la chiusura di index() ridà l\'impronta salvata e la seconda GET riusa', fn () => prova(static function (): bool {
+    [$cart] = carrelloOspite();
+    bonifico();
+    $prima = paginaVera();
+    $uguale = stessaImpronta();
+    invecchia($cart);
+    $seconda = paginaVera();
+
+    return $prima['reused'] === false && $uguale && $seconda['reused'] === true && attivita($cart) === VECCHIO;
+}));
+
+check('GET vera da cliente entrato (valori da scheda e indirizzo): la seconda GET riusa', fn () => prova(static function (): bool {
+    [$cart, $contactId] = carrelloCliente();
+    bonifico();
+    $prima = paginaVera();
+    $uguale = stessaImpronta();
+    invecchia($cart);
+    $seconda = paginaVera();
+
+    return CartSession::customerId() === $contactId
+        && (string) (CheckoutController::firstPost(CartSession::peek())['shipping_city'] ?? '') === 'Milano'
+        && $prima['reused'] === false && $uguale && $seconda['reused'] === true && attivita($cart) === VECCHIO;
+}));
+
+check('senza un\'anteprima di questo carrello, non scaduta, non c\'è candidato all\'impronta', fn () => prova(static function (): bool {
+    [$cart] = carrelloOspite();
+    $post = postPagina(bonifico());
+    $vuota = CheckoutSnapshot::candidate($cart);
+    pagina($post);
+    $dopo = CheckoutSnapshot::candidate($cart);
+    $altro = CheckoutSnapshot::candidate($cart + 1);
+    $_SESSION[CheckoutSnapshot::SESSION]['at'] = time() - CheckoutSnapshot::TTL;
+
+    return !$vuota && $dopo && !$altro && !CheckoutSnapshot::candidate($cart);
+}));
+
+check('UTF-8 non valido nell\'input: il resto del testo conta ancora nell\'impronta', fn () => prova(static function (): bool {
+    [$cart] = carrelloOspite();
+    $contenuto = Cart::contents($cart);
+    // Con l'output parziale tutte e due le note diventavano null: stessa impronta.
+    $a = CheckoutSnapshot::fingerprint($contenuto, ['customer_note' => "a\xB1"]);
+    $b = CheckoutSnapshot::fingerprint($contenuto, ['customer_note' => "b\xB1"]);
+
+    return $a !== '' && $b !== '' && $a !== $b;
 }));
 
 check('con un coupon l\'impronta è vuota: non si riusa', fn () => prova(static function (): bool {

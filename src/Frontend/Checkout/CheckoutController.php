@@ -85,7 +85,7 @@ final class CheckoutController
             CartSession::user(),
             $formState === [],
             $formState === [] && !$chosen
-                ? static fn (array $cart): array => CheckoutRules::post(self::pageValues($cart, []), CartSession::user())
+                ? self::firstPost(...)
                 : null
         );
         $summary = $page['summary'];
@@ -118,6 +118,19 @@ final class CheckoutController
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
         ])->render();
+    }
+
+    /**
+     * L'input dell'anteprima alla prima visita, senza modulo tornato indietro:
+     * quello che la prossima GET darebbe a questo carrello. Pubblico per i test.
+     *
+     * @internal
+     * @param array<string, mixed> $cart
+     * @return array<string, mixed>
+     */
+    public static function firstPost(array $cart): array
+    {
+        return CheckoutRules::post(self::pageValues($cart, []), CartSession::user());
     }
 
     /**
@@ -154,6 +167,8 @@ final class CheckoutController
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf(remember: true);
+        // I POST che scrivono sul carrello buttano l'anteprima della GET.
+        CheckoutSnapshot::forget();
 
         if (!self::guestAllowed() && !CartSession::authenticated()) {
             self::leave(self::loginUrl(), $json, 401);
@@ -230,6 +245,7 @@ final class CheckoutController
     private static function summary(): never
     {
         $cartId = self::guardJson();
+        CheckoutSnapshot::forget();
 
         try {
             self::json(['success' => true] + CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user()));
@@ -251,6 +267,7 @@ final class CheckoutController
         $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
         $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart', $back);
         $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+        CheckoutSnapshot::forget();
 
         $status = 200;
 
@@ -512,6 +529,7 @@ final class CheckoutController
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 419);
         }
         self::requireCsrf();
+        CheckoutSnapshot::forget();
 
         $reopened = self::resume($json, false);
         if (!$json) {
