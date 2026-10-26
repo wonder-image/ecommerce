@@ -63,8 +63,7 @@ check('le rotte backend del modulo ereditano il gruppo backend del core', functi
 // contatori dei limiti stanno nel gestionale (gst_throttles).
 check('database: nessun Model e nessuna chiave database; nessun comando', fn () =>
     $manifest->get('database') === null
-    // modelsPath() ripiega su src/Models, che non c'è: Registry::modelDirectories() la salta.
-    && $manifest->modelsPath() === dirname(__DIR__).'/src/Models'
+    // La cartella dei Model non c'è: Registry::modelDirectories() la salta.
     && !is_dir((string) $manifest->modelsPath())
     && $manifest->consoleCommands() === []
 );

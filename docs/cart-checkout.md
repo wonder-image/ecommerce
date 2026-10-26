@@ -194,6 +194,17 @@ l'ordine passa e l'errore va nel registro (`gestionale.throttle`). L'indirizzo
 è quello di `ClientIp::resolve()` del core: dietro un proxy o un CDN serve
 `APP_TRUST_PROXY`, altrimenti tutti i clienti hanno l'IP del proxy.
 
+Ordine di deploy per il passaggio alla classe del gestionale: prima
+`wonder-image/gestionale` con `Support\Throttle` (branch
+`fix/2026-10-6a-throttle-gst`), poi il `composer.lock` del sito aggiornato e
+`php forge update --local` (o il deploy) che crea `gst_throttles`, e solo
+dopo la versione del negozio che la usa. Il fail-open vale per la tabella che
+non risponde, non per la classe che manca: senza `Support\Throttle` del
+gestionale il checkout va in errore fatale (500 su ogni ordine e su «applica
+coupon»). Al cambio i contatori ripartono da zero, sia quelli in tabella
+(`ecommerce_throttle` → `gst_throttles`) sia quelli su file
+(`storage/ecommerce/throttle` → `storage/gestionale/throttle`).
+
 Limite di quanto sopra: anche oltre il limite di `guest_exists` la differenza
 resta osservabile. Un'email con un account riceve `too_many_orders`, una
 nuova crea l'ordine (e un account senza password). Il limite per email non
