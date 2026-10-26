@@ -10,11 +10,13 @@ use Wonder\Plugin\Gestionale\Support\Orders\OrderOwner;
 
 /**
  * Gli ordini fatti con l'email del cliente senza essere entrato (per esempio
- * dal check-out rapido) passano al suo account quando apre l'area cliente o il
- * checkout, se l'email è verificata. Mai per lo staff né per un utente
- * cancellato. Gira a ogni ingresso, senza segno in sessione: così si aggancia
- * anche un ordine fatto nel frattempo da un altro dispositivo. Senza niente da
- * prendere costa una SELECT sugli ordini.
+ * dal check-out rapido) passano al suo account quando apre una pagina che
+ * mostra ordini (panoramica, elenco e dettaglio dell'area cliente; pagina,
+ * conferma e ritorno del checkout), se l'email è verificata. Solo per un
+ * account con ruolo cliente nel frontend, non cancellato. Senza segno in
+ * sessione: a ogni apertura riprova, così si aggancia anche un ordine fatto
+ * nel frattempo da un altro dispositivo. Senza niente da prendere costa una
+ * SELECT sugli ordini, più le letture dell'utente e della scheda.
  */
 final class OrderClaim
 {

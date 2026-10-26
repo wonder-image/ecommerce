@@ -83,9 +83,9 @@ check('il blocco conta con Throttle del gestionale, su gst_throttles', fn () =>
     str_contains($guest, "use Wonder\\Plugin\\Gestionale\\Support\\Throttle;")
     && !str_contains($guest, 'Ecommerce\\Support\\Throttle'));
 
-check('il registro ha l\'hash dell\'email, mai l\'email', fn () =>
-    str_contains($refuse, "AuthLog::write('guest_checkout_existing', \$userId, 'frontend', false, ['email_hash' => \$hash")
-    && !preg_match('/AuthLog::write\([^;]*\$email\b/', $refuse));
+// Che il registro non abbia l'email in chiaro lo prova integrazione/GuestCheckoutTest sulla riga scritta.
+check('il registro ha l\'hash dell\'email', fn () =>
+    str_contains($refuse, "AuthLog::write('guest_checkout_existing', \$userId, 'frontend', false, ['email_hash' => \$hash"));
 
 $unlinked = corpoMetodo($guest, 'unlinked');
 
@@ -101,9 +101,8 @@ check('dal rapido l\'account con un modo per entrare non ferma l\'ordine: nasce 
         && $ritorno < strpos($account, 'CustomerContact::forUser(');
 });
 
-check('l\'ordine slegato va nel registro con l\'hash, mai l\'email, e senza limite guest_exists', fn () =>
+check('l\'ordine slegato va nel registro con l\'hash e senza limite guest_exists', fn () =>
     str_contains($unlinked, "AuthLog::write('guest_checkout_existing_unlinked', \$userId, 'frontend', null, ['email_hash' => hash('sha256', \$email)])")
-    && !preg_match('/AuthLog::write\([^;]*[^(]\$email\b[^)]/', $unlinked)
     && !str_contains($unlinked, 'Throttle::'));
 
 $placement = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutPlacement.php');
@@ -116,6 +115,11 @@ $express = (string) file_get_contents($root.'/src/Frontend/Checkout/ExpressContr
 $exists = (string) file_get_contents($root.'/src/Frontend/Checkout/GuestAccountExists.php');
 $place = corpoMetodo($controller, 'place');
 $risposta = corpoMetodo($controller, 'accountExists');
+
+check('il checkout normale non passa express al piazzamento: con un account il 409 resta', fn () =>
+    str_contains($place, "CheckoutPlacement::place(\$cartId, \$post, \$user, ['json' => \$json, 'expected_total' => \$_POST['expected_total'] ?? null]);")
+    && !str_contains($place, "'express'")
+    && str_contains(corpoMetodo($express, 'place'), "'express' => true]"));
 
 check('place intercetta GuestAccountExists prima di UserError e RuntimeException', function () use ($place) {
     $blocco = strpos($place, 'catch (GuestAccountExists $e)');

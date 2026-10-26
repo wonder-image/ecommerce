@@ -39,10 +39,15 @@ final class CheckoutController
     private const COUPON_LIMIT = 10;
     private const COUPON_WINDOW = 600;
 
+    /** Le pagine del checkout: le altre azioni (summary, coupon a ogni modifica del modulo) non pagano l'aggancio. */
+    private const CLAIM_ACTIONS = ['index', 'completed', 'return'];
+
     public static function handle(string $action): void
     {
-        // Chi è entrato ritrova gli ordini fatti con la sua email senza account.
-        OrderClaim::run();
+        // Chi è entrato ritrova gli ordini fatti con la sua email senza account: solo sulle pagine, non su summary/coupon.
+        if (in_array($action, self::CLAIM_ACTIONS, true)) {
+            OrderClaim::run();
+        }
 
         match ($action) {
             'index' => self::index(),

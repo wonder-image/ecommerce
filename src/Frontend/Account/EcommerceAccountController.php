@@ -35,6 +35,9 @@ class EcommerceAccountController extends AccountController
     /** Aggiungi servizio fra un passo e l'altro: valori, errore e anteprima, legati all'abbonamento. */
     private const ADD_STATE = 'ecommerce_account_subscription_add';
 
+    /** Le pagine che mostrano ordini: panoramica (con l'ultimo), elenco e dettaglio. Non le azioni né gli altri GET. */
+    private const CLAIM_ACTIONS = ['index', 'orders', 'orders.show'];
+
     /** @var array<string, mixed> i parametri della rotta, per tornare alla pagina giusta dopo un token scaduto */
     private array $parameters = [];
 
@@ -42,8 +45,10 @@ class EcommerceAccountController extends AccountController
     {
         $this->action = $action;
         $this->parameters = $parameters;
-        // Prima di leggere gli ordini: quelli fatti con la sua email senza account diventano suoi.
-        OrderClaim::run();
+        // Solo dove si vedono gli ordini: quelli fatti con la sua email senza account diventano suoi.
+        if (in_array($action, self::CLAIM_ACTIONS, true)) {
+            OrderClaim::run();
+        }
 
         match ($action) {
             'payment-methods' => $this->paymentMethods(),

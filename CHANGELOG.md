@@ -19,12 +19,18 @@ versionamento semantico.
   accessi come `guest_checkout_existing`, con l'hash dell'email.
 - Check-out rapido da ospite: con l'email di un account con password, con
   accesso federato o non cliente l'ordine nasce senza agganciarlo (`user_id` e
-  `customer_id` a 0), senza 409 e senza il limite di `guest_exists`. L'ordine
-  entra nell'account quando il cliente, entrato, apre l'area cliente o il
-  checkout, se l'email dell'account è verificata (`OrderClaim`); mai su account
-  dello staff o cancellati. Nel registro degli accessi:
-  `guest_checkout_existing_unlinked`, con l'hash dell'email.
+  `customer_id` a 0), senza 409 e senza il limite di `guest_exists`; restano
+  reCAPTCHA su `start` e `checkout.guest_order_limit`. Un ordine rapido mai
+  pagato resta `awaiting_payment`, nascosto dall'elenco ma agganciato. L'ordine
+  entra nell'account quando il cliente, entrato, apre una pagina che mostra
+  ordini (panoramica, elenco e dettaglio dell'account; pagina, conferma e
+  ritorno del checkout), se l'email dell'account è verificata (`OrderClaim`);
+  solo account con ruolo cliente nel frontend, non cancellati. Nel registro
+  degli accessi: `guest_checkout_existing_unlinked`, con l'hash dell'email.
   `GuestCheckout::account()` riceve il quarto parametro `bool $express = false`.
+  Richiede il gestionale con la correzione di `OrderOwner::claim` che non prende
+  i carrelli: prima un carrello lasciato da un ospite con l'email di un altro
+  finiva sul suo account e poteva sostituire il suo.
 - CSRF: moduli, viste e JS del negozio usano `Wonder\Http\Csrf` del core. Il
   campo è `_csrf` e ogni `fetch` manda anche l'header `X-WI-CSRF`. Il token di
   sessione non cambia, quindi nessuno perde la sessione. Gli override di viste

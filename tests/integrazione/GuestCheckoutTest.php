@@ -117,6 +117,14 @@ try {
                 && ($contatto['phone'] ?? '') === '3330001111';
         });
 
+        // Dal rapido un cliente senza password (non claimed) si aggancia come dal checkout normale.
+        $rapidoSenzaPassword = GuestCheckout::account(carrelloOspite($email), [], [], true);
+
+        check('dal check-out rapido l\'email di un cliente senza password aggancia account e contatto come prima', fn () =>
+            $rapidoSenzaPassword === ['user_id' => $nuovo['user_id'], 'customer_id' => $nuovo['customer_id'], 'created' => false]
+            && empty(sqlSelect('auth_log', ['event' => 'guest_checkout_existing_unlinked', 'user_id' => $nuovo['user_id']], 1)->exists)
+        );
+
         $link = GuestCheckout::passwordLink($nuovo['user_id'], '/account/password-restore/');
         $secondo = GuestCheckout::passwordLink($nuovo['user_id'], '/account/password-restore/');
 
@@ -142,6 +150,8 @@ try {
         $locale = (int) ($creato->insert_id ?? 0);
         sqlModify('user', ['password' => hashPassword('password-locale-123')], 'id', $locale);
         $fermatoLocale = fermato($conPassword);
+        $registroBlocco = sqlSelect('auth_log', ['event' => 'guest_checkout_existing', 'user_id' => $locale], 1);
+        $metaBlocco = json_decode((string) ($registroBlocco->row['meta'] ?? ''), true);
 
         check('l\'email di un account con password ferma l\'ospite: nessun contatto, nessun link', fn () =>
             $locale > 0
@@ -149,6 +159,13 @@ try {
             && empty(Contact::find(['user_id' => $locale], 1))
             && GuestCheckout::passwordLink($locale, '/account/password-restore/') === ''
             && (infoUser($locale, 'id')->name ?? '') === 'Ada'
+        );
+
+        check('il blocco va nel registro con l\'hash dell\'email, mai l\'email', fn () =>
+            ($registroBlocco->exists ?? false)
+            && ($metaBlocco['email_hash'] ?? '') === hash('sha256', $conPassword)
+            && ($metaBlocco['limited'] ?? null) === false
+            && !str_contains((string) ($registroBlocco->row['meta'] ?? ''), $conPassword)
         );
 
         // Dal rapido niente blocco e niente limite guest_exists: anche col limite pieno l'ordine passa slegato.
@@ -350,7 +367,7 @@ try {
         check('il cliente non verificato non prende l\'ordine rapido; verificato sì, e lo vede negli ordini', fn () =>
             $rapido > 0
             && $nonVerificato === 0 && $dopoNonVerificato === 0
-            && $presi >= 1
+            && $presi === 1
             && (int) ($agganciato['user_id'] ?? 0) === $locale
             && $schedaLocale > 0 && (int) ($agganciato['customer_id'] ?? 0) === $schedaLocale
             && in_array((string) $rapido, array_map('strval', $visibile), true)

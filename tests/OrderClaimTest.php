@@ -88,9 +88,10 @@ check('i collaboratori veri: CartSession, isUserEmailVerified e OrderOwner::clai
     && str_contains($classe, "'claim' => OrderOwner::claim(")
     && !str_contains($classe, '$_SESSION'));
 
-check('si chiama all\'ingresso dell\'area cliente e del checkout, non da CartSession', function () use ($root) {
-    $account = (string) file_get_contents($root.'/src/Frontend/Account/EcommerceAccountController.php');
-    $checkout = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+$account = (string) file_get_contents($root.'/src/Frontend/Account/EcommerceAccountController.php');
+$checkout = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+
+check('si chiama all\'ingresso dell\'area cliente e del checkout, non da CartSession', function () use ($root, $account, $checkout) {
     $carrello = (string) file_get_contents($root.'/src/Frontend/Cart/CartSession.php');
     $ingresso = static fn (string $sorgente): bool =>
         ($claim = strpos($sorgente, 'OrderClaim::run();')) !== false
@@ -99,6 +100,19 @@ check('si chiama all\'ingresso dell\'area cliente e del checkout, non da CartSes
         && $claim < strpos($sorgente, 'match ($action)', $handle);
 
     return $ingresso($account) && $ingresso($checkout) && !str_contains($carrello, 'OrderClaim');
+});
+
+check('solo sulle pagine che mostrano ordini: non su summary, coupon, place né sulle azioni dell\'account', function () use ($account, $checkout) {
+    $filtrato = static fn (string $sorgente): bool =>
+        substr_count($sorgente, 'OrderClaim::run();') === 1
+        && str_contains($sorgente, "if (in_array(\$action, self::CLAIM_ACTIONS, true)) {\n            OrderClaim::run();");
+
+    return $filtrato($account) && $filtrato($checkout)
+        && str_contains($account, "private const CLAIM_ACTIONS = ['index', 'orders', 'orders.show'];")
+        && str_contains($checkout, "private const CLAIM_ACTIONS = ['index', 'completed', 'return'];")
+        && str_contains($checkout, "'completed' => self::completed(),")
+        && str_contains($checkout, "'return' => self::returned(),")
+        && str_contains($account, "'orders.show' => \$this->order(");
 });
 
 summary();

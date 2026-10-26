@@ -133,25 +133,34 @@ Il blocco risponde così:
   come difesa.
 
 Dal check-out rapido (`GuestCheckout::account(..., express: true)`) l'email
-arriva dal wallet, che ha già confermato il pagamento: con l'email di un account
+arriva dal wallet e il pagamento non è ancora partito: `ExpressController::place`
+crea il PaymentIntent dopo `CheckoutPlacement::place`. Con l'email di un account
 con password, con accesso federato o non cliente l'ordine nasce senza account
-(`user_id` e `customer_id` a 0), senza contatto e senza link per la password. Il
-limite di `guest_exists` non conta, resta quello di `checkout.guest_order_limit`.
-I consensi chiesti si tracciano sull'email (`registerLeadConsents`). Il registro
-degli accessi scrive `guest_checkout_existing_unlinked` con l'id dell'account e
-`email_hash`, mai l'email.
+(`user_id` e `customer_id` a 0), senza contatto e senza link per la password.
+L'argine contro chi usa l'email di un altro è reCAPTCHA su `start` (action
+`ecommerce_express`) più i limiti di `checkout.guest_order_limit`; il limite di
+`guest_exists` non conta. Un ordine rapido mai pagato resta `awaiting_payment`:
+nascosto dall'elenco degli ordini dell'account, ma agganciato all'account come
+gli altri. I consensi chiesti si tracciano sull'email (`registerLeadConsents`).
+Il registro degli accessi scrive `guest_checkout_existing_unlinked` con l'id
+dell'account e `email_hash`, mai l'email.
 
-L'ordine entra nell'account dopo, con `OrderClaim::run()`. Si chiama
-all'ingresso dell'area cliente (`EcommerceAccountController`) e del checkout, a
-ogni richiesta, senza segno in sessione: così si aggancia anche un ordine fatto
-da un altro dispositivo. Agisce solo se il cliente è entrato, non è cancellato,
-ha l'area frontend con il ruolo client, ha l'email verificata
-(`isUserEmailVerified`) e ha una scheda cliente. Poi `OrderOwner::claim` del
-gestionale prende tutti gli ordini con quell'email e senza utente, come alla
-registrazione e alla verifica. Lo staff non li prende mai. Un cliente non
-verificato li ritrova dopo aver verificato l'email, al primo ingresso
-successivo. Un errore va nel registro (`ecommerce.account.order_claim`) e non
-ferma la pagina.
+L'ordine entra nell'account dopo, con `OrderClaim::run()`. Si chiama solo
+sulle pagine che mostrano ordini: nell'area cliente (`EcommerceAccountController`)
+`index`, `orders` e `orders.show`; nel checkout `index`, `completed` e `return`.
+Non sulle azioni (`summary`, `coupon`, `place`, abbonamenti...). Senza segno in
+sessione: a ogni apertura riprova, così si aggancia anche un ordine fatto da un
+altro dispositivo. Agisce solo per un account con ruolo cliente nel frontend
+(area frontend e authority `client`, anche se ha pure il backend, come
+`CartSession::authenticated()`), non cancellato, entrato, con l'email verificata
+(`isUserEmailVerified`) e con una scheda cliente. Poi `OrderOwner::claim` del
+gestionale prende gli ordini e i preventivi con quell'email e senza utente, mai
+i carrelli, come alla registrazione e alla verifica. Un cliente non verificato
+li ritrova dopo aver verificato l'email, alla prima pagina successiva. Un errore
+va nel registro (`ecommerce.account.order_claim`) e non ferma la pagina. Serve
+il gestionale con la correzione di `OrderOwner::claim` che lascia i carrelli:
+prima un carrello lasciato da un ospite con l'email di un altro finiva sul suo
+account.
 
 Rischio accettato: l'email del wallet non è verificata da noi. Chi conosce
 l'email di un altro può far finire un ordine rapido, pagato da lui, nello

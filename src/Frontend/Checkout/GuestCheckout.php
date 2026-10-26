@@ -43,7 +43,7 @@ final class GuestCheckout
      * @param array<string, mixed> $order il carrello riletto dopo l'anteprima
      * @param array<string, mixed> $post
      * @param list<string> $asked i documenti chiesti dalla pagina
-     * @param bool $express dal check-out rapido: l'email viene dal wallet
+     * @param bool $express dal check-out rapido: l'email viene dal wallet, non ancora pagato
      * @return array{user_id: int, customer_id: int, created: bool}
      */
     public static function account(array $order, array $post, array $asked, bool $express = false): array
@@ -60,7 +60,8 @@ final class GuestCheckout
                 if (!$express) {
                     self::refuse($email, $userId);
                 }
-                // Il wallet ha già pagato: l'ordine nasce slegato, senza dire nulla dell'account.
+                // Dal rapido l'ordine nasce slegato, senza dire nulla dell'account: contro chi usa
+                // l'email altrui ci sono reCAPTCHA su start e i limiti di checkout.guest_order_limit.
                 self::unlinked($email, $userId);
                 self::consents(static fn () => consentService()->registerLeadConsents($email, $post, $context), $asked);
 
