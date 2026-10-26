@@ -77,7 +77,22 @@ check('ordini: il limite per cliente sta in CheckoutPlacement, così vale anche 
     && strpos($placed, "Throttle::allowed('orders'") < strpos($placed, 'Checkout::place(')
     && str_contains($placed, "Throttle::hit('orders'")
     && strpos($placed, "Throttle::hit('orders'") > strpos($placed, 'Checkout::place(')
-    && str_contains($placed, 'ecommerce.checkout.errors.too_many_orders'));
+    && str_contains($placed, 'throw new TooManyOrders();')
+    && !str_contains($placed, "RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'))"));
+
+$express = (string) file_get_contents($root.'/src/Frontend/Checkout/ExpressController.php');
+check('ordini: oltre il limite la barra rapida risponde 422 too_many_orders, col messaggio del modulo', function () use ($root, $express): bool {
+    $classe = (string) file_get_contents($root.'/src/Frontend/Checkout/TooManyOrders.php');
+    $place = (int) strpos($express, 'function place(');
+    $limite = strpos($express, 'catch (TooManyOrders $error)', $place);
+    $generico = strpos($express, 'catch (UserError|RuntimeException $error)', $place);
+
+    return is_subclass_of(\Wonder\Plugin\Ecommerce\Frontend\Checkout\TooManyOrders::class, RuntimeException::class)
+        && str_contains($classe, "'ecommerce.checkout.errors.too_many_orders'")
+        && $limite !== false && $generico !== false && $limite < $generico
+        && str_contains($express, "'error' => 'too_many_orders', 'message' => \$error->getMessage()], 422")
+        && substr_count($express, "'error' => 'rejected'") === 3;
+});
 
 $configurazione = require $root.'/config/module.php';
 check('config: checkout.guest_order_limit di default ip [10, 900] e cart [5, 600]', fn () =>

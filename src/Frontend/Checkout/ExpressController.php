@@ -173,6 +173,8 @@ final class ExpressController
         } catch (GuestAccountExists $error) {
             // Difesa: dal rapido account() non lancia più, l'ordine nasce slegato.
             self::json(['success' => false, 'error' => 'account_exists', 'message' => $error->getMessage()], 409);
+        } catch (TooManyOrders $error) {
+            self::json(['success' => false, 'error' => 'too_many_orders', 'message' => $error->getMessage()], 422);
         } catch (UserError|RuntimeException $error) {
             self::json(['success' => false, 'error' => 'rejected', 'message' => $error->getMessage()], 422);
         } catch (Throwable $error) {

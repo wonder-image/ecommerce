@@ -46,6 +46,11 @@ versionamento semantico.
 
 ### Modificato
 
+- Check-out rapido, `place` oltre un limite di ordini: 422 con
+  `error: too_many_orders` invece di `rejected`, stesso messaggio. I limiti
+  lanciano `TooManyOrders` (una `RuntimeException`), quindi il checkout normale
+  e chi prende `RuntimeException` non cambiano. `checkout.js` legge solo
+  `message`: un override che distingueva il limite dal testo può usare il codice.
 - GET `/checkout/`: il carrello si legge senza ricalcolarlo
   (`CartSession::peek()`) e lo ricalcola solo l'anteprima, invece di due
   ricalcoli in più attorno a lei. Se righe, prezzi e campagne dei prodotti,

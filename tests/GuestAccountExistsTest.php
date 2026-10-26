@@ -66,7 +66,7 @@ $refuse = corpoMetodo($guest, 'refuse');
 
 check('il blocco conta per hash dell\'email (3/900) e per IP (10/3600), poi risponde come ai troppi ordini', function () use ($guest, $refuse, $account) {
     $tentativo = strpos($refuse, "Throttle::attempt('guest_exists', 'email:'.\$hash");
-    $generico = strpos($refuse, "'ecommerce.checkout.errors.too_many_orders'");
+    $generico = strpos($refuse, 'throw new TooManyOrders()');
     $blocco = strpos($refuse, 'throw new GuestAccountExists()');
 
     return str_contains($guest, 'EXISTS_EMAIL = [3, 900]')

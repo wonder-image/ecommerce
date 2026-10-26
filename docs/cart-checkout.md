@@ -185,7 +185,12 @@ Gli ordini dell'ospite hanno un limite, in `checkout.guest_order_limit` della
 config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
 indirizzo) e `cart` vale `[5, 600]` (5 ogni 10 minuti per carrello). Con `0` al
 posto della coppia quel limite si spegne. Superato il limite, l'ospite vede
-`ecommerce.checkout.errors.too_many_orders`. I conteggi stanno nella tabella
+`ecommerce.checkout.errors.too_many_orders`. Ogni limite di ordini (questo,
+quello per cliente di `CheckoutPlacement` e quello di `guest_exists`) lancia
+`TooManyOrders`, una `RuntimeException`: il checkout normale risponde come
+prima (422 con `errors[]`), la barra rapida `place` 422 con
+`error: too_many_orders` e lo stesso messaggio (prima era `rejected`). Gli altri
+rifiuti di `place` restano `rejected`. I conteggi stanno nella tabella
 `gst_throttles` del gestionale (Model `System\Throttle`, classe
 `Wonder\Plugin\Gestionale\Support\Throttle`), che nasce con
 `php forge update`. Ogni tentativo è un solo UPSERT, quindi due richieste
