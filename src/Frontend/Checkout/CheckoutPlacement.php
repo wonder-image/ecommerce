@@ -6,7 +6,7 @@ use RuntimeException;
 use Throwable;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
-use Wonder\Plugin\Ecommerce\Support\Throttle;
+use Wonder\Plugin\Gestionale\Support\Throttle;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
