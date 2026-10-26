@@ -44,8 +44,23 @@ versionamento semantico.
   una lib precedente la ricerca smette di funzionare finché non si aggiorna
   con `npm install`.
 
+### Aggiunto
+
+- Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
+  con `error: rejected` e lo stesso messaggio, e in più ha
+  `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una
+  `RuntimeException`), quindi il checkout normale e chi prende
+  `RuntimeException` non cambiano. Un override che distingueva il limite dal
+  testo può leggere `reason`.
+
 ### Modificato
 
+- Panoramica dell'account: `OrderClaim::run()` ora scatta anche su `/account/`,
+  da `EcommerceAccountExtension::overviewRows()`, prima dell'ultimo ordine. La
+  Panoramica la serve il controller del core, quindi `index` in
+  `EcommerceAccountController::CLAIM_ACTIONS` non veniva mai raggiunto via HTTP
+  ed è stato tolto. Con la Panoramica spenta `/account/` rimanda alla prima voce
+  del menu («Ordini» di default), che aggancia.
 - GET `/checkout/`: il carrello si legge senza ricalcolarlo
   (`CartSession::peek()`) e lo ricalcola solo l'anteprima, invece di due
   ricalcoli in più attorno a lei. Se righe, prezzi e campagne dei prodotti,

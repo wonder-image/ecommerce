@@ -146,9 +146,14 @@ Il registro degli accessi scrive `guest_checkout_existing_unlinked` con l'id
 dell'account e `email_hash`, mai l'email.
 
 L'ordine entra nell'account dopo, con `OrderClaim::run()`. Si chiama solo
-sulle pagine che mostrano ordini: nell'area cliente (`EcommerceAccountController`)
-`index`, `orders` e `orders.show`; nel checkout `index`, `completed` e `return`.
-Non sulle azioni (`summary`, `coupon`, `place`, abbonamenti...). Senza segno in
+sulle pagine che mostrano ordini: nell'area cliente `orders` e `orders.show`
+(`EcommerceAccountController`) e la Panoramica; nel checkout `index`,
+`completed` e `return`. La Panoramica (`/account/`) la serve il controller del
+core, non quello del negozio: l'aggancio sta in
+`EcommerceAccountExtension::overviewRows()`, prima della riga dell'ultimo
+ordine. Con la Panoramica spenta `/account/` rimanda alla prima voce del menu,
+che è «Ordini» (aggancia lì) a meno che il sito la tolga o la sposti con
+`account.navigation`; il checkout aggancia comunque. Non sulle azioni (`summary`, `coupon`, `place`, abbonamenti...). Senza segno in
 sessione: a ogni apertura riprova, così si aggancia anche un ordine fatto da un
 altro dispositivo. Agisce solo per un account con ruolo cliente nel frontend
 (area frontend e authority `client`, anche se ha pure il backend, come
@@ -185,7 +190,14 @@ Gli ordini dell'ospite hanno un limite, in `checkout.guest_order_limit` della
 config del modulo: `ip` vale `[10, 900]` (10 ordini ogni 15 minuti per
 indirizzo) e `cart` vale `[5, 600]` (5 ogni 10 minuti per carrello). Con `0` al
 posto della coppia quel limite si spegne. Superato il limite, l'ospite vede
-`ecommerce.checkout.errors.too_many_orders`. I conteggi stanno nella tabella
+`ecommerce.checkout.errors.too_many_orders`. Ogni limite di ordini (questo,
+quello per cliente di `CheckoutPlacement` e, nel solo checkout normale, quello
+di `guest_exists`) lancia `TooManyOrders`, una `RuntimeException`: il checkout
+normale risponde come prima (422 con `errors[]`). La barra rapida non passa da
+`guest_exists` (con un account noto l'ordine nasce slegato); oltre i due limiti
+di `CheckoutPlacement`, `place` risponde 422 con `error: rejected`, lo stesso
+messaggio e in più `reason: too_many_orders`. Gli altri rifiuti di `place`
+restano `rejected` senza `reason`. I conteggi stanno nella tabella
 `gst_throttles` del gestionale (Model `System\Throttle`, classe
 `Wonder\Plugin\Gestionale\Support\Throttle`), che nasce con
 `php forge update`. Ogni tentativo è un solo UPSERT, quindi due richieste

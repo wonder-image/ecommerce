@@ -148,7 +148,9 @@ validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazi
 - `navigation()`: aggiunge `orders` e, con la funzionalità Coupon accesa, `coupons`
   subito dopo Panoramica, poi applica `account.navigation` al menu;
 - `overviewRows()`: in Panoramica l'ultimo ordine (N°, data, totale, «Visualizza» al
-  dettaglio) o, senza ordini, la riga che lo dice;
+  dettaglio) o, senza ordini, la riga che lo dice; prima aggancia gli ordini fatti
+  con la sua email (`OrderClaim::run()`), perché la Panoramica non passa da
+  `EcommerceAccountController`;
 - `personalRows()`: la riga «Metodi di pagamento» in «Dati personali»;
 - `head()`: font e stile del negozio nell'head delle pagine del pannello.
 

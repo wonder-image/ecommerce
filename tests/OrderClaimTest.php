@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 
 /**
@@ -108,11 +109,59 @@ check('solo sulle pagine che mostrano ordini: non su summary, coupon, place né 
         && str_contains($sorgente, "if (in_array(\$action, self::CLAIM_ACTIONS, true)) {\n            OrderClaim::run();");
 
     return $filtrato($account) && $filtrato($checkout)
-        && str_contains($account, "private const CLAIM_ACTIONS = ['index', 'orders', 'orders.show'];")
+        && str_contains($account, "private const CLAIM_ACTIONS = ['orders', 'orders.show'];")
         && str_contains($checkout, "private const CLAIM_ACTIONS = ['index', 'completed', 'return'];")
         && str_contains($checkout, "'completed' => self::completed(),")
         && str_contains($checkout, "'return' => self::returned(),")
         && str_contains($account, "'orders.show' => \$this->order(");
+});
+
+// overviewRows() legge le etichette dal lang: qui basta la chiave.
+if (!function_exists('__t')) {
+    function __t(string $key): string
+    {
+        return $key;
+    }
+}
+
+check('la panoramica aggancia: overviewRows() esegue il claim e poi aggiunge l\'ultimo ordine', function (): bool {
+    $chiamate = [];
+    OrderClaim::useCollaborators([
+        'authenticated' => fn () => true,
+        'user' => fn () => ['id' => 5, 'deleted' => false, 'area' => ['frontend'], 'authority' => ['client'], 'email' => 'a@b.it'],
+        'verified' => fn (int $id) => true,
+        'customer' => fn () => 7,
+        'claim' => function (int $id, int $cliente, string $email) use (&$chiamate) {
+            $chiamate[] = [$id, $cliente, $email];
+
+            return 1;
+        },
+    ]);
+
+    try {
+        // Utente 0: niente scheda né ricerca, così non serve il DB.
+        $righe = (new EcommerceAccountExtension())->overviewRows([], (object) ['id' => 0]);
+    } finally {
+        OrderClaim::useCollaborators(null);
+    }
+
+    // Il claim va prima della ricerca, così la Panoramica mostra l'ordine appena preso.
+    $estensione = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Account/EcommerceAccountExtension.php');
+    $claim = strpos($estensione, 'OrderClaim::run();');
+    $ultimo = strpos($estensione, 'Order::find(', (int) $claim);
+
+    return $chiamate === [[5, 7, 'a@b.it']]
+        && count($righe) === 1 && ($righe[0]['key'] ?? '') === 'last_order'
+        && substr_count($estensione, 'OrderClaim::run();') === 1 && $claim !== false && $ultimo !== false;
+});
+
+check('/account/ va al gestore del core, non a quello del negozio', function () use ($root): bool {
+    $core = (string) @file_get_contents($root.'/vendor/wonder-image/app/class/Auth/Frontend/AccountRoutes.php');
+    if ($core === '') {
+        throw new RuntimeException('manca vendor/wonder-image/app: composer install');
+    }
+
+    return str_contains($core, "Route::get('/', \$handler, ['account_action' => 'index'])");
 });
 
 summary();

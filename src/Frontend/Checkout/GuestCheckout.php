@@ -140,7 +140,7 @@ final class GuestCheckout
         }
 
         if (!$allowed) {
-            throw new RuntimeException((string) \__t('ecommerce.checkout.errors.too_many_orders'));
+            throw new TooManyOrders();
         }
 
         throw new GuestAccountExists();

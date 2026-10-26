@@ -174,7 +174,7 @@ final class ExpressController
             // Difesa: dal rapido account() non lancia più, l'ordine nasce slegato.
             self::json(['success' => false, 'error' => 'account_exists', 'message' => $error->getMessage()], 409);
         } catch (UserError|RuntimeException $error) {
-            self::json(['success' => false, 'error' => 'rejected', 'message' => $error->getMessage()], 422);
+            self::json(self::rejected($error), 422);
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.express.place', ['cart_id' => $cartId]);
             self::json(['success' => false, 'error' => 'rejected', 'message' => (string) __t('ecommerce.checkout.express_error')], 500);
@@ -189,6 +189,19 @@ final class ExpressController
         }
 
         self::json(['success' => true] + $started);
+    }
+
+    /**
+     * Il rifiuto di `place`: sempre `rejected`; oltre il limite di ordini in più
+     * `reason`, così il client può distinguerlo senza leggere il messaggio.
+     *
+     * @return array{success: false, error: string, message: string, reason?: string}
+     */
+    public static function rejected(Throwable $error): array
+    {
+        $payload = ['success' => false, 'error' => 'rejected', 'message' => $error->getMessage()];
+
+        return $error instanceof TooManyOrders ? $payload + ['reason' => 'too_many_orders'] : $payload;
     }
 
     /** Il foglio si è chiuso o il pagamento non è partito: l'ordine rapido si annulla e il carrello a parte si butta. */

@@ -40,7 +40,7 @@ final class CheckoutPlacement
         $limited = CartSession::authenticated() ? (int) ($user->id ?? 0) : 0;
         $customerKey = $limited > 0 ? (string) $limited : '';
         if (!Throttle::allowed('orders', $customerKey, self::ORDER_LIMIT, self::ORDER_WINDOW)) {
-            throw new RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'));
+            throw new TooManyOrders();
         }
 
         // L'anteprima scrive contatti e consegna sul carrello; poi si rilegge.
@@ -86,7 +86,7 @@ final class CheckoutPlacement
         if ($guest) {
             // L'ospite non ha il limite per cliente: si conta per indirizzo e per carrello, prima dell'account.
             if (!self::guestAllowed($cartId)) {
-                throw new RuntimeException((string) __t('ecommerce.checkout.errors.too_many_orders'));
+                throw new TooManyOrders();
             }
             $account = GuestCheckout::account($order, $post, $asked, (bool) ($options['express'] ?? false));
             $userId = $account['user_id'];
