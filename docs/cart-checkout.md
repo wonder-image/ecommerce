@@ -102,7 +102,7 @@ scrive la sua email; l'invio è protetto da reCAPTCHA (action
 email.
 
 - Se l'account ha una password, un accesso federato (Google) o non è un cliente
-  del negozio (area frontend con ruolo client), l'ordine si ferma (`GuestAccountExists`) e l'ospite viene
+  del negozio (area frontend con ruolo client), l'ordine del checkout normale si ferma (`GuestAccountExists`) e l'ospite viene
   invitato ad accedere o a recuperare la password. L'ordine non si aggancia più
   a quell'account e il contatto non viene collegato.
 - Se l'account è un cliente senza password e senza accesso federato (per
@@ -128,8 +128,35 @@ Il blocco risponde così:
   com'è;
 - senza JavaScript, un messaggio flash e il ritorno al checkout con i dati già
   scritti;
-- il check-out rapido (`ExpressController::place`) risponde con lo stesso 409
-  e mostra il messaggio.
+- il check-out rapido non si ferma: vedi sotto. `ExpressController::place`
+  intercetta ancora `GuestAccountExists` e risponde con lo stesso 409, ma solo
+  come difesa.
+
+Dal check-out rapido (`GuestCheckout::account(..., express: true)`) l'email
+arriva dal wallet, che ha già confermato il pagamento: con l'email di un account
+con password, con accesso federato o non cliente l'ordine nasce senza account
+(`user_id` e `customer_id` a 0), senza contatto e senza link per la password. Il
+limite di `guest_exists` non conta, resta quello di `checkout.guest_order_limit`.
+I consensi chiesti si tracciano sull'email (`registerLeadConsents`). Il registro
+degli accessi scrive `guest_checkout_existing_unlinked` con l'id dell'account e
+`email_hash`, mai l'email.
+
+L'ordine entra nell'account dopo, con `OrderClaim::run()`. Si chiama
+all'ingresso dell'area cliente (`EcommerceAccountController`) e del checkout, a
+ogni richiesta, senza segno in sessione: così si aggancia anche un ordine fatto
+da un altro dispositivo. Agisce solo se il cliente è entrato, non è cancellato,
+ha l'area frontend con il ruolo client, ha l'email verificata
+(`isUserEmailVerified`) e ha una scheda cliente. Poi `OrderOwner::claim` del
+gestionale prende tutti gli ordini con quell'email e senza utente, come alla
+registrazione e alla verifica. Lo staff non li prende mai. Un cliente non
+verificato li ritrova dopo aver verificato l'email, al primo ingresso
+successivo. Un errore va nel registro (`ecommerce.account.order_claim`) e non
+ferma la pagina.
+
+Rischio accettato: l'email del wallet non è verificata da noi. Chi conosce
+l'email di un altro può far finire un ordine rapido, pagato da lui, nello
+storico di quella persona, che ne vedrà indirizzo e righe. Chi ordina non
+acquisisce accesso all'account.
 
 Sotto l'email non compaiono link: per accedere c'è «Accedi» accanto a
 «Contatti», che porta al login con `continue` verso il checkout; dal login si
