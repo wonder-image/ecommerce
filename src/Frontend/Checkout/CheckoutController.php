@@ -11,6 +11,7 @@ use Wonder\App\Support\GoogleMaps;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
+use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
@@ -813,7 +814,6 @@ final class CheckoutController
 
     private static function notFound(): never
     {
-        http_response_code(404);
-        exit;
+        throw new NotFoundHttpException();
     }
 }

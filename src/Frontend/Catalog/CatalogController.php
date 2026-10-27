@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\App\Dependencies;
+use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\View\View;
 
@@ -13,8 +14,7 @@ final class CatalogController
         Dependencies::autonumeric();
         $filter = CatalogFilter::fromRequest($action, $parameters, $query);
         if (!$filter->valid()) {
-            http_response_code(404);
-            return;
+            throw new NotFoundHttpException();
         }
 
         $perPage = max(1, min(60, (int) Ecommerce::config('catalog.per_page', 12)));

@@ -55,6 +55,12 @@ versionamento semantico.
 
 ### Modificato
 
+- Le pagine che non esistono (prodotto o catalogo sconosciuto, azioni
+  sconosciute di carrello, checkout e abbonamenti, abbonamenti spenti, ritorno
+  dal pagamento senza ordine) mostrano la pagina 404 del sito invece di una
+  pagina bianca: i controller lanciano `Wonder\Http\Exceptions\NotFoundHttpException`
+  del core. I 404 JSON restano come sono. Richiede il core con quella classe.
+
 - Checkout con un metodo manuale (bonifico, contrassegno): `checkout.js` manda
   col modulo anche `expected_total`, il totale che il cliente ha visto. Se c'è
   ed è diverso dal ricalcolo, `CheckoutPlacement::place` rifiuta come per i
