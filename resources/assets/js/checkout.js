@@ -299,8 +299,13 @@ class Checkout {
             rows.push([this.labels.shipping_total, d.shipping_pending ? this.labels.shipping_pending : d.shipping_total]);
         }
 
-        // Nel carrello la riga «Spedizione da …» la scrive il server: il coupon non la cambia.
-        const cartShipping = this.form ? null : document.querySelector('[data-cart-shipping]');
+        // Nel carrello riga della spedizione e slot li scrive il server: col coupon cambiano solo prezzo e totale.
+        const cartShipping = this.form ? null : document.querySelector('[data-cart-shipping]')?.cloneNode(true);
+        const cart = cartShipping ? payload.cart_shipping : null;
+
+        if (cart) {
+            this.text(cartShipping, '[data-cart-shipping-price]', cart.price_display);
+        }
 
         if (cartShipping) {
             rows.push(cartShipping);
@@ -310,12 +315,14 @@ class Checkout {
             rows.push([this.labels.fees_total, d.fees_total]);
         }
 
-        rows.push([this.labels.total, d.total, true]);
+        const total = cart ? cart.total_display : d.total;
+
+        rows.push([this.labels.total, total, true]);
         document.querySelectorAll('[data-checkout-totals]').forEach((box) => {
             box.replaceChildren(...rows.map((row) => row instanceof Element ? row.cloneNode(true) : this.row(...row)));
         });
-        document.querySelectorAll('[data-checkout-total]').forEach((total) => {
-            total.textContent = d.total;
+        document.querySelectorAll('[data-checkout-total]').forEach((node) => {
+            node.textContent = total;
         });
     }
 

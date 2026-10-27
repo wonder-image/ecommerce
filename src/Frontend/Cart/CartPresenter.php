@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductUrl;
+use Wonder\Plugin\GeoPlugin\Geo;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
@@ -20,11 +21,15 @@ final class CartPresenter
     }
 
     /**
-     * La spedizione più economica tra i metodi che il checkout offrirebbe al
-     * carrello, per la zona del suo indirizzo (senza, l'Italia). `null` con la
+     * La spedizione del carrello nel riepilogo: la più economica tra i metodi
+     * che il checkout offrirebbe, per il paese dell'indirizzo del carrello;
+     * senza indirizzo quello del visitatore (IP), poi l'Italia. Il totale la
+     * comprende al posto di quella eventualmente già scelta. `null` con la
      * spedizione spenta, col ritiro o se nessun metodo copre il carrello.
+     *
+     * @return array{country: string, label: string, price: float, total: float}|null
      */
-    public static function shippingFrom(array $order): ?float
+    public static function cartShipping(array $order): ?array
     {
         $cartId = (int) ($order['id'] ?? 0);
 
@@ -32,9 +37,21 @@ final class CartPresenter
             return null;
         }
 
-        $prices = array_map(static fn (array $option): float => $option['free'] ? 0.0 : (float) $option['price'], Shipping::options($cartId));
+        $country = Shipping::country($order, Geo::country());
+        $prices = array_map(static fn (array $option): float => $option['free'] ? 0.0 : (float) $option['price'], Shipping::options($cartId, $country));
 
-        return $prices === [] ? null : min($prices);
+        if ($prices === []) {
+            return null;
+        }
+
+        $price = min($prices);
+
+        return [
+            'country' => $country,
+            'label' => (string) __t('ecommerce.cart.shipping_to', ['country' => (string) ((function_exists('countries') ? countries() : [])[$country] ?? $country)]),
+            'price' => $price,
+            'total' => round((float) ($order['total'] ?? 0) - (float) ($order['shipping_total'] ?? 0) + $price, 2),
+        ];
     }
 
     public static function quantity(mixed $value): string

@@ -62,14 +62,20 @@ versionamento semantico.
 
 ### Aggiunto
 
-- Carrello: nel riepilogo la riga «Spedizione: da X €» (o «Gratis»), con il
-  metodo più economico per la zona del carrello; il totale resta senza
-  spedizione e lo dice una nota. Solo con la spedizione attiva e il carrello
-  non in ritiro.
+- Carrello: nel riepilogo la riga «Spedizione {paese}» col prezzo del metodo
+  più economico (o «Gratis»). Il paese è quello dell'indirizzo del carrello,
+  senza indirizzo quello del visitatore (IP, `Geo::country()` del core), poi
+  l'Italia. Il totale comprende quella spedizione al posto di quella già
+  scelta; dopo un coupon via AJAX la risposta porta `cart_shipping`
+  (`price_display`, `total_display`). Solo con la spedizione attiva e il
+  carrello non in ritiro. Richiede `Shipping::options($cartId, $country)` e
+  `Shipping::country()` del gestionale.
 - Slot `cart.after_shipping`: nel riepilogo del carrello, sotto la riga
-  «Spedizione da …» (esce solo quando c'è). Riceve `order`, `items` e
+  «Spedizione {paese}» (esce solo quando c'è). Riceve `order`, `items` e
   `currency`, come gli altri `cart.*` (per esempio per «ti mancano X € per la
   spedizione gratuita»). Il coupon via AJAX lo conserva.
+- Slot `cart.after_totals`: nel riepilogo del carrello, sotto il totale e
+  sopra il bottone. Stessi dati.
 - Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
   con `error: rejected` e lo stesso messaggio, e in più ha
   `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una

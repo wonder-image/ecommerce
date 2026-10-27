@@ -14,6 +14,7 @@ use Wonder\Http\Csrf;
 use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
@@ -310,6 +311,10 @@ final class CheckoutController
         }
 
         if ($json) {
+            // Carrello: la riga della spedizione e il totale che la comprende, come li disegna la pagina.
+            if ($return === 'cart' && isset($payload['order'])) {
+                $payload['cart_shipping'] = self::cartShipping($cartId, (array) $payload['order']);
+            }
             self::json(['success' => $payload['error'] === ''] + $payload, $status);
         }
 
@@ -322,6 +327,22 @@ final class CheckoutController
             FlashMessage::error(implode("\n", $errors), $title);
         }
         self::redirect($back);
+    }
+
+    /**
+     * @param array<string, mixed> $order
+     * @return array{price_display: string, total_display: string}|null
+     */
+    private static function cartShipping(int $cartId, array $order): ?array
+    {
+        // L'anteprima porta i totali dopo il coupon; l'indirizzo lo dà il carrello.
+        $shipping = CartPresenter::cartShipping($order + ['id' => $cartId] + (array) Order::findById($cartId));
+        $currency = (string) ($order['currency'] ?? 'EUR');
+
+        return $shipping === null ? null : [
+            'price_display' => $shipping['price'] > 0 ? CartPresenter::money($shipping['price'], $currency) : (string) __t('ecommerce.checkout.free'),
+            'total_display' => CartPresenter::money($shipping['total'], $currency),
+        ];
     }
 
     /** I codici sbagliati si contano per indirizzo e per carrello: chi cambia carrello o rete trova l'altro limite. */
