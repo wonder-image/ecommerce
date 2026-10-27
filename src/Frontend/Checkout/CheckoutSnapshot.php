@@ -7,6 +7,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
+use Wonder\Plugin\Gestionale\Support\Pricing\PriceLists;
 use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
 
 /**
@@ -74,7 +75,8 @@ final class CheckoutSnapshot
      * Dentro: testata (indirizzi, consegna, pagamento, cliente, totali) e
      * righe come sono scritte, tranne le date di attività; per ogni prodotto
      * prezzo, saldo, stato, peso e modifica in anagrafica, e la campagna che
-     * vale adesso; l'input dell'anteprima e la lingua. Con un coupon non si
+     * vale adesso; il listino del cliente con gli scaglioni di quei prodotti;
+     * l'input dell'anteprima e la lingua. Con un coupon non si
      * riusa: la sua validità dipende dall'ora e la decide il gestionale.
      *
      * @param array{order?: array<string, mixed>, items?: list<array<string, mixed>>} $cart
@@ -110,10 +112,18 @@ final class CheckoutSnapshot
 
         ksort($products);
 
+        // Listino del contatto adesso: cambiato dal backend, l'anteprima si rifà.
+        $priceList = PriceLists::load(PriceLists::forContact((int) ($order['customer_id'] ?? 0)), $now, (string) ($order['currency'] ?? 'EUR'));
+
         $json = json_encode(self::sorted([
             'order' => array_diff_key($order, array_flip(self::VOLATILE)),
             'items' => $lines,
             'products' => $products,
+            'price_list' => $priceList === null ? null : [
+                'id' => (int) $priceList['id'],
+                'prices_include_tax' => (bool) $priceList['prices_include_tax'],
+                'items' => array_intersect_key((array) $priceList['items'], $products),
+            ],
             'post' => $post,
             'lang' => function_exists('__l') ? (string) \__l() : '',
         ]), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);

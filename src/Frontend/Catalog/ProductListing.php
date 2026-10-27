@@ -43,7 +43,11 @@ final class ProductListing
             ."AND EXISTS (SELECT 1 FROM `gst_product_models` WHERE `gst_product_models`.`id` = `gst_product_variants`.`product_model_id` AND {$modelWhere})".$variantSearch;
     }
 
-    public static function cards(CatalogFilter $filter, string $limit): array
+    /**
+     * @param array<string, mixed>|null $priceList il listino del cliente (CustomerPriceList::current());
+     *        null per le pagine condivise come il feed, che restano sul prezzo di catalogo
+     */
+    public static function cards(CatalogFilter $filter, string $limit, ?array $priceList = null): array
     {
         if (self::entity() === 'variant') {
             $variants = self::rows(ProductVariant::find(
@@ -53,7 +57,7 @@ final class ProductListing
                 'ASC'
             ));
 
-            return array_values(array_filter(array_map(static function (array $variant): ?array {
+            return array_values(array_filter(array_map(static function (array $variant) use ($priceList): ?array {
                 $model = ProductModel::find([
                     'id' => (int) ($variant['product_model_id'] ?? 0),
                     'visible' => 'true',
@@ -61,7 +65,7 @@ final class ProductListing
                     'deleted' => 'false',
                 ], 1);
 
-                return is_array($model) ? self::card($model, $variant) : null;
+                return is_array($model) ? self::card($model, $variant, $priceList) : null;
             }, $variants)));
         }
 
@@ -72,11 +76,11 @@ final class ProductListing
             $filter->direction()
         ));
 
-        return array_values(array_filter(array_map(static fn (array $model): ?array => self::card($model), $models)));
+        return array_values(array_filter(array_map(static fn (array $model): ?array => self::card($model, null, $priceList), $models)));
     }
 
-    /** @param list<int> $ids @return list<array<string, mixed>> */
-    public static function byModelIds(array $ids, int $limit = 12): array
+    /** @param list<int> $ids @param array<string, mixed>|null $priceList come in cards() @return list<array<string, mixed>> */
+    public static function byModelIds(array $ids, int $limit = 12, ?array $priceList = null): array
     {
         $cards = [];
         foreach (array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, $limit) as $id) {
@@ -94,13 +98,13 @@ final class ProductListing
                     'visible' => 'true',
                     'deleted' => 'false',
                 ], null, 'position', 'ASC')) as $variant) {
-                    if (($card = self::card($model, $variant)) !== null) $cards[] = $card;
+                    if (($card = self::card($model, $variant, $priceList)) !== null) $cards[] = $card;
                     if (count($cards) >= $limit) break 2;
                 }
                 continue;
             }
 
-            if (($card = self::card($model)) !== null) $cards[] = $card;
+            if (($card = self::card($model, null, $priceList)) !== null) $cards[] = $card;
         }
 
         return $cards;
@@ -135,7 +139,7 @@ final class ProductListing
         ];
     }
 
-    private static function card(array $model, ?array $selectedVariant = null): ?array
+    private static function card(array $model, ?array $selectedVariant = null, ?array $priceList = null): ?array
     {
         $modelId = (int) ($model['id'] ?? 0);
         if ($modelId <= 0) return null;
@@ -156,7 +160,13 @@ final class ProductListing
         ));
         if ($variants === [] || $products === []) return null;
 
-        $prices = array_map(static fn (array $product): float => self::effectivePrice($product), $products);
+        $taxCategoryId = (int) ($model['tax_category_id'] ?? 0);
+        // Col listino del cliente vale il suo prezzo da 1 pezzo, come nel carrello.
+        $prices = array_map(static function (array $product) use ($priceList, $taxCategoryId): float {
+            $listed = CustomerPriceList::price($priceList, (int) ($product['id'] ?? 0), $taxCategoryId);
+
+            return $listed > 0 ? $listed : self::effectivePrice($product);
+        }, $products);
         $regularPrices = array_map(static fn (array $product): float => (float) ($product['price'] ?? 0), $products);
         $price = $prices !== [] ? min($prices) : 0.0;
         $regular = $regularPrices !== [] ? min($regularPrices) : $price;
