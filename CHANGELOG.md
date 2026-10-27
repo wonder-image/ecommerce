@@ -55,6 +55,11 @@ versionamento semantico.
 
 ### Modificato
 
+- Le pagine che non esistono (prodotto o catalogo sconosciuto, azioni
+  sconosciute di carrello, checkout e abbonamenti, abbonamenti spenti, ritorno
+  dal pagamento senza ordine) mostrano la pagina 404 del sito invece di una
+  pagina bianca: i controller lanciano `Wonder\Http\Exceptions\NotFoundHttpException`
+  del core. I 404 JSON restano come sono. Richiede il core con quella classe.
 - Checkout, coupon: «Applica» resta disabilitato con lo spinner della lib
   (`spinner-border`) finché non arriva la risposta, per almeno
   `CART_SPINNER_MIN`, con `data-cart-sending` sul modulo; in `finally` torna

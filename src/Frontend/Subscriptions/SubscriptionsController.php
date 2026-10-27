@@ -7,6 +7,7 @@ use Wonder\App\ResourceSchema\FormField;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
+use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -865,7 +866,6 @@ final class SubscriptionsController
 
     private static function notFound(): never
     {
-        http_response_code(404);
-        exit;
+        throw new NotFoundHttpException();
     }
 }
