@@ -151,6 +151,9 @@ final class AccountOrder
         $lines = CartPresenter::lines(EcommerceAccountController::rows(OrderItem::find(['order_id' => $orderId], null, 'position', 'ASC')));
         $line = static fn (array $item): array => [
             'name' => (string) ($item['name'] ?? ''),
+            // Nome del prodotto e variante su due righe, come nel carrello.
+            'title' => (string) ($item['title'] ?? $item['name'] ?? ''),
+            'variant' => (string) ($item['variant'] ?? ''),
             // Ordini fatti con righe senza foto: la foto attuale dell'articolo.
             'image' => trim((string) ($item['image'] ?? '')) ?: ProductPhotos::forProduct((int) ($item['product_id'] ?? 0)),
             'details' => Customizations::lines($item),

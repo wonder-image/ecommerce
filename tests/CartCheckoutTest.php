@@ -1055,4 +1055,22 @@ check('i pezzi di un multiprodotto si leggono sotto la madre in mini-carrello, c
         && str_contains($js, "'[data-line-parts]'");
 });
 
+check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna com\'era anche dopo un errore', function (): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+    $start = strpos($js, 'async coupon(event)');
+    $body = $start === false ? '' : substr($js, $start, 2200);
+    $helper = strpos($js, 'function couponSending(');
+    $part = $helper === false ? '' : substr($js, $helper, 1800);
+
+    return $body !== '' && $part !== ''
+        && str_contains($body, 'couponForm.dataset.cartSending')
+        && str_contains($body, 'couponSending(couponForm, event.submitter)')
+        && str_contains($body, 'CART_SPINNER_MIN')
+        && preg_match('~finally\s*\{\s*release\(this\);~', $body) === 1
+        && str_contains($part, "dataset.cartSending = 'wait'")
+        && str_contains($part, 'spinner-border')
+        && str_contains($part, 'aria-busy')
+        && str_contains($part, 'frozenFields');
+});
+
 summary();

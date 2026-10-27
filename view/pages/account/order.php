@@ -9,6 +9,7 @@ $title ??= '';
 $active ??= 'orders';
 $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notice', 'modals', 'logout_url', 'logout_token', 'head', 'user'));
 ?>
+<?php /* Una colonna sola: una figlia con `col-2` (che nella lib vale anche «occupa due colonne») non deve stare qui. */ ?>
 <div class="d-grid col-1 gap-8 w-100">
     <p class="wi-row-table__subtitle"><?=e((string) __t('ecommerce.account.orders.of_date', ['date' => $order['date']]))?></p>
 
@@ -39,13 +40,17 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
 
     <div class="w-100 d-grid col-1 gap-2">
         <h3 class="subtitle"><?=e((string) __t('ecommerce.account.orders.products'))?></h3>
-        <div class="wi-row-table" style="--wi-row-table-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr)">
+        <?php /* Quantità e prezzo in una cella allineata a destra, come i valori del riepilogo; su telefono va sotto il prodotto. */ ?>
+        <div class="wi-row-table" style="--wi-row-table-columns: minmax(0, 1fr) auto">
             <?php foreach ($order['items'] as $item): ?>
                 <div class="wi-row-table__row">
                     <div class="wi-row-table__cell d-flex gap-4">
                         <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => $item['image']])?>
                         <span class="w-100">
-                            <span class="wi-row-table__title d-block"><?=e($item['name'])?></span>
+                            <span class="wi-row-table__title d-block"><?=e($item['title'])?></span>
+                            <?php if ($item['variant'] !== ''): ?>
+                                <span class="wi-row-table__subtitle d-block"><?=e($item['variant'])?></span>
+                            <?php endif; ?>
                             <?php foreach ($item['details'] as $detail): ?>
                                 <span class="wi-row-table__subtitle d-block"><?=e($detail)?></span>
                             <?php endforeach; ?>
@@ -59,8 +64,10 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                             <?php endforeach; ?>
                         </span>
                     </div>
-                    <div class="wi-row-table__cell">× <?=e($item['quantity'])?></div>
-                    <div class="wi-row-table__cell"><?=e($item['total'])?></div>
+                    <div class="wi-row-table__cell a-r">
+                        <?php if ($item['quantity'] !== ''): ?><span class="wi-row-table__subtitle">× <?=e($item['quantity'])?></span>&nbsp;&nbsp;<?php endif; ?>
+                        <span><?=e($item['total'])?></span>
+                    </div>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -81,6 +88,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
     </div>
 
     <?php /* Gli indirizzi come le altre sezioni: titolo e testo, uno accanto all'altro, senza cornice. */ ?>
+    <div class="w-100">
     <div class="w-100 d-grid col-2 col-p-1 gap-8">
         <?php if ($order['delivery'] !== null): ?>
             <div class="d-grid col-1 gap-2">
@@ -92,6 +100,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
             <h3 class="subtitle"><?=e((string) __t('ecommerce.checkout.billing'))?></h3>
             <div class="text"><?=$order['billing']?></div>
         </div>
+    </div>
     </div>
 
     <div class="d-flex flex-wrap gap-3">

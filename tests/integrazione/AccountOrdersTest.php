@@ -363,6 +363,23 @@ check('dettaglio: informazioni, tracking, prodotti, riepilogo e indirizzi', fn (
         && !str_contains($html, 'wi-address-card');
 }));
 
+check('dettaglio: nome e variante su due righe, una colonna sola, la data sotto il titolo', fn () => prova(static function (): bool {
+    [$userId, $scheda] = clienteConScheda('dettaglio-variante');
+    [$id, $code] = ordineDelCliente($scheda, 'PRV-VAR', '2026-03-08 10:00:00');
+    OrderItem::create(['order_id' => $id, 'type' => 'product', 'position' => 1, 'name' => 'Maglietta &#8212; Blu / S', 'image' => '', 'quantity' => '2.000', 'unit_price' => '20.00', 'line_total' => '40.00']);
+    $_SESSION['user_id'] = $userId;
+    $html = paginaNegozio('orders.show', ['code' => $code]);
+    $data = strpos($html, '08/03/2026 10:00');
+    $info = strpos($html, e((string) __t('ecommerce.account.orders.info')));
+
+    return preg_match('~wi-row-table__title d-block">Maglietta</span>\s*<span class="wi-row-table__subtitle d-block">Blu · S</span>~u', $html) === 1
+        // Quantità e prezzo allineati a destra come il riepilogo.
+        && str_contains($html, '--wi-row-table-columns: minmax(0, 1fr) auto') && str_contains($html, 'wi-row-table__cell a-r')
+        && $data !== false && $info !== false && $data < $info
+        // Una figlia `col-2` della griglia a una colonna ne aprirebbe una seconda (nella lib `col-2` è anche «occupa due colonne»).
+        && preg_match('~<div class="d-grid col-1 gap-8 w-100">.*<div class="w-100">\s*<div class="w-100 d-grid col-2 col-p-1 gap-8">~s', $html) === 1;
+}));
+
 check('dettaglio: ritiro in sede con la sede, o il ripiego se la sede non c\'è più', fn () => prova(static function (): bool {
     [$userId, $scheda] = clienteConScheda('dettaglio-ritiro');
     $punto = sede();

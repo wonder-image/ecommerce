@@ -137,6 +137,11 @@ final class CheckoutPlacement
                 // L'ordine è nato: un indirizzo non salvato non lo ferma.
                 Errors::internal($error, 'ecommerce.checkout.address');
             }
+            try {
+                AccountAddress::rememberBilling($customerId, $billing, $post);
+            } catch (Throwable $error) {
+                Errors::internal($error, 'ecommerce.checkout.billing');
+            }
         }
 
         if (!$guest && $userId > 0 && $asked !== []) {
