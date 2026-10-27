@@ -6,6 +6,7 @@ use Throwable;
 use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
+use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Http\SafeRedirect;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -279,7 +280,6 @@ final class CartController
 
     private static function notFound(): never
     {
-        http_response_code(404);
-        exit;
+        throw new NotFoundHttpException();
     }
 }

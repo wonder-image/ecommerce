@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
+use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\View\View;
 
@@ -19,8 +20,7 @@ final class ProductController
         $product = $resolved['detail'];
 
         if ($product === null) {
-            http_response_code(404);
-            exit;
+            throw new NotFoundHttpException();
         }
 
         self::seo($product);
