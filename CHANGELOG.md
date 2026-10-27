@@ -62,6 +62,13 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **FAQ nella scheda prodotto**: sotto la scheda, prima degli slider, le
+  domande frequenti che il gestionale associa al prodotto
+  (`Faqs::forModel()`, variabile `faqs` della vista). Componente riusabile
+  `components/catalog/faq.php` (`faqs`, `title` facoltativo, `null` lo toglie),
+  a fisarmonica con il dropdown della lib: per la home del sito
+  `View::component(Ecommerce::viewPath('components/catalog/faq.php'), ['faqs' => Faqs::home()])`.
+  Traduzione `ecommerce.catalog.faq.title`. Richiede il gestionale con le FAQ.
 - Carrello: nel riepilogo la riga «Spedizione {paese}» col prezzo del metodo
   più economico (o «Gratis»). Il paese è quello dell'indirizzo del carrello,
   senza indirizzo quello del visitatore (IP, `Geo::country()` del core), poi

@@ -49,6 +49,7 @@ $regularPrice = $minPrice === $maxPrice && $shownOffer !== null && $shownOffer['
 $similar_products = is_array($similar_products ?? null) ? $similar_products : [];
 $recent_products = is_array($recent_products ?? null) ? $recent_products : [];
 $suggested_products = is_array($suggested_products ?? null) ? $suggested_products : [];
+$faqs = is_array($faqs ?? null) ? $faqs : [];
 $listEvent = static function (string $id, string $name, array $cards) use ($data): array {
     return [
         'event' => 'view_item_list',
@@ -331,6 +332,8 @@ Ecommerce::layout('shop');
         <?php endif; ?>
     </div>
 </article>
+
+<?php if ($faqs !== []): ?><div class="mt-10"><?=View::component(Ecommerce::viewPath('components/catalog/faq.php'), ['faqs' => $faqs])?></div><?php endif; ?>
 
 <?php if ($similar_products !== []): ?><section class="mt-10"><?=ProductList::make($similar_products)->title(__t('ecommerce.catalog.sliders.similar'))->renderSwiper()?></section><?php endif; ?>
 <?php if ($recent_products !== []): ?><section class="mt-10"><?=ProductList::make($recent_products)->title(__t('ecommerce.catalog.sliders.recent'))->renderSwiper()?></section><?php endif; ?>
