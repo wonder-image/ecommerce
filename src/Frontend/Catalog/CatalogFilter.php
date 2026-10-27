@@ -263,11 +263,15 @@ final class CatalogFilter
         $attributeId = (int) $attribute['id'];
         $level = (string) ($attribute['level'] ?? 'product');
         $type = (string) ($attribute['type'] ?? 'select');
-        [$table, $relation] = match ($level) {
-            'model' => ['gst_product_model_attributes', 'a.`product_model_id` = `gst_product_models`.`id`'],
-            'variant' => ['gst_product_variant_attributes', 'EXISTS (SELECT 1 FROM `gst_product_variants` v WHERE v.`id` = a.`product_variant_id` AND v.`product_model_id` = `gst_product_models`.`id` AND v.`deleted` = \'false\')'],
-            default => ['gst_product_attributes', 'EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`id` = a.`product_id` AND p.`product_model_id` = `gst_product_models`.`id` AND p.`deleted` = \'false\')'],
-        };
+        // Una variante vive nella tabella delle varianti quando ha le pagine
+        // accese, in quella dei prodotti quando sono spente (#85): si cerca
+        // in tutte e due.
+        $sources = $level === 'model'
+            ? [['gst_product_model_attributes', 'a.`product_model_id` = `gst_product_models`.`id`']]
+            : [
+                ['gst_product_variant_attributes', 'EXISTS (SELECT 1 FROM `gst_product_variants` v WHERE v.`id` = a.`product_variant_id` AND v.`product_model_id` = `gst_product_models`.`id` AND v.`deleted` = \'false\')'],
+                ['gst_product_attributes', 'EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`id` = a.`product_id` AND p.`product_model_id` = `gst_product_models`.`id` AND p.`deleted` = \'false\')'],
+            ];
 
         if (in_array($type, ['select', 'color', 'pattern', 'icon'], true)) {
             $ids = [];
@@ -289,7 +293,11 @@ final class CatalogFilter
             $match = "a.`value_text` LIKE '%".self::likeTerm((string) ($selected[0] ?? ''))."%'";
         }
 
-        $this->conditions[] = "EXISTS (SELECT 1 FROM `{$table}` a WHERE a.`attribute_id` = {$attributeId} AND a.`deleted` = 'false' AND {$relation} AND {$match})";
+        $exists = array_map(
+            static fn (array $source): string => "EXISTS (SELECT 1 FROM `{$source[0]}` a WHERE a.`attribute_id` = {$attributeId} AND a.`deleted` = 'false' AND {$source[1]} AND {$match})",
+            $sources
+        );
+        $this->conditions[] = '('.implode(' OR ', $exists).')';
     }
 
     private function applyOrder(mixed $value): void
