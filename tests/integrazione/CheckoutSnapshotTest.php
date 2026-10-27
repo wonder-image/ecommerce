@@ -340,4 +340,47 @@ check('POST che crea l\'ordine: ricalcola anche con l\'anteprima in sessione', f
     return false;
 }));
 
+/** Il prezzo cambia dopo la pagina; poi un bonifico col totale visto in `expected_total` (null: il client non lo manda). */
+function bonificoDopoCambio(mixed $visto): array
+{
+    [$cart, $prodotto] = carrelloOspite();
+    $post = postPagina(bonifico());
+    $vecchio = pagina($post)['summary']['order']['total'];
+    Product::update(['price' => '20.00'], $prodotto);
+    $opzioni = ['json' => false, 'express' => false] + ($visto === null ? [] : ['expected_total' => $visto === 'vecchio' ? $vecchio : $visto]);
+
+    try {
+        $esito = CheckoutPlacement::place($cart, $post, CartSession::user(), $opzioni);
+    } catch (CheckoutRejected $e) {
+        return ['vecchio' => $vecchio, 'rifiuto' => $e];
+    }
+
+    return ['vecchio' => $vecchio, 'totale' => (float) (Order::findById((int) $esito['receipt']['order_id'])['total'] ?? 0), 'online' => $esito['online']];
+}
+
+check('bonifico col totale visto uguale: l\'ordine nasce', fn () => prova(static function (): bool {
+    $esito = bonificoDopoCambio('20.00');
+
+    return ($esito['totale'] ?? null) === 20.0 && $esito['online'] === false;
+}));
+
+check('bonifico col totale visto diverso: CheckoutRejected col messaggio e il riepilogo nuovo, nessun ordine', fn () => prova(static function (): bool {
+    $esito = bonificoDopoCambio('vecchio');
+    $e = $esito['rifiuto'] ?? null;
+
+    return (float) $esito['vecchio'] === 10.0
+        && $e instanceof CheckoutRejected
+        && $e->totalChanged()
+        && $e->errors() === [(string) __t('ecommerce.checkout.errors.total_changed')]
+        && (float) ($e->summary()['order']['total'] ?? 0) === 20.0;
+}));
+
+check('bonifico senza totale visto (client vecchio): l\'ordine nasce come prima, col totale nuovo', fn () => prova(static function (): bool {
+    return (bonificoDopoCambio(null)['totale'] ?? null) === 20.0;
+}));
+
+check('bonifico col totale visto vuoto: vale come assente', fn () => prova(static function (): bool {
+    return (bonificoDopoCambio('')['totale'] ?? null) === 20.0;
+}));
+
 summary();

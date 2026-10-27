@@ -70,7 +70,10 @@ final class CheckoutPlacement
             throw new RuntimeException((string) __t('ecommerce.checkout.errors.online_javascript'));
         }
         // Il Payment Element mostra un importo: se nel frattempo è cambiato, il cliente lo rivede prima di pagare.
-        if ($online && !OnlinePayment::sameTotal($options['expected_total'] ?? null, $preview['order']['total'] ?? null)) {
+        // Un metodo manuale si controlla solo se il modulo manda il totale: un JS vecchio non lo manda.
+        $seen = $options['expected_total'] ?? null;
+        $checked = $online || (is_scalar($seen) && trim((string) $seen) !== '');
+        if ($checked && !OnlinePayment::sameTotal($seen, $preview['order']['total'] ?? null)) {
             throw new CheckoutRejected([(string) __t('ecommerce.checkout.errors.total_changed')], $preview);
         }
 

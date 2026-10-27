@@ -31,7 +31,8 @@ check('place risponde in JSON o con un redirect solo attraverso leave e reject',
     && !str_contains($place, 'self::rememberErrors('));
 
 check('CheckoutPlacement confronta il totale visto e lascia cadere l\'ordine in sospeso prima di crearne uno', fn () =>
-    str_contains($placed, "OnlinePayment::sameTotal(\$options['expected_total'] ?? null")
+    str_contains($placed, "\$seen = \$options['expected_total'] ?? null;")
+    && str_contains($placed, 'OnlinePayment::sameTotal($seen, ')
     && strpos($placed, 'OnlinePayment::dropPending()') !== false
     && strpos($placed, 'OnlinePayment::dropPending()') < strpos($placed, 'Checkout::place('));
 
@@ -42,6 +43,14 @@ check('place: il totale cambiato è un 409 col riepilogo nuovo, i campi mancanti
     && str_contains($place, "'summary' => \$e->summary()")
     && str_contains($place, 'self::reject($e->errors(), $post, $json)')
     && strpos($place, 'catch (CheckoutRejected $e)') < strpos($place, 'catch (RuntimeException $error)'));
+
+check('il totale visto vale online sempre, per un metodo manuale solo se il modulo lo manda', fn () =>
+    str_contains($placed, "\$checked = \$online || (is_scalar(\$seen) && trim((string) \$seen) !== '');")
+    && str_contains($placed, 'if ($checked && !OnlinePayment::sameTotal($seen, '));
+
+check('place: il 409 col riepilogo è solo in JSON; senza JSON il totale cambiato torna al modulo come rifiuto', fn () =>
+    str_contains($place, 'if ($e->totalChanged() && $json)')
+    && strpos($place, 'if ($e->totalChanged() && $json)') < strpos($place, 'self::reject($e->errors(), $post, $json)'));
 
 check('CheckoutPlacement salva l\'indirizzo di consegna nell\'account del cliente autenticato, dopo l\'ordine e senza fermarlo', function () use ($placed) {
     $salva = strpos($placed, 'AccountAddress::remember($customerId,');

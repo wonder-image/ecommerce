@@ -1239,11 +1239,26 @@ class Checkout {
                 return;
             }
 
+            this.expectedTotal();
             setTimeout(() => document.querySelectorAll('[data-checkout-submit]').forEach((button) => { button.disabled = true; }), 0);
         });
         window.addEventListener('pageshow', () => {
             document.querySelectorAll('[data-checkout-submit]:not([data-checkout-locked])').forEach((button) => { button.disabled = false; });
         });
+    }
+
+    // Anche un metodo manuale manda il totale visto: se è cambiato, il server riapre il modulo col nuovo.
+    expectedTotal() {
+        let field = this.form.querySelector('input[name="expected_total"]');
+
+        if (!field) {
+            field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = 'expected_total';
+            this.form.append(field);
+        }
+
+        field.value = String(this.latest?.order?.total ?? '');
     }
 
     // Gli errori stanno sotto il campo, e la pagina scorre al primo.
