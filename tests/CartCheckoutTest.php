@@ -1070,6 +1070,10 @@ check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna co
         && str_contains($part, "dataset.cartSending = 'wait'")
         && str_contains($part, 'spinner-border')
         && str_contains($part, 'aria-busy')
+        // Lo spinner al posto del testo, alla stessa larghezza; poi il testo torna.
+        && str_contains($part, 'button.replaceChildren(spinner)')
+        && str_contains($part, 'button.replaceChildren(...content)')
+        && str_contains($part, 'button.style.minWidth = width')
         && str_contains($part, 'frozenFields');
 });
 

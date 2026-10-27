@@ -165,6 +165,9 @@ versionamento semantico.
   è un errore fatale, cioè 500 su ogni ordine e su «applica coupon».
 - Catalogo: `%` e `_` nella ricerca restano caratteri normali nel LIKE.
   `nome_desc` e `prezzo_desc` ordinano al contrario anche in modalità variant.
+- Coupon: mentre «Applica» o «Rimuovi» aspettano il server lo spinner prende
+  il posto del testo del bottone, alla stessa larghezza; prima gli si metteva
+  davanti e il bottone si allargava.
 
 ## 0.1.0 — non rilasciata
 
