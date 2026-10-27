@@ -219,7 +219,7 @@ Ecommerce::layout('shop');
             <?php endif; ?>
         </div>
 
-        <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants']])?>
+        <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants'], 'hasVariants' => $data['has_variants']])?>
 
         <?php if ($bundle['components'] !== []): ?>
             <div class="w-100 wi-choice-group wi-choice-group--list" data-bundle-contents>

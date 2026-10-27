@@ -254,6 +254,7 @@ final class ProductCatalog
                 : '',
             'variant' => count($variants) > 1 ? $variantName : '',
             'variants' => $variantCards,
+            'has_variants' => ($model['has_variants'] ?? '') === 'true',
             'breadcrumbs' => $breadcrumbs,
             'images' => $images,
             'offers' => $offers,

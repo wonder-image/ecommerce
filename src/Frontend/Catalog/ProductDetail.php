@@ -250,6 +250,7 @@ final class ProductDetail
             'category_url' => self::string($row['category_url'] ?? ''),
             'variant' => self::string($row['variant'] ?? ''),
             'variants' => array_values((array) ($row['variants'] ?? [])),
+            'has_variants' => (bool) ($row['has_variants'] ?? false),
             'breadcrumbs' => array_values((array) ($row['breadcrumbs'] ?? [])),
             'images' => $images,
             'offers' => $offers,
