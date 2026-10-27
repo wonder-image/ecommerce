@@ -176,27 +176,43 @@ class Checkout {
 
     async coupon(event) {
         event.preventDefault();
+        const couponForm = event.currentTarget;
+
+        // Una richiesta per volta: il secondo clic su «Applica» non parte.
+        if (couponForm.dataset.cartSending) {
+            return;
+        }
 
         // Il server riapre l'ordine prima del coupon: il prossimo «Paga» lo rifà.
         if (this.placed && !this.paying) {
             this.placed = null;
         }
 
-        await this.reopening;
-        const couponForm = event.currentTarget;
-        const data = this.body({
-            action: event.submitter?.value || 'apply',
-            code: couponForm.querySelector('[name="code"]')?.value || '',
-            return: couponForm.querySelector('[name="return"]')?.value || '',
-        });
-        const payload = await this.request(this.root.dataset.couponUrl, data);
+        const action = event.submitter?.value || 'apply';
+        const release = couponSending(couponForm, event.submitter);
 
-        if (payload) {
-            this.render(payload);
+        try {
+            await this.reopening;
+            const data = this.body({
+                action,
+                code: couponForm.querySelector('[name="code"]')?.value || '',
+                return: couponForm.querySelector('[name="return"]')?.value || '',
+            });
+            // Come il carrello: lo spinner resta almeno CART_SPINNER_MIN ms, anche con una risposta immediata.
+            const [payload] = await Promise.all([
+                this.request(this.root.dataset.couponUrl, data),
+                new Promise((resolve) => setTimeout(resolve, CART_SPINNER_MIN)),
+            ]);
 
-            if (payload.error) {
-                this.notices([payload.error]);
+            if (payload) {
+                this.render(payload);
+
+                if (payload.error) {
+                    this.notices([payload.error]);
+                }
             }
+        } finally {
+            release(this);
         }
     }
 
@@ -1393,6 +1409,38 @@ function checkoutLabels(root = document) {
     root.querySelectorAll("[data-wi-label='true']").forEach((field) => {
         field.parentElement?.classList.toggle('compiled', field.value !== '' || field === document.activeElement);
     });
+}
+
+// «Applica» e «Rimuovi» del coupon spenti, con lo spinner della lib nel bottone premuto, finché il server
+// non risponde (riuscito, errore, 429). Restituisce chi li riaccende: se nel frattempo l'ordine è nato,
+// restano spenti con gli altri campi del modulo e li riaccende `thaw()`.
+function couponSending(form, submitter) {
+    const buttons = [...form.querySelectorAll('button')];
+    const button = buttons.includes(submitter) ? submitter : form.querySelector('button[value="apply"]');
+    const states = buttons.map((node) => [node, node.disabled]);
+    const spinner = document.createElement('span');
+    const space = document.createTextNode(' ');
+
+    spinner.className = 'spinner-border';
+    spinner.setAttribute('aria-hidden', 'true');
+    form.dataset.cartSending = 'wait';
+    buttons.forEach((node) => { node.disabled = true; });
+    button?.setAttribute('aria-busy', 'true');
+    button?.prepend(spinner, space);
+
+    return (checkout) => {
+        delete form.dataset.cartSending;
+        button?.removeAttribute('aria-busy');
+        spinner.remove();
+        space.remove();
+        states.forEach(([node, disabled]) => {
+            if (checkout?.frozen && !disabled) {
+                checkout.frozenFields = [...new Set([...(checkout.frozenFields || []), node])];
+                return;
+            }
+            node.disabled = disabled;
+        });
+    };
 }
 
 function paySpinner(on, text = '') {

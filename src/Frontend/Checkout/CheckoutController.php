@@ -159,7 +159,11 @@ final class CheckoutController
         $fromCart = array_filter(CheckoutPlacement::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0');
 
         // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
-        return CheckoutRules::choices($order) + $fromCart + self::defaults([]);
+        // Un carrello senza fatturazione le prende da quella salvata nella scheda del cliente.
+        $values = $fromCart + self::defaults([]);
+        $source = trim((string) ($order['billing_street'] ?? '')) !== '' ? $order : $values + $order;
+
+        return CheckoutRules::choices($source) + $values;
     }
 
 

@@ -55,6 +55,27 @@ versionamento semantico.
 
 ### Modificato
 
+- Checkout, coupon: «Applica» resta disabilitato con lo spinner della lib
+  (`spinner-border`) finché non arriva la risposta, per almeno
+  `CART_SPINNER_MIN`, con `data-cart-sending` sul modulo; in `finally` torna
+  com'era anche dopo un errore o un 429 (resta fermo solo se il checkout si è
+  congelato nel frattempo).
+- Area cliente, dettaglio ordine: la pagina torna su una colonna sola (la
+  griglia degli indirizzi con `col-2`, che nella lib vale anche «occupa due
+  colonne», ne apriva una seconda e spezzava data, Informazioni, Prodotti e
+  Riepilogo). Il nome del prodotto ha tutto lo spazio, la variante va sulla
+  riga sotto come nel carrello, quantità e prezzo stanno in una cella a destra
+  allineata al Riepilogo; su telefono vanno sotto il prodotto.
+- Checkout, cliente entrato: la fatturazione dell'ordine resta nella scheda del
+  cliente (`AccountAddress::rememberBilling`, con `AccountBilling::save` di
+  customer-account e la sua validazione; una fatturazione incompleta non entra
+  e non ferma l'ordine). Senza fattura i dati fiscali e il tipo salvati
+  restano; con «uguale alla spedizione» si salva l'indirizzo ma non nome,
+  cognome e telefono di chi riceve. Un carrello nuovo riparte dalla
+  fatturazione salvata, con «uguale alla spedizione» e «fattura» scelti di
+  conseguenza; un carrello che la fatturazione l'ha già tiene le sue scelte.
+  Nessuna migrazione.
+
 - Checkout con un metodo manuale (bonifico, contrassegno): `checkout.js` manda
   col modulo anche `expected_total`, il totale che il cliente ha visto. Se c'è
   ed è diverso dal ricalcolo, `CheckoutPlacement::place` rifiuta come per i
