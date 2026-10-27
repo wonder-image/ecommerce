@@ -1083,6 +1083,8 @@ check('nel riepilogo del carrello la spedizione più economica, «da X €», ch
     return CartPresenter::shippingFrom([]) === null
         && str_contains($aside, "\$step === 'cart' ? CartPresenter::shippingFrom((array) \$order) : null")
         && str_contains($totals, 'data-cart-shipping')
+        && str_contains($aside, "Slots::render('cart.after_shipping'")
+        && strpos($totals, '$afterShipping') > strpos($totals, 'data-cart-shipping')
         && str_contains($js, "document.querySelector('[data-cart-shipping]')")
         && is_string($it['cart']['shipping_from'] ?? null) && is_string($en['cart']['shipping_from'] ?? null)
         && is_string($it['cart']['shipping_excluded'] ?? null) && is_string($en['cart']['shipping_excluded'] ?? null);

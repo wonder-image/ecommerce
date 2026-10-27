@@ -62,9 +62,14 @@ versionamento semantico.
 
 ### Aggiunto
 
-- Slot `cart.after_totals`: nel carrello, sotto i totali del riepilogo e sopra
-  i bottoni rapidi e «Procedi». Riceve `order`, `items` e `currency`, come gli
-  altri `cart.*` (per esempio per «ti mancano X € per la spedizione gratuita»).
+- Carrello: nel riepilogo la riga «Spedizione: da X €» (o «Gratis»), con il
+  metodo più economico per la zona del carrello; il totale resta senza
+  spedizione e lo dice una nota. Solo con la spedizione attiva e il carrello
+  non in ritiro.
+- Slot `cart.after_shipping`: nel riepilogo del carrello, sotto la riga
+  «Spedizione da …» (esce solo quando c'è). Riceve `order`, `items` e
+  `currency`, come gli altri `cart.*` (per esempio per «ti mancano X € per la
+  spedizione gratuita»). Il coupon via AJAX lo conserva.
 - Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
   con `error: rejected` e lo stesso messaggio, e in più ha
   `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una
