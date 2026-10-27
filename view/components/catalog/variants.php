@@ -3,8 +3,10 @@
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 
 /** @var array $variants Varianti della scheda: name, url, image, active. */
+/** @var bool $hasVariants «Questo articolo ha varianti»: i bottoni anche con una sola. */
+$hasVariants ??= false;
 ?>
-<?php if (count($variants) > 1): ?>
+<?php if (count($variants) > 1 || ($hasVariants && $variants !== [])): ?>
     <div class="w-100">
         <div class="product-variants d-flex f-wrap gap-3" aria-label="<?=e(__t('ecommerce.catalog.variants'))?>">
             <?php foreach ($variants as $variant): ?>

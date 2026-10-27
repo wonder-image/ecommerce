@@ -160,6 +160,24 @@ check('le varianti compaiono da due in su, con quella della card selezionata', f
         && !str_contains($one, 'product-card__variants');
 });
 
+check('nella scheda una sola variante mostra i bottoni se l\'articolo ha varianti', function () {
+    $render = static function (array $vars): string {
+        ob_start();
+        (static function () use ($vars): void {
+            extract($vars);
+            require __DIR__.'/../view/components/catalog/variants.php';
+        })();
+
+        return (string) ob_get_clean();
+    };
+    $one = [['name' => 'Unico', 'url' => '/cappello/', 'active' => true]];
+
+    return str_contains($render(['variants' => $one, 'hasVariants' => true]), 'product-variant btn')
+        && !str_contains($render(['variants' => $one, 'hasVariants' => false]), 'product-variant')
+        && !str_contains($render(['variants' => $one]), 'product-variant')
+        && !str_contains($render(['variants' => [], 'hasVariants' => true]), 'product-variant');
+});
+
 check('lo slider rispetta il minimo e il massimo di card', function () use ($products) {
     $many = array_fill(0, 5, $products[1]);
 
