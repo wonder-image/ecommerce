@@ -7,6 +7,22 @@ versionamento semantico.
 
 ### BREAKING
 
+- Slot delle pagine sigillate (issue #25): carrello, checkout, conferma
+  d'ordine, area cliente e autenticazione includono le partial che il sito
+  dichiara in `slots` del config (`Frontend\Slots`, elenco in
+  `docs/slots.md`). **I nomi degli slot e i dati che ricevono sono contratto
+  pubblico**: da qui in poi rinominarli, spostarli o togliere un dato è
+  BREAKING. Uno slot non configurato non stampa niente; una partial mancante
+  manda la pagina in errore con il nome dello slot. Il valore di `slots` è ora
+  un nome di componente (`slots.cart-banner`), un percorso assoluto o una
+  lista, non più un percorso dentro `custom/`.
+- `account.panel` di default è `EcommerceAccountPanel` (sottoclasse del
+  pannello del core) e stampa gli slot `account.*`: un pannello del sito deve
+  estendere lui per tenerli.
+- `EcommerceAuthProfile::layout()` apre il layout del modulo
+  `ecommerce.auth`, finora mai usato: oltre agli slot `auth.*`, le pagine auth
+  ricevono per la prima volta il font auth e il foglio `store.css` del negozio.
+
 - Checkout da ospite: l'ospite che usa l'email di un account con password, con
   accesso federato o non cliente viene invitato ad accedere o a recuperare la
   password; l'ordine non viene più agganciato a quell'account. La risposta JSON

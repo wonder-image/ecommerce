@@ -5,6 +5,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Discovery\CatalogFeed;
 use Wonder\Plugin\Ecommerce\Frontend\Discovery\CatalogSitemap;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel;
 
 // File per motori e assistenti AI, fuori dalle lingue: llms.txt alla radice
 // del sito come vuole la convenzione, i dati sotto /shared/.
@@ -120,7 +121,7 @@ Route::area('frontend')
         }
         \Wonder\Auth\Frontend\AuthRoutes::register(new $authProfileClass());
 
-        $panelClass = Ecommerce::config('account.panel', \Wonder\Auth\Frontend\AccountPanel::class);
+        $panelClass = Ecommerce::config('account.panel', EcommerceAccountPanel::class);
         if (!is_a($panelClass, \Wonder\Auth\Frontend\AccountPanel::class, true)) {
             throw new \LogicException('Invalid ecommerce account panel');
         }

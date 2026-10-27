@@ -9,6 +9,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
+use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -89,6 +90,9 @@ View::head(DataLayer::script([
 ?>
 <h1 class="wi-checkout__sr"><?=e(__t('ecommerce.checkout.title'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>
+<?php // Dati degli slot `checkout.*` (docs/slots.md). ?>
+<?php $slot = ['order' => $order, 'items' => $items, 'currency' => $currency, 'guest' => (bool) $guest]; ?>
+<?=Slots::render('checkout.before', $slot)?>
 <?php /* Senza JS niente si apre o si chiude: si vede tutto il modulo. */ ?>
 <noscript><style>[data-checkout-toggle][hidden],[data-checkout-shipping][hidden],[data-checkout-pickup][hidden]{display:block!important}.d-grid[data-checkout-toggle][hidden]{display:grid!important}</style></noscript>
 <div class="w-100 d-grid col-5 col-t-1 gap-6 wi-checkout">
@@ -227,10 +231,12 @@ View::head(DataLayer::script([
             <?php if ($guest): ?>
                 <div class="wi-recaptcha-cell w-100"><?=FormField::key('recaptcha')->recaptcha('ecommerce_checkout')?></div>
             <?php endif; ?>
+            <?=Slots::render('checkout.before_submit', $slot)?>
             <?php /* Con un wallet scelto checkout.js ci monta il suo bottone e nasconde «Paga ora». */ ?>
             <div class="w-100" data-checkout-wallet-slot hidden></div>
             <?php $submit = Button::make((string) __t('ecommerce.checkout.'.($manual ? 'submit_manual' : 'submit_online')))->type('submit')->attr('data-checkout-submit', '')->variant('black')->size('lg')->class('w-100 wi-input-submit wi-submit'); ?>
             <?=$payments === [] ? $submit->disabled(true)->attr('data-checkout-locked', '') : $submit?>
+            <?=Slots::render('checkout.after_submit', $slot)?>
             <?php /* Dopo un rifiuto l'ordine resta: si riprova o lo si riapre (stessa riga, stesso numero). */ ?>
         </div>
 
@@ -239,6 +245,7 @@ View::head(DataLayer::script([
     </form>
     <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), $aside + ['button' => ''])?>
 </div>
+<?=Slots::render('checkout.after', $slot)?>
 <?php if (!$guest && $user_email !== ''): ?>
     <form id="checkout-logout" method="post" action="<?=e(__r('ecommerce.auth.logout'))?>" hidden>
         <?php // Il logout è del core: verifica ancora csrf_token (Q-CSRFNAME). ?>
