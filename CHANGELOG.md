@@ -76,6 +76,11 @@ versionamento semantico.
   spedizione gratuita»). Il coupon via AJAX lo conserva.
 - Slot `cart.after_totals`: nel riepilogo del carrello, sotto il totale e
   sopra il bottone. Stessi dati.
+- Coupon: con JavaScript l'errore del codice («Questo codice sconto non
+  esiste.») esce sotto l'input del form che l'ha mandato
+  (`[data-checkout-coupon-error]`), non più negli avvisi del riepilogo. Un
+  esito buono lo toglie da tutti i form. Senza JavaScript resta il messaggio
+  flash.
 - Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
   con `error: rejected` e lo stesso messaggio, e in più ha
   `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una

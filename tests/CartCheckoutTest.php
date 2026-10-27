@@ -1073,6 +1073,21 @@ check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna co
         && str_contains($part, 'frozenFields');
 });
 
+check('coupon: l\'errore del codice esce sotto l\'input del form, non negli avvisi del riepilogo', function () use ($root): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+    $view = (string) file_get_contents($root.'/view/components/checkout/coupon.php');
+    $start = strpos($js, 'async coupon(event)');
+    $body = $start === false ? '' : substr($js, $start, 2200);
+    $helper = strpos($js, 'function couponError(');
+    $part = $helper === false ? '' : substr($js, $helper, 600);
+
+    return $body !== '' && $part !== ''
+        && str_contains($view, 'data-checkout-coupon-error hidden')
+        && str_contains($body, "couponError(couponForm, payload.error || '')")
+        && !str_contains($body, 'this.notices([payload.error])')
+        && str_contains($part, '[data-checkout-coupon-error]');
+});
+
 check('nel riepilogo del carrello «Spedizione {paese}» al prezzo più basso, compresa nel totale, che il coupon aggiorna', function () use ($root): bool {
     $aside = (string) file_get_contents($root.'/view/components/checkout/aside.php');
     $totals = (string) file_get_contents($root.'/view/components/checkout/totals.php');

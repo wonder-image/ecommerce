@@ -206,10 +206,7 @@ class Checkout {
 
             if (payload) {
                 this.render(payload);
-
-                if (payload.error) {
-                    this.notices([payload.error]);
-                }
+                couponError(couponForm, payload.error || '');
             }
         } finally {
             release(this);
@@ -1422,6 +1419,20 @@ function payAlert(message, template = '[data-checkout-pay-alert]') {
 function checkoutLabels(root = document) {
     root.querySelectorAll("[data-wi-label='true']").forEach((field) => {
         field.parentElement?.classList.toggle('compiled', field.value !== '' || field === document.activeElement);
+    });
+}
+
+// Errore del coupon sotto l'input del form che l'ha mandato; un esito buono pulisce tutti i form.
+function couponError(form, message) {
+    const forms = message === '' ? document.querySelectorAll('[data-checkout-coupon]') : [form];
+
+    forms.forEach((target) => {
+        const box = target.querySelector('[data-checkout-coupon-error]');
+
+        if (box) {
+            box.textContent = message;
+            box.hidden = message === '';
+        }
     });
 }
 
