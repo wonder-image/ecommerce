@@ -21,7 +21,7 @@ $headingId = 'faq-'.substr(md5(implode(',', array_column($faqs, 'id'))), 0, 8);
     <?php if ($title !== null): ?>
         <h2 id="<?=e($headingId)?>" class="title tx-primary mb-6"><?=e($title)?></h2>
     <?php endif; ?>
-    <div class="d-grid col-1 gap-3">
+    <div class="d-grid col-1 gap-3 w-100">
         <?php foreach ($faqs as $faq): ?>
             <div class="wi-dropdown-box">
                 <h3 class="wi-dropdown-title wi-switcher text fw-600"><?=e((string) $faq['question'])?> <i class="bi bi-plus" aria-hidden="true"></i></h3>

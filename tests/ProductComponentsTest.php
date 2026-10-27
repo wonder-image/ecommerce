@@ -237,6 +237,8 @@ check('le FAQ: domanda protetta, risposta HTML, titolo tradotto o tolto, niente 
         && str_contains($html, '<strong>tutta Europa</strong>')
         && str_contains($html, 'Domande frequenti')
         && substr_count($html, 'wi-dropdown-box') === 1
+        // Nelle section la lib fa float ai div: senza w-100 la griglia si stringe.
+        && str_contains($html, 'd-grid col-1 gap-3 w-100')
         && !str_contains($faq(['faqs' => [['id' => 1, 'question' => 'Q', 'answer' => 'A']], 'title' => null]), '<h2')
         && trim($faq(['faqs' => []])) === '';
 });
