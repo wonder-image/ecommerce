@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
 
@@ -25,7 +26,9 @@ $express = (string) ($express ?? '');
     </div>
 
     <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
-    
+
+    <?php if ($step === 'cart'): ?><?=Slots::render('cart.after_totals', compact('order', 'items', 'currency'))?><?php endif; ?>
+
     <?=$express?>
 
     <?=$button?>

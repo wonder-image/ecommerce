@@ -62,6 +62,9 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Slot `cart.after_totals`: nel carrello, sotto i totali del riepilogo e sopra
+  i bottoni rapidi e «Procedi». Riceve `order`, `items` e `currency`, come gli
+  altri `cart.*` (per esempio per «ti mancano X € per la spedizione gratuita»).
 - Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
   con `error: rejected` e lo stesso messaggio, e in più ha
   `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una
