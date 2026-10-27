@@ -1411,41 +1411,22 @@ function checkoutLabels(root = document) {
     });
 }
 
-// «Applica» e «Rimuovi» del coupon spenti finché il server non risponde (riuscito, errore, 429). Nel bottone
-// premuto lo spinner della lib prende il posto del testo, alla stessa larghezza: il bottone non si allarga.
-// Restituisce chi rimette testo e bottoni: se nel frattempo l'ordine è nato, restano spenti con gli altri
-// campi del modulo e li riaccende `thaw()`.
+// «Applica» e «Rimuovi» del coupon spenti finché il server non risponde (riuscito, errore, 429). Il bottone
+// premuto ha `aria-busy="true"`: è lo stato della lib (`.btn[aria-busy]`) a nascondere il testo, tenendone la
+// larghezza, e a mettere lo spinner al centro; qui non si tocca il contenuto del bottone. Restituisce chi li
+// riaccende: se nel frattempo l'ordine è nato, restano spenti con gli altri campi del modulo e li riaccende `thaw()`.
 function couponSending(form, submitter) {
     const buttons = [...form.querySelectorAll('button')];
     const button = buttons.includes(submitter) ? submitter : form.querySelector('button[value="apply"]');
     const states = buttons.map((node) => [node, node.disabled]);
-    const spinner = document.createElement('span');
-    const content = button ? [...button.childNodes] : [];
-    const label = button?.getAttribute('aria-label');
-    const width = button ? `${button.getBoundingClientRect().width}px` : '';
 
-    spinner.className = 'spinner-border';
-    spinner.setAttribute('aria-hidden', 'true');
     form.dataset.cartSending = 'wait';
     buttons.forEach((node) => { node.disabled = true; });
-
-    if (button) {
-        button.style.minWidth = width;
-        button.setAttribute('aria-busy', 'true');
-        // Il nome del bottone resta leggibile mentre il testo non c'è.
-        button.setAttribute('aria-label', label || button.textContent.trim());
-        button.replaceChildren(spinner);
-    }
+    button?.setAttribute('aria-busy', 'true');
 
     return (checkout) => {
         delete form.dataset.cartSending;
-
-        if (button) {
-            button.replaceChildren(...content);
-            button.removeAttribute('aria-busy');
-            button.style.minWidth = '';
-            label === null ? button.removeAttribute('aria-label') : button.setAttribute('aria-label', label);
-        }
+        button?.removeAttribute('aria-busy');
 
         states.forEach(([node, disabled]) => {
             if (checkout?.frozen && !disabled) {

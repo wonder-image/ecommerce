@@ -85,9 +85,9 @@ versionamento semantico.
   dal pagamento senza ordine) mostrano la pagina 404 del sito invece di una
   pagina bianca: i controller lanciano `Wonder\Http\Exceptions\NotFoundHttpException`
   del core. I 404 JSON restano come sono. Richiede il core con quella classe.
-- Checkout, coupon: «Applica» resta disabilitato con lo spinner della lib
-  (`spinner-border`) finché non arriva la risposta, per almeno
-  `CART_SPINNER_MIN`, con `data-cart-sending` sul modulo; in `finally` torna
+- Checkout, coupon: «Applica» resta disabilitato con lo spinner finché non
+  arriva la risposta, per almeno `CART_SPINNER_MIN`, con `data-cart-sending`
+  sul modulo; in `finally` torna
   com'era anche dopo un errore o un 429 (resta fermo solo se il checkout si è
   congelato nel frattempo).
 - Area cliente, dettaglio ordine: la pagina torna su una colonna sola (la
@@ -165,9 +165,13 @@ versionamento semantico.
   è un errore fatale, cioè 500 su ogni ordine e su «applica coupon».
 - Catalogo: `%` e `_` nella ricerca restano caratteri normali nel LIKE.
   `nome_desc` e `prezzo_desc` ordinano al contrario anche in modalità variant.
-- Coupon: mentre «Applica» o «Rimuovi» aspettano il server lo spinner prende
-  il posto del testo del bottone, alla stessa larghezza; prima gli si metteva
-  davanti e il bottone si allargava.
+- Coupon: mentre «Applica» o «Rimuovi» aspettano il server il bottone ha solo
+  `aria-busy="true"` ed è lo stato `.btn[aria-busy]` della lib a mettere lo
+  spinner al posto del testo, alla stessa larghezza (prima lo spinner si
+  metteva davanti al testo e il bottone si allargava; poi il modulo sostituiva
+  il contenuto e fissava `min-width` da sé). Richiede `wonder-image` con quello
+  stato (lib PR #19): con una lib precedente il bottone resta disabilitato
+  senza spinner.
 
 ## 0.1.0 — non rilasciata
 
