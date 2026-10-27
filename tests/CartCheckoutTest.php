@@ -1055,7 +1055,7 @@ check('i pezzi di un multiprodotto si leggono sotto la madre in mini-carrello, c
         && str_contains($js, "'[data-line-parts]'");
 });
 
-check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna com\'era anche dopo un errore', function (): bool {
+check('coupon: Applica resta fermo (aria-busy, spinner della lib) fino alla risposta, e torna com\'era anche dopo un errore', function (): bool {
     $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
     $start = strpos($js, 'async coupon(event)');
     $body = $start === false ? '' : substr($js, $start, 2200);
@@ -1068,12 +1068,12 @@ check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna co
         && str_contains($body, 'CART_SPINNER_MIN')
         && preg_match('~finally\s*\{\s*release\(this\);~', $body) === 1
         && str_contains($part, "dataset.cartSending = 'wait'")
-        && str_contains($part, 'spinner-border')
-        && str_contains($part, 'aria-busy')
-        // Lo spinner al posto del testo, alla stessa larghezza; poi il testo torna.
-        && str_contains($part, 'button.replaceChildren(spinner)')
-        && str_contains($part, 'button.replaceChildren(...content)')
-        && str_contains($part, 'button.style.minWidth = width')
+        && str_contains($part, "setAttribute('aria-busy', 'true')")
+        && str_contains($part, "removeAttribute('aria-busy')")
+        // Lo spinner al posto del testo lo fa la lib (`.btn[aria-busy]`): qui il contenuto del bottone non si tocca.
+        && !str_contains($part, 'spinner-border')
+        && !str_contains($part, 'replaceChildren')
+        && !str_contains($part, 'minWidth')
         && str_contains($part, 'frozenFields');
 });
 
