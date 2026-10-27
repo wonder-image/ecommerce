@@ -56,6 +56,9 @@
         "variants": "Varianti",
         "options": "Opzioni",
         "choose_options": "Scegli le opzioni",
+        "faq": {
+            "title": "Domande frequenti"
+        },
         "sliders": {
             "similar": "Articoli simili",
             "recent": "Visti di recente",

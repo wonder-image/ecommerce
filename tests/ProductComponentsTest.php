@@ -223,4 +223,22 @@ check('il catalogo non contiene compatibilita con i campi legacy', function () {
     return true;
 });
 
+check('le FAQ: domanda protetta, risposta HTML, titolo tradotto o tolto, niente senza domande', function () {
+    $faq = static fn (array $data): string => \Wonder\View\View::component(
+        \Wonder\Plugin\Ecommerce\Ecommerce::viewPath('components/catalog/faq.php'),
+        $data
+    );
+    $html = $faq(['faqs' => [
+        ['id' => 1, 'question' => 'Spedite <ovunque>?', 'answer' => '<p>Sì, in <strong>tutta Europa</strong>.</p>'],
+        ['id' => 2, 'question' => '   ', 'answer' => '<p>Vuota</p>'],
+    ]]);
+
+    return str_contains($html, 'Spedite &lt;ovunque&gt;?')
+        && str_contains($html, '<strong>tutta Europa</strong>')
+        && str_contains($html, 'Domande frequenti')
+        && substr_count($html, 'wi-dropdown-box') === 1
+        && !str_contains($faq(['faqs' => [['id' => 1, 'question' => 'Q', 'answer' => 'A']], 'title' => null]), '<h2')
+        && trim($faq(['faqs' => []])) === '';
+});
+
 summary();

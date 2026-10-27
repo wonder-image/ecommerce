@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Http\Exceptions\NotFoundHttpException;
+use Wonder\Plugin\Gestionale\Support\Catalog\Faqs;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\View\View;
 
@@ -50,6 +51,7 @@ final class ProductController
             'similar_products' => $similar,
             'recent_products' => $recent,
             'suggested_products' => $suggested,
+            'faqs' => Faqs::forModel((int) $data['id']),
         ])->render();
     }
 

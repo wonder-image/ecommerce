@@ -54,6 +54,9 @@
         "variants": "Variants",
         "options": "Options",
         "choose_options": "Choose options",
+        "faq": {
+            "title": "Frequently asked questions"
+        },
         "sliders": { "similar": "Similar items", "recent": "Recently viewed", "suggested": "You may also like", "previous": "Previous", "next": "Next" },
         "description": "Description",
         "price_range": "From {{min}} to {{max}}",
