@@ -14,7 +14,7 @@ un dato è un cambiamento BREAKING e va nel CHANGELOG.
 
 ## Configurazione
 
-Nel config del modulo del sito (`config/modules/ecommerce.php` o equivalente),
+Nel config del modulo del sito (`custom/config/modules/ecommerce.php`),
 la chiave `slots` associa il nome dello slot alla partial:
 
 ```php
