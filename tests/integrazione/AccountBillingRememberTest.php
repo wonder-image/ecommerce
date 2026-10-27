@@ -165,7 +165,7 @@ check('carrello con la fatturazione già scritta: valgono le scelte del carrello
 }));
 
 check('il checkout salva la fatturazione solo per chi è entrato, dopo l\'indirizzo', function () {
-    $src = (string) file_get_contents(SITE.'/vendor/wonder-image/ecommerce/src/Frontend/Checkout/CheckoutPlacement.php');
+    $src = (string) file_get_contents(dirname(__DIR__, 2).'/src/Frontend/Checkout/CheckoutPlacement.php');
     $blocco = strpos($src, 'if (!$guest && $customerId > 0) {');
     $indirizzo = strpos($src, 'AccountAddress::remember(');
     $fatturazione = strpos($src, 'AccountAddress::rememberBilling($customerId, $billing, $post)');
