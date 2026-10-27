@@ -17,6 +17,7 @@ final class Slots
     public const NAMES = [
         'cart.before' => ['order', 'items', 'currency'],
         'cart.after_items' => ['order', 'items', 'currency'],
+        'cart.after_shipping' => ['order', 'items', 'currency'],
         'cart.after_totals' => ['order', 'items', 'currency'],
         'cart.after_summary' => ['order', 'items', 'currency'],
         'cart.after' => ['order', 'items', 'currency'],

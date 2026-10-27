@@ -206,10 +206,7 @@ class Checkout {
 
             if (payload) {
                 this.render(payload);
-
-                if (payload.error) {
-                    this.notices([payload.error]);
-                }
+                couponError(couponForm, payload.error || '');
             }
         } finally {
             release(this);
@@ -294,21 +291,35 @@ class Checkout {
             rows.push([this.labels.discount, d.discount_total]);
         }
 
-        // Sul carrello la spedizione non c'è ancora; nel checkout, senza indirizzo, si chiede di inserirlo.
+        // Nel checkout, senza indirizzo, si chiede di inserirlo.
         if (this.form && this.root.dataset.shipping !== 'off' && payload.fulfillment.type === 'shipping') {
             rows.push([this.labels.shipping_total, d.shipping_pending ? this.labels.shipping_pending : d.shipping_total]);
+        }
+
+        // Nel carrello riga della spedizione e slot li scrive il server: col coupon cambiano solo prezzo e totale.
+        const cartShipping = this.form ? null : document.querySelector('[data-cart-shipping]')?.cloneNode(true);
+        const cart = cartShipping ? payload.cart_shipping : null;
+
+        if (cart) {
+            this.text(cartShipping, '[data-cart-shipping-price]', cart.price_display);
+        }
+
+        if (cartShipping) {
+            rows.push(cartShipping);
         }
 
         if (parseFloat(payload.order.fees_total) !== 0) {
             rows.push([this.labels.fees_total, d.fees_total]);
         }
 
-        rows.push([this.labels.total, d.total, true]);
+        const total = cart ? cart.total_display : d.total;
+
+        rows.push([this.labels.total, total, true]);
         document.querySelectorAll('[data-checkout-totals]').forEach((box) => {
-            box.replaceChildren(...rows.map(([label, value, strong]) => this.row(label, value, strong)));
+            box.replaceChildren(...rows.map((row) => row instanceof Element ? row.cloneNode(true) : this.row(...row)));
         });
-        document.querySelectorAll('[data-checkout-total]').forEach((total) => {
-            total.textContent = d.total;
+        document.querySelectorAll('[data-checkout-total]').forEach((node) => {
+            node.textContent = total;
         });
     }
 
@@ -1408,6 +1419,20 @@ function payAlert(message, template = '[data-checkout-pay-alert]') {
 function checkoutLabels(root = document) {
     root.querySelectorAll("[data-wi-label='true']").forEach((field) => {
         field.parentElement?.classList.toggle('compiled', field.value !== '' || field === document.activeElement);
+    });
+}
+
+// Errore del coupon sotto l'input del form che l'ha mandato; un esito buono pulisce tutti i form.
+function couponError(form, message) {
+    const forms = message === '' ? document.querySelectorAll('[data-checkout-coupon]') : [form];
+
+    forms.forEach((target) => {
+        const box = target.querySelector('[data-checkout-coupon-error]');
+
+        if (box) {
+            box.textContent = message;
+            box.hidden = message === '';
+        }
     });
 }
 

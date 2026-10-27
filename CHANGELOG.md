@@ -62,9 +62,25 @@ versionamento semantico.
 
 ### Aggiunto
 
-- Slot `cart.after_totals`: nel carrello, sotto i totali del riepilogo e sopra
-  i bottoni rapidi e «Procedi». Riceve `order`, `items` e `currency`, come gli
-  altri `cart.*` (per esempio per «ti mancano X € per la spedizione gratuita»).
+- Carrello: nel riepilogo la riga «Spedizione {paese}» col prezzo del metodo
+  più economico (o «Gratis»). Il paese è quello dell'indirizzo del carrello,
+  senza indirizzo quello del visitatore (IP, `Geo::country()` del core), poi
+  l'Italia. Il totale comprende quella spedizione al posto di quella già
+  scelta; dopo un coupon via AJAX la risposta porta `cart_shipping`
+  (`price_display`, `total_display`). Solo con la spedizione attiva e il
+  carrello non in ritiro. Richiede `Shipping::options($cartId, $country)` e
+  `Shipping::country()` del gestionale.
+- Slot `cart.after_shipping`: nel riepilogo del carrello, sotto la riga
+  «Spedizione {paese}» (esce solo quando c'è). Riceve `order`, `items` e
+  `currency`, come gli altri `cart.*` (per esempio per «ti mancano X € per la
+  spedizione gratuita»). Il coupon via AJAX lo conserva.
+- Slot `cart.after_totals`: nel riepilogo del carrello, sotto il totale e
+  sopra il bottone. Stessi dati.
+- Coupon: con JavaScript l'errore del codice («Questo codice sconto non
+  esiste.») esce sotto l'input del form che l'ha mandato
+  (`[data-checkout-coupon-error]`), non più negli avvisi del riepilogo. Un
+  esito buono lo toglie da tutti i form. Senza JavaScript resta il messaggio
+  flash.
 - Check-out rapido, `place` oltre un limite di ordini: la risposta resta 422
   con `error: rejected` e lo stesso messaggio, e in più ha
   `reason: too_many_orders`. I limiti lanciano `TooManyOrders` (una
