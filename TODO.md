@@ -76,9 +76,9 @@ solo quando ha una prova automatica o una verifica descritta.
   `sealed`, anche per richieste puntuali e `--force`; verificato dal sito con
   una view sigillata del modulo (le view auth oggi sono del core e non sono
   più sigillate dall'ecommerce).
-- [ ] B17 **Priorità alta**, tra le prime dopo la 1.0.0: slot di markup in
-  carrello, checkout, area cliente e autenticazione; `config.slots` è predisposto
-  ma non viene ancora consumato. Issue #25.
+- [x] B17 Slot di markup in carrello, checkout, conferma, area cliente e
+  autenticazione: `config.slots`, `Frontend\Slots`, elenco e contratto in
+  `docs/slots.md`. Issue #25.
 - [ ] B18 Test browser della revoca o disattivazione dell'attore durante una
   sessione impersonata; la validazione applicativa resta coperta dai test del core.
 - [x] B19 reCAPTCHA Enterprise con action dedicate e verifica server-side sui

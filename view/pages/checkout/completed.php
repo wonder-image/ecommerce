@@ -1,10 +1,13 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\View\View;
 
 Ecommerce::layout('checkout');
+$slot = ['result' => (array) ($result ?? [])];
 ?>
+<?=Slots::render('checkout.completed.before', $slot)?>
 <div class="w-100 wi-box p-6 a-c">
     <h1 class="title"><?=e(__t('ecommerce.checkout.completed.title'))?></h1>
     <p class="text mt-4"><?=e((string) ($result['order_number'] ?? '') !== ''
@@ -27,4 +30,5 @@ Ecommerce::layout('checkout');
         <a class="btn btn-primary mt-6 c-w" href="<?=e(__r('ecommerce.catalog.index'))?>"><?=e(__t('ecommerce.checkout.completed.shop'))?></a>
     <?php endif; ?>
 </div>
+<?=Slots::render('checkout.completed.after', $slot)?>
 <?php View::end(); ?>

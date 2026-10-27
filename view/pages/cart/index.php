@@ -5,6 +5,7 @@ use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
+use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\View\View;
 use Wonder\Http\Csrf;
 
@@ -27,7 +28,10 @@ View::head(\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart'));
 View::head(\Wonder\Plugin\Ecommerce\Frontend\StoreStyle::sheet());
 // La quantità che −/+ mandano, col punto: il carrello la rilegge così.
 $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+// Dati degli slot `cart.*` (docs/slots.md).
+$slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
 ?>
+<?=Slots::render('cart.before', $slot)?>
 <?php if ($items === []): ?>
     <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
     <?php // Lo stato vuoto della lib, come ordini e coupon dell'area cliente. ?>
@@ -112,6 +116,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                     </div>
                 </article>
             <?php endforeach; ?>
+            <?=Slots::render('cart.after_items', $slot)?>
         </div>
         <div class="w-100 d-flex d-column gap-5">
             <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), [
@@ -137,10 +142,12 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
                     $coupon,
                 ])?>
             <?php endif; ?>
+            <?=Slots::render('cart.after_summary', $slot)?>
         </div>
     </div>
     <?php if (($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
         View::head('<script src="'.e($checkoutJs).'" defer></script>');
     } ?>
 <?php endif; ?>
+<?=Slots::render('cart.after', $slot)?>
 <?php View::end(); ?>

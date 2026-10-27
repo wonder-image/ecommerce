@@ -47,6 +47,7 @@ php tests/run.php
 
 - Stato del lavoro e compiti: `TODO.md`
 - Flussi e configurazione auth: `docs/authentication.md`
+- Slot delle pagine sigillate: `docs/slots.md`
 - Spec del guscio: `packages/gestionale/docs/superpowers/specs/2026-09-29-negozio-online-guscio-design.md`
 - Architettura del gestionale e del negozio:
   `packages/gestionale/docs/superpowers/specs/2026-09-11-gestionale-ecommerce-architettura-design.md`

@@ -6,6 +6,7 @@ require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/harness.php';
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel;
 
 $root = dirname(__DIR__);
 $core = dirname((new ReflectionClass(\Wonder\Auth\Frontend\AuthProfile::class))->getFileName(), 4);
@@ -39,7 +40,7 @@ check('la configurazione non porta il checkout ospite: si accende dal backend', 
 
 check('le view auth sono del core e l\'ecommerce non le sigilla', fn () => !in_array('pages/auth', Ecommerce::sealedViews(), true));
 
-check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua estensione', function () use ($root, $core) {
+check('il pannello account è del core: l\'ecommerce si aggancia con l\'estensione e lo estende solo per gli slot', function () use ($root, $core) {
     $routes = (string) file_get_contents($root.'/config/routes/route.frontend.php');
     $extension = (string) file_get_contents($root.'/src/Frontend/Account/EcommerceAccountExtension.php');
     $coreRoutes = (string) file_get_contents($core.'/class/Auth/Frontend/AccountRoutes.php');
@@ -49,8 +50,16 @@ check('il pannello account è del core e l\'ecommerce vi si aggancia con la sua 
         && is_file($root.'/view/pages/account/orders.php')
         && is_file($root.'/view/pages/account/coupons.php')
         && !is_dir($root.'/view/components/account')
-        && !is_file($root.'/view/layout/frontend/ecommerce.account.php')
-        && !is_file($root.'/src/Frontend/Account/EcommerceAccountPanel.php')
+        // Il pannello del modulo cambia solo layout() (slot account.*), il layout delega a quello del core.
+        && is_subclass_of(EcommerceAccountPanel::class, \Wonder\Auth\Frontend\AccountPanel::class)
+        && array_values(array_map(
+            static fn (ReflectionMethod $method) => $method->getName(),
+            array_filter(
+                (new ReflectionClass(EcommerceAccountPanel::class))->getMethods(),
+                static fn (ReflectionMethod $method) => $method->getDeclaringClass()->getName() === EcommerceAccountPanel::class
+            )
+        )) === ['layout']
+        && str_contains((string) file_get_contents($root.'/view/layout/frontend/ecommerce.account.php'), "View::layout('frontend.account.panel'")
         && str_contains($routes, 'AccountRoutes::register(new $panelClass(), new $authProfileClass())')
         && str_contains($routes, 'AccountRoutes::extend(new EcommerceAccountExtension())')
         && !str_contains($routes, "Route::name('ecommerce.account.')")

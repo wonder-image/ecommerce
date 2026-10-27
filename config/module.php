@@ -71,8 +71,9 @@ return [
             'cart' => [5, 600],
         ],
     ],
-    // Partial del sito innestate negli slot delle view sigillate (piano 2):
-    // chiave dello slot => percorso della partial dentro `custom/`.
+    // Partial del sito negli slot delle view sigillate (elenco in docs/slots.md):
+    // nome dello slot => componente (`slots.cart-banner` è
+    // `custom/view/components/frontend/slots/cart-banner.php`), percorso assoluto o lista.
     'slots' => [],
     'auth' => [
         // Il sito puo estendere il profilo del core: campi, validazione e hook.
@@ -85,7 +86,8 @@ return [
         ],
     ],
     'account' => [
-        'panel' => \Wonder\Auth\Frontend\AccountPanel::class,
+        // Un pannello del sito estende EcommerceAccountPanel per tenere gli slot `account.*`.
+        'panel' => \Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountPanel::class,
         'navigation' => [],
         'payment_methods' => [
             'provider' => 'stripe',

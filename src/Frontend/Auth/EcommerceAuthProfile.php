@@ -21,6 +21,12 @@ class EcommerceAuthProfile extends CustomerAuthProfile
 
     protected function signupDefaults(): array { return ['phone' => 'required']; }
 
+    /** Layout del modulo: font, stili e slot `auth.*` attorno a quello del core. */
+    public function layout(array $data = []): void
+    {
+        Ecommerce::layout('auth', ['auth_layout' => $data + ['auth_profile' => $this]]);
+    }
+
     /** La scheda la collega customer-account; il cellulare del modulo ecommerce, se c'è, vale come telefono. */
     public function afterUserSaved(int $userId, string $surface, array $input): void
     {
