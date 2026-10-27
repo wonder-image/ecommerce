@@ -19,6 +19,7 @@ use Wonder\Plugin\Gestionale\Support\Catalog\Attributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductAttributes;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
+use Wonder\Plugin\Gestionale\Support\Catalog\PageRedirect;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductPhotos;
 use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
 use Wonder\Plugin\Gestionale\Support\Stock\Levels;
@@ -80,8 +81,17 @@ final class ProductCatalog
             // Variante sconosciuta o nascosta, o modello con una sola
             // variante: l'indirizzo giusto è quello del modello.
             if ($variant === null || count($variants) < 2) {
+                // Una pagina spenta nel gestionale (#85): /prodotto/blu/ va
+                // su /prodotto/?colore=blu.
+                if ($variant === null) {
+                    $query += PageRedirect::formerQuery((int) $model['id'], $variantSlug);
+                }
+
                 return ['detail' => null, 'redirect' => ProductUrl::make($modelSlug, '', $query)];
             }
+        } elseif (($page = self::pageFor((int) $model['id'], $variants, $query)) !== null) {
+            // Pagine accese (#85): /prodotto/?colore=blu va su /prodotto/blu/.
+            return ['detail' => null, 'redirect' => ProductUrl::make($modelSlug, $page['slug'], $page['query'])];
         }
 
         if (!is_array($variant) || (int) ($variant['id'] ?? 0) <= 0) {
@@ -89,6 +99,25 @@ final class ProductCatalog
         }
 
         return ['detail' => self::build($model, $variant, $variants, $query), 'redirect' => null];
+    }
+
+    /**
+     * La pagina che una query chiede, solo fra le varianti visibili: con una
+     * sola variante il rimando tornerebbe indietro.
+     *
+     * @param list<array<string, mixed>> $variants
+     * @return array{slug: string, query: array<string, mixed>}|null
+     */
+    private static function pageFor(int $modelId, array $variants, array $query): ?array
+    {
+        if (count($variants) < 2 || $query === []) {
+            return null;
+        }
+
+        $page = PageRedirect::pageFor(PageRedirect::pages($modelId), $query);
+        $visible = array_map(static fn (array $row): string => (string) ($row['slug'] ?? ''), $variants);
+
+        return $page !== null && in_array($page['slug'], $visible, true) ? $page : null;
     }
 
     /** Solo la scheda del modello, senza rimandi. */
@@ -225,6 +254,7 @@ final class ProductCatalog
                 : '',
             'variant' => count($variants) > 1 ? $variantName : '',
             'variants' => $variantCards,
+            'has_variants' => ($model['has_variants'] ?? '') === 'true',
             'breadcrumbs' => $breadcrumbs,
             'images' => $images,
             'offers' => $offers,
