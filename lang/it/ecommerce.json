@@ -101,6 +101,8 @@
         "products_total": "Subtotale",
         "discount": "Sconto",
         "total": "Totale",
+        "shipping_from": "da {{price}}",
+        "shipping_excluded": "Il totale non comprende la spedizione: la scegli al checkout.",
         "checkout": "Vai al checkout",
         "add": "Aggiungi al carrello",
         "added": "Prodotto aggiunto al carrello.",

@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -8,6 +9,7 @@ use Wonder\View\View;
 $step = (string) ($step ?? 'checkout');
 $withLines = $step !== 'cart';
 $express = (string) ($express ?? '');
+$shippingFrom = $step === 'cart' ? CartPresenter::shippingFrom((array) $order) : null;
 
 ?>
 <aside class="<?=$withLines ? 'w-100 col-2 col-t-1 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
@@ -25,7 +27,9 @@ $express = (string) ($express ?? '');
         <?php foreach ($notices as $message): ?><p class="text-small" role="status"><?=e($message)?></p><?php endforeach; ?>
     </div>
 
-    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
+    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'shippingFrom' => $shippingFrom, 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
+
+    <?php if ($shippingFrom > 0): ?><p class="text-small mt-2"><?=e(__t('ecommerce.cart.shipping_excluded'))?></p><?php endif; ?>
 
     <?php if ($step === 'cart'): ?><?=Slots::render('cart.after_totals', compact('order', 'items', 'currency'))?><?php endif; ?>
 

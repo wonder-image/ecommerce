@@ -294,9 +294,16 @@ class Checkout {
             rows.push([this.labels.discount, d.discount_total]);
         }
 
-        // Sul carrello la spedizione non c'è ancora; nel checkout, senza indirizzo, si chiede di inserirlo.
+        // Nel checkout, senza indirizzo, si chiede di inserirlo.
         if (this.form && this.root.dataset.shipping !== 'off' && payload.fulfillment.type === 'shipping') {
             rows.push([this.labels.shipping_total, d.shipping_pending ? this.labels.shipping_pending : d.shipping_total]);
+        }
+
+        // Nel carrello la riga «Spedizione da …» la scrive il server: il coupon non la cambia.
+        const cartShipping = this.form ? null : document.querySelector('[data-cart-shipping]');
+
+        if (cartShipping) {
+            rows.push(cartShipping);
         }
 
         if (parseFloat(payload.order.fees_total) !== 0) {
@@ -305,7 +312,7 @@ class Checkout {
 
         rows.push([this.labels.total, d.total, true]);
         document.querySelectorAll('[data-checkout-totals]').forEach((box) => {
-            box.replaceChildren(...rows.map(([label, value, strong]) => this.row(label, value, strong)));
+            box.replaceChildren(...rows.map((row) => row instanceof Element ? row.cloneNode(true) : this.row(...row)));
         });
         document.querySelectorAll('[data-checkout-total]').forEach((total) => {
             total.textContent = d.total;

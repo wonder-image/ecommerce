@@ -1073,4 +1073,19 @@ check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna co
         && str_contains($part, 'frozenFields');
 });
 
+check('nel riepilogo del carrello la spedizione più economica, «da X €», che il coupon non cancella', function () use ($root): bool {
+    $aside = (string) file_get_contents($root.'/view/components/checkout/aside.php');
+    $totals = (string) file_get_contents($root.'/view/components/checkout/totals.php');
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return CartPresenter::shippingFrom([]) === null
+        && str_contains($aside, "\$step === 'cart' ? CartPresenter::shippingFrom((array) \$order) : null")
+        && str_contains($totals, 'data-cart-shipping')
+        && str_contains($js, "document.querySelector('[data-cart-shipping]')")
+        && is_string($it['cart']['shipping_from'] ?? null) && is_string($en['cart']['shipping_from'] ?? null)
+        && is_string($it['cart']['shipping_excluded'] ?? null) && is_string($en['cart']['shipping_excluded'] ?? null);
+});
+
 summary();

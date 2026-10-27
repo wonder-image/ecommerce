@@ -3,10 +3,12 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductUrl;
+use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
+use Wonder\Plugin\Gestionale\Support\Shipping\Shipping;
 
 final class CartPresenter
 {
@@ -15,6 +17,24 @@ final class CartPresenter
         $amount = number_format((float) $value, 2, ',', '.');
 
         return strtoupper($currency) === 'EUR' ? $amount.' €' : $amount.' '.strtoupper($currency);
+    }
+
+    /**
+     * La spedizione più economica tra i metodi che il checkout offrirebbe al
+     * carrello, per la zona del suo indirizzo (senza, l'Italia). `null` con la
+     * spedizione spenta, col ritiro o se nessun metodo copre il carrello.
+     */
+    public static function shippingFrom(array $order): ?float
+    {
+        $cartId = (int) ($order['id'] ?? 0);
+
+        if ($cartId <= 0 || !Gestionale::feature('shipping') || (string) ($order['fulfillment_type'] ?? 'shipping') === 'pickup') {
+            return null;
+        }
+
+        $prices = array_map(static fn (array $option): float => $option['free'] ? 0.0 : (float) $option['price'], Shipping::options($cartId));
+
+        return $prices === [] ? null : min($prices);
     }
 
     public static function quantity(mixed $value): string
