@@ -68,6 +68,7 @@ del core.
 | --- | --- | --- |
 | `cart.before` | Carrello, sopra il titolo (anche col carrello vuoto) | `order`, `items`, `currency` |
 | `cart.after_items` | Carrello, in fondo al box dei prodotti | `order`, `items`, `currency` |
+| `cart.after_totals` | Carrello, sotto i totali del riepilogo (sopra i bottoni rapidi e «Procedi») | `order`, `items`, `currency` |
 | `cart.after_summary` | Carrello, sotto riepilogo e coupon | `order`, `items`, `currency` |
 | `cart.after` | Carrello, in fondo alla pagina (anche col carrello vuoto) | `order`, `items`, `currency` |
 | `checkout.before` | Checkout, sopra il modulo e il riepilogo | `order`, `items`, `currency`, `guest` |
