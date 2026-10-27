@@ -84,9 +84,11 @@ versionamento semantico.
 - Limiti di tentativi: il negozio usa `Wonder\Plugin\Gestionale\Support\Throttle`
   e la tabella `gst_throttles` (Model `System\Throttle` del gestionale), che
   nasce con `php forge update`. Via il Model `Throttle` e la chiave `database`
-  da `module.json`: `ecommerce_throttle` resta nel DB, non è più usata e si
-  può eliminare a mano. `Wonder\Plugin\Ecommerce\Support\Throttle` è un alias
-  deprecato della classe del gestionale e si toglie nella 0.3.0. Il canale
+  da `module.json`: `ecommerce_throttle` resta nel DB e non è più usata. Va
+  eliminata a mano, dopo `php forge db:backup`, con
+  `DROP TABLE IF EXISTS ecommerce_throttle;`. Via anche
+  `Wonder\Plugin\Ecommerce\Support\Throttle`, senza alias: chi la importava
+  usa `Wonder\Plugin\Gestionale\Support\Throttle`. Il canale
   dell'errore diventa `gestionale.throttle` (era `ecommerce.throttle`). I
   contatori ripartono da zero al cambio: quelli in tabella perché cambia
   tabella (`ecommerce_throttle` → `gst_throttles`), quelli su file perché
