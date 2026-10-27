@@ -83,6 +83,7 @@
         "products_total": "Subtotal",
         "discount": "Discount",
         "total": "Total",
+        "shipping_to": "Shipping {{country}}",
         "checkout": "Go to checkout",
         "add": "Add to cart",
         "added": "Product added to the cart.",

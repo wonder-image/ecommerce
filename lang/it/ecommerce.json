@@ -101,6 +101,7 @@
         "products_total": "Subtotale",
         "discount": "Sconto",
         "total": "Totale",
+        "shipping_to": "Spedizione {{country}}",
         "checkout": "Vai al checkout",
         "add": "Aggiungi al carrello",
         "added": "Prodotto aggiunto al carrello.",

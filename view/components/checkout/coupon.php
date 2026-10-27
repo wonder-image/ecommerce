@@ -21,4 +21,7 @@ use Wonder\Http\Csrf;
 
     </div>
 
+    <?php // L'errore del codice lo scrive il JS, sotto l'input del form che l'ha mandato. ?>
+    <p class="text-small mt-1 tx-danger" role="alert" data-checkout-coupon-error hidden></p>
+
 </form>

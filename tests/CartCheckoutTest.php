@@ -1077,4 +1077,46 @@ check('coupon: Applica resta fermo con lo spinner fino alla risposta, e torna co
         && str_contains($part, 'frozenFields');
 });
 
+check('coupon: l\'errore del codice esce sotto l\'input del form, non negli avvisi del riepilogo', function () use ($root): bool {
+    $js = (string) file_get_contents(dirname(__DIR__).'/resources/assets/js/checkout.js');
+    $view = (string) file_get_contents($root.'/view/components/checkout/coupon.php');
+    $start = strpos($js, 'async coupon(event)');
+    $body = $start === false ? '' : substr($js, $start, 2200);
+    $helper = strpos($js, 'function couponError(');
+    $part = $helper === false ? '' : substr($js, $helper, 600);
+
+    return $body !== '' && $part !== ''
+        && str_contains($view, 'data-checkout-coupon-error hidden')
+        && str_contains($body, "couponError(couponForm, payload.error || '')")
+        && !str_contains($body, 'this.notices([payload.error])')
+        && str_contains($part, '[data-checkout-coupon-error]');
+});
+
+check('nel riepilogo del carrello «Spedizione {paese}» al prezzo più basso, compresa nel totale, che il coupon aggiorna', function () use ($root): bool {
+    $aside = (string) file_get_contents($root.'/view/components/checkout/aside.php');
+    $totals = (string) file_get_contents($root.'/view/components/checkout/totals.php');
+    $js = (string) file_get_contents($root.'/resources/assets/js/checkout.js');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+    $presenter = (string) file_get_contents($root.'/src/Frontend/Cart/CartPresenter.php');
+    $it = json_decode((string) file_get_contents($root.'/lang/it/ecommerce.json'), true);
+    $en = json_decode((string) file_get_contents($root.'/lang/en/ecommerce.json'), true);
+
+    return CartPresenter::cartShipping([]) === null
+        && str_contains($presenter, 'Shipping::options($cartId, $country)')
+        && str_contains($presenter, 'Shipping::country($order, Geo::country())')
+        && str_contains($aside, "\$step === 'cart' ? CartPresenter::cartShipping((array) \$order) : null")
+        // Riga larga come le altre (`col-2`), lo slot sotto, il totale con la spedizione.
+        && str_contains($totals, 'class="w-100 col-2" data-cart-shipping')
+        && strpos($totals, '$afterShipping') > strpos($totals, 'data-cart-shipping')
+        && str_contains($totals, "\$cartShipping['total']")
+        && str_contains($aside, "Slots::render('cart.after_shipping'")
+        && strpos($aside, "Slots::render('cart.after_totals'") > strpos($aside, 'components/checkout/totals.php')
+        && !str_contains($aside, 'shipping_excluded')
+        && str_contains($controller, "\$payload['cart_shipping'] = self::cartShipping(")
+        && str_contains($js, "document.querySelector('[data-cart-shipping]')")
+        && str_contains($js, 'cart.total_display')
+        && is_string($it['cart']['shipping_to'] ?? null) && is_string($en['cart']['shipping_to'] ?? null)
+        && !isset($it['cart']['shipping_excluded'], $en['cart']['shipping_excluded']);
+});
+
 summary();

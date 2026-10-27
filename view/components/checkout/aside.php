@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\View\View;
@@ -8,6 +9,9 @@ use Wonder\View\View;
 $step = (string) ($step ?? 'checkout');
 $withLines = $step !== 'cart';
 $express = (string) ($express ?? '');
+$cartShipping = $step === 'cart' ? CartPresenter::cartShipping((array) $order) : null;
+// Lo slot esce sotto la riga «Spedizione {paese}», quindi solo quando c'è.
+$afterShipping = $cartShipping !== null ? Slots::render('cart.after_shipping', compact('order', 'items', 'currency')) : '';
 
 ?>
 <aside class="<?=$withLines ? 'w-100 col-2 col-t-1 wi-checkout__aside' : 'wi-box h-auto p-5'?>"<?=$withLines ? ' data-checkout-aside' : ''?>>
@@ -25,7 +29,7 @@ $express = (string) ($express ?? '');
         <?php foreach ($notices as $message): ?><p class="text-small" role="status"><?=e($message)?></p><?php endforeach; ?>
     </div>
 
-    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
+    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'cartShipping' => $cartShipping, 'afterShipping' => $afterShipping, 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
 
     <?php if ($step === 'cart'): ?><?=Slots::render('cart.after_totals', compact('order', 'items', 'currency'))?><?php endif; ?>
 
