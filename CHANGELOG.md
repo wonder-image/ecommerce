@@ -71,6 +71,12 @@ versionamento semantico.
 
 ### Modificato
 
+- Una pagina per valore scelta nell'articolo (gestionale #85): la scheda
+  rimanda con un 301 da una pagina spenta (`/prodotto/x/blu/`) alla query del
+  valore (`/prodotto/x/?colore=blu`) e, a pagine accese, dalla query alla
+  pagina, solo verso una variante visibile e con almeno due varianti. Il
+  filtro del catalogo cerca un attributo di variante o di opzione in tutte e
+  due le tabelle (`gst_product_variant_attributes` e `gst_product_attributes`).
 - Le pagine che non esistono (prodotto o catalogo sconosciuto, azioni
   sconosciute di carrello, checkout e abbonamenti, abbonamenti spenti, ritorno
   dal pagamento senza ordine) mostrano la pagina 404 del sito invece di una
