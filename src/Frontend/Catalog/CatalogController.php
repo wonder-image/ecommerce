@@ -24,7 +24,7 @@ final class CatalogController
             $perPage,
             'catalog-products'
         );
-        $products = ProductListing::cards($filter, (string) $pagination->limit);
+        $products = ProductListing::cards($filter, (string) $pagination->limit, CustomerPriceList::current());
         $priceBounds = ProductListing::priceBounds($filter);
         $breadcrumbs = self::breadcrumbs($filter);
         self::seo($filter, $breadcrumbs);

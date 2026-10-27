@@ -34,9 +34,10 @@ final class ProductController
             $similarIds,
             [(int) $data['id']]
         ));
-        $similar = ProductListing::byModelIds($similarIds, $limit);
-        $recent = ProductListing::byModelIds($recentIds, $limit);
-        $suggested = ProductListing::byModelIds($suggestedIds, $limit);
+        $priceList = CustomerPriceList::current();
+        $similar = ProductListing::byModelIds($similarIds, $limit, $priceList);
+        $recent = ProductListing::byModelIds($recentIds, $limit, $priceList);
+        $suggested = ProductListing::byModelIds($suggestedIds, $limit, $priceList);
         // Sotto il minimo dello slider la sezione non compare, e nemmeno il suo evento.
         $min = max(1, (int) Ecommerce::config('catalog.swiper.min', 1));
         [$similar, $recent, $suggested] = array_map(
@@ -89,7 +90,7 @@ final class ProductController
         }
 
         $meta = [
-            'product:price:amount' => number_format((float) $data['price'], 2, '.', ''),
+            'product:price:amount' => number_format((float) ($data['catalog_price'] ?? $data['price']), 2, '.', ''),
             'product:price:currency' => (string) $data['currency'],
         ];
         if (!empty($data['stock_managed'])) {

@@ -1,6 +1,7 @@
 <?php
 
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\CatalogFilter;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\CustomerPriceList;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductListing;
 
 $term = $_POST['search'] ?? '';
@@ -8,7 +9,7 @@ $term = is_scalar($term) ? mb_substr(trim((string) $term), 0, 120) : '';
 $results = [];
 if ($term !== '') {
     $filter = CatalogFilter::fromRequest('search', [], ['q' => $term]);
-    foreach (ProductListing::cards($filter, '0,8') as $product) {
+    foreach (ProductListing::cards($filter, '0,8', CustomerPriceList::current()) as $product) {
         $name = (string) $product['name'];
         // La lib compone i suggerimenti come HTML e attributi single-quoted.
         $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

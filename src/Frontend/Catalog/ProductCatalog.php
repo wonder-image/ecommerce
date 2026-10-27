@@ -157,6 +157,9 @@ final class ProductCatalog
 
         // Il prezzo di campagna lo calcola il gestionale, come nel carrello.
         $now = date('Y-m-d H:i:s');
+        // Il listino del cliente loggato; null per l'ospite.
+        $priceList = CustomerPriceList::current();
+        $taxCategoryId = (int) ($model['tax_category_id'] ?? 0);
 
         foreach ($products as $product) {
             $quantity = $bundle ? $bundleQuantity : self::onHand((int) $product['id']);
@@ -174,6 +177,8 @@ final class ProductCatalog
                 'regular_price' => (float) ($product['price'] ?? 0),
                 'sale_price' => (float) ($product['sale_price'] ?? 0),
                 'campaign_price' => $campaign !== null ? (float) $campaign['price'] : 0.0,
+                'price_list_price' => CustomerPriceList::price($priceList, (int) $product['id'], $taxCategoryId),
+                'price_list_tiers' => CustomerPriceList::tiers($priceList, (int) $product['id'], $taxCategoryId),
                 'stock_managed' => $stockManaged,
                 'available' => !$stockManaged || $quantity > 0 || Stock::allowsBackorder($product),
                 'attributes' => self::productOptions((int) $product['id'], $optionGroups),

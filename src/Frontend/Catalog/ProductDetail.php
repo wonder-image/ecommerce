@@ -80,7 +80,7 @@ final class ProductDetail
                 '@type' => 'Offer',
                 'url' => $this->data['url'],
                 'priceCurrency' => $this->data['currency'],
-                'price' => $offer['price'],
+                'price' => $offer['catalog_price'],
                 'itemCondition' => 'https://schema.org/NewCondition',
             ];
             if ($offer['stock_managed']) {
@@ -89,7 +89,7 @@ final class ProductDetail
                     : 'https://schema.org/OutOfStock';
             }
         } elseif ($offers !== []) {
-            $prices = array_column($offers, 'price');
+            $prices = array_column($offers, 'catalog_price');
             $schema['offers'] = [
                 '@type' => 'AggregateOffer',
                 'url' => $this->data['url'],
@@ -167,9 +167,12 @@ final class ProductDetail
 
             $regular = max(0.0, (float) ($offer['regular_price'] ?? $offer['price'] ?? 0));
             $sale = max(0.0, (float) ($offer['sale_price'] ?? 0));
-            // Come il carrello (LinePrice): la campagna vince sul saldo, il saldo sul listino.
+            // Come il carrello (LinePrice): listino, poi campagna, poi saldo, poi prezzo pieno.
             $campaign = max(0.0, (float) ($offer['campaign_price'] ?? 0));
-            $price = $campaign > 0 ? $campaign : ($sale > 0 && ($regular <= 0 || $sale < $regular) ? $sale : $regular);
+            $catalog = $campaign > 0 ? $campaign : ($sale > 0 && ($regular <= 0 || $sale < $regular) ? $sale : $regular);
+            // Il listino è riservato al cliente: i dati strutturati restano su $catalog.
+            $priceList = max(0.0, (float) ($offer['price_list_price'] ?? 0));
+            $price = $priceList > 0 ? $priceList : $catalog;
 
             $stockManaged = (bool) ($offer['stock_managed'] ?? $row['stock_managed'] ?? false);
             $offers[] = [
@@ -183,6 +186,8 @@ final class ProductDetail
                 'regular_price' => $regular,
                 'sale_price' => $sale,
                 'price' => $price,
+                'catalog_price' => $catalog,
+                'price_list_tiers' => array_values(array_filter((array) ($offer['price_list_tiers'] ?? []), 'is_array')),
                 'stock_managed' => $stockManaged,
                 'available' => !$stockManaged || (bool) ($offer['available'] ?? false),
                 'attributes' => (array) ($offer['attributes'] ?? []),
@@ -216,6 +221,7 @@ final class ProductDetail
             'mpn' => '',
             'regular_price' => 0.0,
             'price' => 0.0,
+            'catalog_price' => 0.0,
             'available' => false,
             'stock_managed' => false,
             'attributes' => [],
@@ -261,6 +267,7 @@ final class ProductDetail
             'gtin' => $selected['gtin'],
             'mpn' => $selected['mpn'],
             'price' => $selected['price'],
+            'catalog_price' => $selected['catalog_price'],
             'regular_price' => $selected['regular_price'],
             'available' => $offers !== [] && in_array(true, array_column($offers, 'available'), true),
             'stock_managed' => $offers !== [] && in_array(true, array_column($offers, 'stock_managed'), true),
