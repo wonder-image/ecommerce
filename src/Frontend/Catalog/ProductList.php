@@ -16,6 +16,7 @@ final class ProductList
     private string $view = 'grid';
     private ?string $title = null;
     private ?string $subtitle = null;
+    private ?string $text = null;
     private string $emptyMessage = 'Nessun prodotto disponibile';
     private int $desktopColumns = 4;
     private int $tabletColumns = 3;
@@ -83,10 +84,12 @@ final class ProductList
         return $this;
     }
 
-    public function title(?string $title, ?string $subtitle = null): static
+    /** @param string|null $text HTML già ripulito (il `text` di una selezione) */
+    public function title(?string $title, ?string $subtitle = null, ?string $text = null): static
     {
         $this->title = self::nullableText($title);
         $this->subtitle = self::nullableText($subtitle);
+        $this->text = self::nullableText($text);
 
         return $this;
     }
@@ -234,6 +237,7 @@ final class ProductList
         $header = View::component(Ecommerce::viewPath('components/catalog/product/header.php'), [
             'title' => $this->title,
             'subtitle' => $this->subtitle,
+            'text' => $this->text,
             'navigation' => $navigation,
         ]);
 

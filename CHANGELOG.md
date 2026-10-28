@@ -62,6 +62,12 @@ versionamento semantico.
 
 ### Aggiunto
 
+- `Frontend\Catalog\SelectionBlock::render($slug)`: stampa una selezione
+  di Catalogo → Selezioni con il blocco scelto nel gestionale (elenco, swiper
+  o articolo in primo piano), con `view_item_list` e `select_item`.
+  Componenti in `view/components/catalog/selection/`.
+- `ProductLists::selection()` restituisce anche `background`;
+  `ProductList::title()` accetta il testo della selezione.
 - Scheda prodotto: la scheda tecnica dell'articolo (attributi visibili di
   livello articolo, solo con «Scheda tecnica» attiva) per tipo. Selezionabili,
   Testo, Numero e Url come «Nome: valore/i» nella Descrizione; ogni Box testo

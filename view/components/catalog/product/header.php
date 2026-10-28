@@ -3,7 +3,7 @@ use Wonder\Elements\Components\Button;
 
 $navigation = ($navigation ?? null) !== null ? (string) $navigation : null;
 ?>
-<?php if (($title ?? null) !== null || ($subtitle ?? null) !== null || $navigation !== null): ?>
+<?php if (($title ?? null) !== null || ($subtitle ?? null) !== null || ($text ?? null) !== null || $navigation !== null): ?>
     <div class="product-list__header mb-6 w-100 d-flex d-p-column gap-4" style="align-items: center">
         <div class="w-100">
             <?php if (($title ?? null) !== null): ?>
@@ -11,6 +11,9 @@ $navigation = ($navigation ?? null) !== null ? (string) $navigation : null;
             <?php endif; ?>
             <?php if (($subtitle ?? null) !== null): ?>
                 <p class="text tx-secondary mt-2"><?=e($subtitle)?></p>
+            <?php endif; ?>
+            <?php if (($text ?? null) !== null): ?>
+                <div class="text mt-2"><?=$text?></div>
             <?php endif; ?>
         </div>
         <?php if ($navigation !== null): ?>

@@ -155,7 +155,28 @@ lo stesso ordine, perché nascono dalle stesse card.
 
 ## Selezioni e tag nei blocchi del sito
 
-`ProductLists` dà ai blocchi del sito (la home) gli elenchi già ordinati:
+Per stampare una selezione con il blocco scelto nel gestionale basta
+`SelectionBlock`, in qualunque pagina:
+
+```php
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\SelectionBlock;
+
+<?=SelectionBlock::render('home-articoli')?>
+```
+
+- `default` («Elenco di articoli»): la griglia di `ProductList`;
+- `swiper` («Swiper di articoli»): le stesse card in uno slider;
+- `spotlight` («Articolo in primo piano»): il primo articolo, con la foto
+  della selezione (o dell'articolo) in 1:1 sul lato di `image_side` e la card
+  dall'altro, sopra l'immagine `background` se c'è.
+
+Titolo, sottotitolo e testo della selezione fanno da intestazione. Il blocco
+manda `view_item_list` (con lo slug come `item_list_id`) e `select_item` al
+clic su una card; senza articoli non stampa niente. Un blocco che il modulo
+non conosce diventa la griglia: per un aspetto diverso il sito legge i dati
+con `ProductLists` e usa il suo componente.
+
+`ProductLists` dà ai blocchi del sito gli elenchi già ordinati:
 
 ```php
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\CustomerPriceList;
@@ -165,7 +186,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductLists;
 $featured = ProductLists::selection('home-prodotti', null, CustomerPriceList::current());
 // null se non c'è, è nascosta o la vendita online è spenta
 // ['name', 'slug', 'block', 'meta', 'source', 'sort_mode',
-//  'title', 'subtitle', 'text', 'image', 'products' => [...card]]
+//  'title', 'subtitle', 'text', 'image', 'background', 'products' => [...card]]
 
 $day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
 // ['name', 'slug', 'products' => [...card]]: in evidenza, poi la regola del tag
@@ -187,11 +208,11 @@ $day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
   l'ordine del catalogo, o quello (con l'evidenza) della categoria o del tag
   quando è uno solo. Per `source = manual` le altre regole riordinano tutta
   la selezione, poi si taglia.
-- `block` è la chiave del blocco scelto nel gestionale (`default`,
-  `spotlight` o uno del sito, vedi `SelectionBlocks` del gestionale): il sito
-  la usa per scegliere il componente. `meta` ha solo i campi in più di quel
-  blocco, in testo (per `spotlight`: `cta_label`, `cta_url`); vuoto per
-  `default`. `image` arriva comunque, anche se il blocco scelto non la usa.
+- `block` è la chiave del blocco scelto nel gestionale (`default`, `swiper`,
+  `spotlight` o uno del sito, vedi `SelectionBlocks` del gestionale).
+  `meta` ha solo i campi in più di quel blocco, in testo (per `spotlight`:
+  `image_side`, `left` o `right`); vuoto per gli altri due. `image` e
+  `background` arrivano comunque, anche se il blocco scelto non le usa.
 - `tag()` usa anche un tag nascosto: un tag «di servizio» non ha la sua
   pagina, ma il blocco lo può mostrare.
 - Le card hanno `context_image`, la foto di contesto caricata sulla riga (in
@@ -204,9 +225,8 @@ $day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
 Per il tracciamento di ogni blocco, `DataLayer::itemListEvent($id, $name,
 $cards, $currency)` dà il `view_item_list` con `item_list_id`, nome e `index`
 da 1 nell'ordine in pagina; si passa a `DataLayer::script()` con i dati di
-pagina. Un id per blocco (`home_featured`, `home_ritual_giorno`), lo stesso
-nel `select_item` al clic. L'`ItemList` in JSON-LD, se il blocco mostra i
-prezzi, elenca le stesse card nello stesso ordine.
+pagina. Un id per blocco (`SelectionBlock` usa lo slug), lo stesso nel
+`select_item` al clic.
 
 # Ricerca nell'header e catalogo filtrato
 

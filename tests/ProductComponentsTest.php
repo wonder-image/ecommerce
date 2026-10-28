@@ -243,4 +243,41 @@ check('le FAQ: domanda protetta, risposta HTML, titolo tradotto o tolto, niente 
         && trim($faq(['faqs' => []])) === '';
 });
 
+check('la selezione in primo piano: foto 1:1 dal lato scelto, card sopra lo sfondo', function () use ($products) {
+    $spotlight = static fn (array $meta, string $background): string => \Wonder\View\View::component(
+        \Wonder\Plugin\Ecommerce\Ecommerce::viewPath('components/catalog/selection/spotlight.php'),
+        ['selection' => ['title' => 'Alba', 'subtitle' => '', 'text' => '<p>Testo</p>', 'image' => '', 'background' => $background, 'meta' => $meta, 'products' => [$products[0]]], 'card' => '<article class="product-card">x</article>']
+    );
+    $left = $spotlight(['image_side' => 'left'], '');
+    $right = $spotlight(['image_side' => 'right'], '/media/sfondo.jpg');
+
+    return str_contains($left, 'f-1-1')
+        && str_contains($left, 'src="/media/t-shirt.jpg"')
+        && !str_contains($left, 'order: 2')
+        && !str_contains($left, 'background:')
+        && str_contains($left, '<h2 class="title tx-primary">Alba</h2>')
+        && str_contains($left, '<p>Testo</p>')
+        && str_contains($right, 'order: 2')
+        && str_contains($right, "url('/media/sfondo.jpg')");
+});
+
+check('il blocco della selezione manda view_item_list e prepara select_item', function () {
+    $event = ['event' => 'view_item_list', 'ecommerce' => ['item_list_id' => 'home-articoli', 'item_list_name' => 'A </script>', 'items' => []]];
+    $html = \Wonder\View\View::component(
+        \Wonder\Plugin\Ecommerce\Ecommerce::viewPath('components/catalog/selection/block.php'),
+        ['html' => '<p>card</p>', 'event' => $event]
+    );
+
+    return str_contains($html, '<p>card</p>')
+        && str_contains($html, '"item_list_id":"home-articoli"')
+        && !str_contains($html, 'A </script>')
+        && str_contains($html, "'select_item'");
+});
+
+check('il testo della selezione va nell\'intestazione dell\'elenco', function () use ($products) {
+    $html = ProductList::make($products)->title('Titolo', null, '<p>Due righe</p>')->render('grid');
+
+    return str_contains($html, '<div class="text mt-2"><p>Due righe</p></div>');
+});
+
 summary();

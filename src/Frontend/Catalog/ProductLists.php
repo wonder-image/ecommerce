@@ -52,7 +52,7 @@ final class ProductLists
      *
      * @param int|null $limit null: tutti quelli della selezione (fino a `max_items` o {@see MANUAL_LIMIT})
      * @param array<string, mixed>|null $priceList il listino del cliente (CustomerPriceList::current())
-     * @return array{name:string,slug:string,block:string,meta:array<string, string>,source:string,sort_mode:string,title:string,subtitle:string,text:string,image:string,products:list<array<string, mixed>>}|null
+     * @return array{name:string,slug:string,block:string,meta:array<string, string>,source:string,sort_mode:string,title:string,subtitle:string,text:string,image:string,background:string,products:list<array<string, mixed>>}|null
      */
     public static function selection(string $slug, ?int $limit = null, ?array $priceList = null): ?array
     {
@@ -103,6 +103,7 @@ final class ProductLists
             'subtitle' => self::text($selection['subtitle'] ?? ''),
             'text' => trim((string) ($selection['text'] ?? '')),
             'image' => ProductSelection::imageUrl($selection),
+            'background' => ProductSelection::imageUrl($selection, 'background'),
             'products' => $cards,
         ];
     }
