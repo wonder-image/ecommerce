@@ -62,6 +62,14 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Scheda prodotto: la scheda tecnica dell'articolo (attributi visibili di
+  livello articolo, solo con «Scheda tecnica» attiva) per tipo. Selezionabili,
+  Testo, Numero e Url come «Nome: valore/i» nella Descrizione; ogni Box testo
+  in una tendina sotto; le Icone in immagini 1:1 con tooltip in fondo alla
+  scheda; i File come link prima di «Aggiungi al carrello».
+- `catalog.price_decimals` (`product`, `card`, `totals`, da 0 a 4, default 2):
+  i decimali dei prezzi mostrati in scheda, nelle card e in carrello,
+  checkout e ordini. `CartPresenter::money()` accetta i decimali.
 - Selezioni con fonte e blocco: `ProductLists::selection($slug, ?int $limit = null, $priceList)`
   segue `source` della selezione (`manual`, `catalog`, `offers`, `category`,
   `tag`, `brand`, più id in OR, senza gli esclusi) con

@@ -20,6 +20,7 @@ if (!$product instanceof ProductDetail) {
 }
 
 $data = $product->data();
+$sheet = $data['attributes'];
 $SEO->schemaOrg = $product->schemaOrg();
 $images = [];
 
@@ -27,10 +28,8 @@ foreach ($data['images'] as $image) {
     $images[(string) $image['url']] = (string) ($image['alt'] ?: $data['name']);
 }
 
-$money = static function (float $value, string $currency): string {
-    $symbol = $currency === 'EUR' ? '€' : $currency;
-    return number_format($value, 2, ',', '.').' '.$symbol;
-};
+$priceDecimals = CartPresenter::decimals('product');
+$money = static fn (float $value, string $currency): string => CartPresenter::money($value, $currency, $priceDecimals);
 $prices = array_column($data['offers'], 'price');
 $minPrice = $prices !== [] ? (float) min($prices) : 0.0;
 $maxPrice = $prices !== [] ? (float) max($prices) : 0.0;
@@ -211,7 +210,17 @@ Ecommerce::layout('shop');
             </div>
         <?php endif; ?>
 
-        <div class="<?=$bundleGroups !== [] ? 'mt-2' : 'mt-6'?>">
+        <?php if ($sheet['files'] !== []): ?>
+            <!-- Attributi «File»: link ai documenti, prima di «Aggiungi al carrello» -->
+            <ul class="d-grid col-1 gap-2 text-small mt-6 p-0 m-0" style="list-style:none">
+                <?php foreach ($sheet['files'] as $file): ?>
+                    <li><a href="<?=e($file['url'] ?? '')?>" target="_blank" rel="noopener"><i class="bi bi-file-earmark-arrow-down mr-1" aria-hidden="true"></i><?=e($file['label'] ?? '')?></a></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+
+        <!-- Acquisto: opzioni e «Aggiungi al carrello» -->
+        <div class="<?=$bundleGroups !== [] || $sheet['files'] !== [] ? 'mt-2' : 'mt-6'?>">
             <?php if (count($data['offers']) === 1): ?>
                 <?php if ($data['available']): ?>
                     <?=View::component(Ecommerce::viewPath('components/cart/add.php'), [
@@ -284,14 +293,32 @@ Ecommerce::layout('shop');
             </div>
         <?php endif; ?>
 
-        <?php if ($data['description_html'] !== ''): ?>
+        <?php if ($data['description_html'] !== '' || $sheet['specs'] !== []): ?>
+            <!-- Descrizione, con gli attributi Selezionabili, Testo, Numero e Url come «Nome: valore/i» -->
             <section class="wi-dropdown-box wi-show mt-6">
                 <h2 class="wi-dropdown-title wi-switcher text fw-600"><?=e(__t('ecommerce.catalog.description'))?> <i class="bi bi-dash" aria-hidden="true"></i></h2>
                 <div class="wi-dropdown-content">
-                    <div class="text-small"><?=$data['description_html']?></div>
+                    <?php if ($data['description_html'] !== ''): ?><div class="text-small"><?=$data['description_html']?></div><?php endif; ?>
+                    <?php if ($sheet['specs'] !== []): ?>
+                        <ul class="d-grid col-1 gap-1 text-small p-0 m-0<?=$data['description_html'] !== '' ? ' mt-3' : ''?>" style="list-style:none">
+                            <?php foreach ($sheet['specs'] as $spec): ?>
+                                <li><span class="fw-600"><?=e($spec['label'] ?? '')?>:</span> <?php if (($spec['url'] ?? '') !== ''): ?><a href="<?=e($spec['url'])?>" target="_blank" rel="noopener"><?=e($spec['value'] ?? '')?></a><?php else: ?><?=e($spec['value'] ?? '')?><?php endif; ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
                 </div>
             </section>
         <?php endif; ?>
+
+        <?php foreach ($sheet['boxes'] as $box): ?>
+            <!-- Attributo «Box testo»: <?=e($box['name'] ?? '')?> -->
+            <section class="wi-dropdown-box mt-3">
+                <h2 class="wi-dropdown-title wi-switcher text fw-600"><?=e($box['name'] ?? '')?> <i class="bi bi-plus" aria-hidden="true"></i></h2>
+                <div class="wi-dropdown-content">
+                    <div class="text-small"><?=$box['html'] ?? ''?></div>
+                </div>
+            </section>
+        <?php endforeach; ?>
 
         <?php if ($data['details'] !== []): ?>
             <section class="wi-dropdown-box mt-3">
@@ -305,6 +332,15 @@ Ecommerce::layout('shop');
                     </dl>
                 </div>
             </section>
+        <?php endif; ?>
+
+        <?php if ($sheet['icons'] !== []): ?>
+            <!-- Attributi «Icona»: immagini 1:1 con il nome del valore nel tooltip -->
+            <ul class="d-flex f-wrap gap-2 p-0 m-0 mt-6" style="list-style:none">
+                <?php foreach ($sheet['icons'] as $icon): ?>
+                    <li class="d-block p-r f-1-1" style="width:40px" tabindex="0" aria-label="<?=e($icon['name'] ?? '')?>" data-wi-toggle="tooltip" data-wi-title="<?=e($icon['name'] ?? '')?>"><?=Product::image((string) ($icon['image'] ?? ''), Product::IMAGE_THUMB)->displaySizes('40px')?></li>
+                <?php endforeach; ?>
+            </ul>
         <?php endif; ?>
     </div>
 </article>
@@ -427,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function () {
             expressRoot.dataset.expressUnit = Math.round(offer.price * 100);
             expressRoot.dispatchEvent(new Event('express:amount'));
         }
-        const format = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> });
+        const format = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?>, minimumFractionDigits: <?=$priceDecimals?>, maximumFractionDigits: <?=$priceDecimals?> });
         if (price && offer) price.textContent = format.format(offer.price);
         const regular = document.querySelector('[data-product-regular]');
         if (regular && offer) {
@@ -479,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const regulars = <?=json_encode(array_column($data['offers'], 'regular_price', 'product_id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
     const available = <?=json_encode(array_column($data['offers'], 'available', 'product_id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
     const surcharges = <?=json_encode(array_column(array_merge(...array_column($bundleGroups, 'options')), 'surcharge', 'id'), JSON_HEX_TAG | JSON_FORCE_OBJECT)?>;
-    const money = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?> });
+    const money = new Intl.NumberFormat(document.documentElement.lang || 'it', { style: 'currency', currency: <?=json_encode($data['currency'], JSON_HEX_TAG)?>, minimumFractionDigits: <?=$priceDecimals?>, maximumFractionDigits: <?=$priceDecimals?> });
     const groups = Array.from(box.querySelectorAll('[data-bundle-group]'));
     const update = function () {
         let complete = true;

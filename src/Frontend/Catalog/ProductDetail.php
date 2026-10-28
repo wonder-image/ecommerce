@@ -274,6 +274,7 @@ final class ProductDetail
             'stock_managed' => $offers !== [] && in_array(true, array_column($offers, 'stock_managed'), true),
             'currency' => $currency,
             'details' => array_values((array) ($row['details'] ?? [])),
+            'attributes' => self::attributes((array) ($row['attributes'] ?? [])),
         ];
     }
 
@@ -328,6 +329,21 @@ final class ProductDetail
             'groups' => $groups,
             'value' => $value !== null && (float) $value > 0 ? round((float) $value, 2) : null,
         ];
+    }
+
+    /**
+     * Scheda tecnica per gruppi di resa; un gruppo assente diventa una lista vuota.
+     *
+     * @return array{boxes: list<array<string, string>>, specs: list<array<string, string>>, icons: list<array<string, string>>, files: list<array<string, string>>}
+     */
+    private static function attributes(array $attributes): array
+    {
+        $groups = [];
+        foreach (['boxes', 'specs', 'icons', 'files'] as $group) {
+            $groups[$group] = array_values(array_filter((array) ($attributes[$group] ?? []), 'is_array'));
+        }
+
+        return $groups;
     }
 
     private static function plain(mixed $value): string

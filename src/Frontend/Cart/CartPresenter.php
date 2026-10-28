@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
+use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductUrl;
 use Wonder\Plugin\GeoPlugin\Geo;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -13,11 +14,18 @@ use Wonder\Plugin\Gestionale\Support\Shipping\Shipping;
 
 final class CartPresenter
 {
-    public static function money(mixed $value, string $currency = 'EUR'): string
+    /** Senza decimali indicati usa quelli dei totali (`catalog.price_decimals.totals`). */
+    public static function money(mixed $value, string $currency = 'EUR', ?int $decimals = null): string
     {
-        $amount = number_format((float) $value, 2, ',', '.');
+        $amount = number_format((float) $value, $decimals ?? self::decimals('totals'), ',', '.');
 
         return strtoupper($currency) === 'EUR' ? $amount.' €' : $amount.' '.strtoupper($currency);
+    }
+
+    /** I decimali dei prezzi per `product`, `card` o `totals`, da 0 a 4. */
+    public static function decimals(string $context): int
+    {
+        return max(0, min(4, (int) Ecommerce::config('catalog.price_decimals.'.$context, 2)));
     }
 
     /**

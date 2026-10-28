@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Attribute;
 use Wonder\Plugin\Gestionale\Models\Catalog\AttributeValue;
@@ -269,6 +270,7 @@ final class ProductCatalog
             'stock_managed' => $stockManaged,
             'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
             'details' => self::details($model),
+            'attributes' => self::technicalSheet($modelId),
         ]);
     }
 
@@ -463,6 +465,109 @@ final class ProductCatalog
         }
 
         return $details;
+    }
+
+    /**
+     * La scheda tecnica dell'articolo divisa per come si mostra: i Box testo
+     * in tendina, le icone in immagine, i file come link, il resto come
+     * «Nome: valore/i» nella descrizione. Spenta la scheda, niente.
+     *
+     * @return array{boxes: list<array{name:string,html:string}>, specs: list<array{label:string,value:string,url:string}>, icons: list<array{name:string,image:string}>, files: list<array{label:string,url:string}>}
+     */
+    private static function technicalSheet(int $modelId): array
+    {
+        $sheet = ['boxes' => [], 'specs' => [], 'icons' => [], 'files' => []];
+
+        if (!Gestionale::feature('technical_sheet')) {
+            return $sheet;
+        }
+
+        $links = ProductAttributes::rows('model', $modelId);
+        if ($links === []) {
+            return $sheet;
+        }
+
+        $attributes = self::rows(Attribute::find(
+            ['level' => 'model', 'is_visible' => 'true', 'deleted' => 'false'],
+            null,
+            'position',
+            'ASC'
+        ));
+
+        foreach ($attributes as $attribute) {
+            $rows = $links[(int) ($attribute['id'] ?? 0)] ?? [];
+            $type = (string) ($attribute['type'] ?? '');
+            $name = trim((string) ($attribute['name'] ?? ''));
+
+            if ($rows === [] || $name === '') {
+                continue;
+            }
+
+            if (Attributes::isRichText($type)) {
+                $html = trim((string) ($rows[0]['value_text'] ?? ''));
+                if (trim(strip_tags($html)) !== '') {
+                    $sheet['boxes'][] = ['name' => $name, 'html' => $html];
+                }
+                continue;
+            }
+
+            if ($type === 'file') {
+                $url = self::safeUrl((string) ($rows[0]['value_text'] ?? ''));
+                if ($url !== '') {
+                    $sheet['files'][] = ['label' => $name, 'url' => $url];
+                }
+                continue;
+            }
+
+            if (Attributes::usesValues($type)) {
+                $values = [];
+                foreach ($rows as $row) {
+                    $valueId = (int) ($row['attribute_value_id'] ?? 0);
+                    $value = $valueId > 0 ? AttributeValue::find(['id' => $valueId, 'deleted' => 'false'], 1) : null;
+                    if (is_array($value) && trim((string) ($value['label'] ?? '')) !== '') {
+                        $values[$valueId] = $value;
+                    }
+                }
+
+                if ($type === 'icon') {
+                    foreach ($values as $value) {
+                        $image = AttributeValue::imageUrl($value);
+                        if ($image !== '') {
+                            $sheet['icons'][] = ['name' => trim((string) $value['label']), 'image' => $image];
+                        }
+                    }
+                    continue;
+                }
+
+                $labels = array_map(static fn (array $value): string => trim((string) $value['label']), array_values($values));
+                if ($labels !== []) {
+                    $sheet['specs'][] = ['label' => $name, 'value' => implode(', ', $labels), 'url' => ''];
+                }
+                continue;
+            }
+
+            $text = Attributes::format($attribute, $rows[0]);
+            if ($text === '') {
+                continue;
+            }
+
+            $sheet['specs'][] = [
+                'label' => $name,
+                'value' => $text,
+                // L'url diventa un link solo se è davvero http(s).
+                'url' => $type === 'url' ? self::safeUrl($text) : '',
+            ];
+        }
+
+        return $sheet;
+    }
+
+    private static function safeUrl(string $url): string
+    {
+        $url = trim($url);
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        return in_array($scheme, ['http', 'https'], true) ? $url : '';
     }
 
     private static function productName(string $model, string $variant, int $variantCount): string

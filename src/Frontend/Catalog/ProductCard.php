@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use InvalidArgumentException;
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\View\View;
 
 /**
@@ -146,7 +147,7 @@ final class ProductCard
             return self::string($value);
         }
 
-        return number_format((float) $value, 2, ',', '.').' €';
+        return CartPresenter::money($value, 'EUR', CartPresenter::decimals('card'));
     }
 
     private static function isSale(array $row): bool

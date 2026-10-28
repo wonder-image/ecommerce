@@ -28,6 +28,14 @@ return [
             ],
         ],
         // `model`: una card per articolo; `variant`: una card per variante.
+        // Decimali dei prezzi mostrati, da 0 a 4: `product` nella scheda,
+        // `card` nelle card, `totals` in carrello, checkout e ordini.
+        // I dati strutturati (schema.org, dataLayer) restano a precisione piena.
+        'price_decimals' => [
+            'product' => 2,
+            'card' => 2,
+            'totals' => 2,
+        ],
         'listing_entity' => 'model',
         'category_max_depth' => 8,
         'new_days' => 30,

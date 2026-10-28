@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
@@ -311,6 +312,28 @@ check('Open Graph prende l\'anteprima, il JSON-LD resta sugli originali', functi
         // Senza anteprima si ripiega sull'originale.
         && $product->data()['images'][0]['preview'] === 'https://shop.test/media/dinosauro.jpg'
         && str_contains($controller, "\$SEO->image = \$data['images'][0]['preview']");
+});
+
+check('la scheda tecnica arriva divisa per gruppi, vuota se manca', function () use ($product) {
+    $con = ProductDetail::make([
+        'id' => 10,
+        'name' => 'Con scheda',
+        'attributes' => [
+            'specs' => [['label' => 'Materiale', 'value' => 'Cotone, Lino', 'url' => '']],
+            'icons' => [['name' => 'Lavaggio 30°', 'image' => 'https://shop.test/media/30.png'], 'non valido'],
+        ],
+    ])->data()['attributes'];
+
+    return $product->data()['attributes'] === ['boxes' => [], 'specs' => [], 'icons' => [], 'files' => []]
+        && $con['specs'][0]['value'] === 'Cotone, Lino'
+        && count($con['icons']) === 1
+        && $con['boxes'] === [] && $con['files'] === [];
+});
+
+check('i prezzi mostrati usano i decimali richiesti, i totali di default 2', function () {
+    return CartPresenter::money(19.99, 'EUR', 0) === '20 €'
+        && CartPresenter::money(1234.5, 'EUR', 2) === '1.234,50 €'
+        && CartPresenter::money(5, 'USD') === '5,00 USD';
 });
 
 summary();
