@@ -261,6 +261,7 @@ final class ProductCatalog
             'variant' => count($variants) > 1 ? $variantName : '',
             'variants' => $variantCards,
             'has_variants' => ($model['has_variants'] ?? '') === 'true',
+            'variant_buttons' => self::variantButtons($variantId),
             'breadcrumbs' => $breadcrumbs,
             'images' => $images,
             'offers' => $offers,
@@ -682,5 +683,16 @@ final class ProductCatalog
         }
 
         return array_is_list($rows) ? array_values(array_filter($rows, 'is_array')) : [$rows];
+    }
+
+    /** Un attributo di variante di tipo «Bottone» chiede bottoni di testo, anche con la foto. */
+    private static function variantButtons(int $variantId): bool
+    {
+        foreach (array_keys(ProductAttributes::read('variant', $variantId)) as $attributeId) {
+            $attribute = Attribute::find(['id' => (int) $attributeId], 1);
+            if (is_array($attribute) && ($attribute['type'] ?? '') === 'button') return true;
+        }
+
+        return false;
     }
 }

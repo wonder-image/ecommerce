@@ -1,19 +1,23 @@
 <?php
 use Wonder\Elements\Components\Button;
 
+// Stringhe vuote dal backend = campo assente
+$title = trim((string) ($title ?? ''));
+$subtitle = trim((string) ($subtitle ?? ''));
+$text = trim((string) ($text ?? ''));
 $navigation = ($navigation ?? null) !== null ? (string) $navigation : null;
 $action = is_array($action ?? null) ? $action : null;
 ?>
-<?php if (($title ?? null) !== null || ($subtitle ?? null) !== null || ($text ?? null) !== null || $navigation !== null || $action !== null): ?>
+<?php if ($title !== '' || $subtitle !== '' || $text !== '' || $navigation !== null || $action !== null): ?>
     <div class="product-list__header mb-6 w-100 d-flex d-p-column gap-4" style="align-items: center">
         <div class="w-100">
-            <?php if (($title ?? null) !== null): ?>
+            <?php if ($title !== ''): ?>
                 <h2 class="title tx-primary"><?=e($title)?></h2>
             <?php endif; ?>
-            <?php if (($subtitle ?? null) !== null): ?>
+            <?php if ($subtitle !== ''): ?>
                 <p class="text tx-secondary mt-2"><?=e($subtitle)?></p>
             <?php endif; ?>
-            <?php if (($text ?? null) !== null): ?>
+            <?php if ($text !== ''): ?>
                 <div class="text mt-2"><?=$text?></div>
             <?php endif; ?>
         </div>

@@ -30,7 +30,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
     <div class="d-flex d-column gap-6">
         <?php foreach ($subscriptions as $subscription): ?>
             <section class="wi-box p-5 d-flex d-column gap-3" aria-labelledby="abbonamento-<?=e($subscription['code'])?>">
-                <div class="d-flex f-wrap gap-2 a-center">
+                <div class="d-flex flex-wrap gap-2" style="align-items: center">
                     <h2 class="subtitle" id="abbonamento-<?=e($subscription['code'])?>"><?=e($subscription['plan'])?></h2>
                     <span class="wi-badge"><?=e($subscription['status_label'])?></span>
                 </div>
@@ -64,7 +64,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                         <ul class="d-flex d-column gap-3">
                             <?php foreach ($subscription['items'] as $item): ?>
                                 <li class="d-flex d-column gap-2<?=$item['child'] ? ' pl-4' : ''?>">
-                                    <div class="d-flex f-wrap gap-2 a-center j-between">
+                                    <div class="d-flex flex-wrap gap-2" style="align-items: center; justify-content: space-between">
                                         <p class="text">
                                             <strong><?=e($item['label'])?></strong>
                                             <span class="text-small tx-secondary">· <?=e((string) __t('ecommerce.account.subscriptions.quantity', ['count' => (string) $item['quantity']]))?> · <?=e($item['total'])?></span>
@@ -106,7 +106,7 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                     </form>
                 <?php endif; ?>
 
-                <div class="d-flex f-wrap gap-3">
+                <div class="d-flex flex-wrap gap-3">
                     <?php if ($subscription['can_update_card']): ?>
                         <?=Button::post($subscription['card_url'], (string) __t('ecommerce.account.subscriptions.card'))->variant('black')->outline()?>
                     <?php endif; ?>

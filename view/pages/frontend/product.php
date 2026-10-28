@@ -196,7 +196,7 @@ Ecommerce::layout('shop');
             <?php endif; ?>
         </div>
 
-        <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants'], 'hasVariants' => $data['has_variants']])?>
+        <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants'], 'hasVariants' => $data['has_variants'], 'textOnly' => $data['variant_buttons']])?>
 
         <?php if ($bundle['components'] !== []): ?>
             <div class="w-100 wi-choice-group wi-choice-group--list" data-bundle-contents>
@@ -262,7 +262,7 @@ Ecommerce::layout('shop');
                                         <?php endforeach; ?>
                                     </div>
                                 <?php else: ?>
-                                    <div class="d-flex f-wrap gap-2">
+                                    <div class="d-flex flex-wrap gap-2">
                                         <?php foreach ((array) ($group['values'] ?? []) as $value): ?>
                                             <?php $pressed = (string) ($value['id'] ?? '') === (string) ($selectedAttributes[$group['id'] ?? ''] ?? ''); ?>
                                             <?php $unavailable = !$optionAvailable((string) ($group['id'] ?? ''), (string) ($value['id'] ?? '')); ?>
@@ -337,7 +337,7 @@ Ecommerce::layout('shop');
 
         <?php if ($sheet['icons'] !== []): ?>
             <!-- Attributi «Icona»: immagini 1:1 con il nome del valore nel tooltip -->
-            <ul class="d-flex f-wrap gap-2 p-0 m-0 mt-6" style="list-style:none">
+            <ul class="d-flex flex-wrap gap-2 p-0 m-0 mt-6" style="list-style:none">
                 <?php foreach ($sheet['icons'] as $icon): ?>
                     <li class="d-block p-r f-1-1" style="width:40px" tabindex="0" aria-label="<?=e($icon['name'] ?? '')?>" data-wi-toggle="tooltip" data-wi-title="<?=e($icon['name'] ?? '')?>"><?=Product::image((string) ($icon['image'] ?? ''), Product::IMAGE_THUMB)->displaySizes('40px')?></li>
                 <?php endforeach; ?>
