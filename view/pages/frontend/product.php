@@ -50,31 +50,7 @@ $similar_products = is_array($similar_products ?? null) ? $similar_products : []
 $recent_products = is_array($recent_products ?? null) ? $recent_products : [];
 $suggested_products = is_array($suggested_products ?? null) ? $suggested_products : [];
 $faqs = is_array($faqs ?? null) ? $faqs : [];
-$listEvent = static function (string $id, string $name, array $cards) use ($data): array {
-    return [
-        'event' => 'view_item_list',
-        'ecommerce' => [
-            'currency' => $data['currency'],
-            'item_list_id' => $id,
-            'item_list_name' => $name,
-            'items' => array_values(array_map(static function (array $card, int $index) use ($id, $name): array {
-                $item = [
-                    'item_id' => (string) ($card['meta']['item_id'] ?? $card['id'] ?? ''),
-                    'item_name' => (string) ($card['meta']['item_name'] ?? $card['name'] ?? ''),
-                    'price' => (float) ($card['meta']['price'] ?? 0),
-                    'item_list_id' => $id,
-                    'item_list_name' => $name,
-                    'index' => $index + 1,
-                ];
-                if (($card['meta']['item_variant'] ?? '') !== '') {
-                    $item['item_variant'] = (string) $card['meta']['item_variant'];
-                }
-
-                return $item;
-            }, $cards, array_keys($cards))),
-        ],
-    ];
-};
+$listEvent = static fn (string $id, string $name, array $cards): array => DataLayer::itemListEvent($id, $name, $cards, $data['currency']);
 $events = [$product->viewProductEvent()];
 if ($similar_products !== []) $events[] = $listEvent('similar_products', (string) __t('ecommerce.catalog.sliders.similar'), $similar_products);
 if ($recent_products !== []) $events[] = $listEvent('recent_products', (string) __t('ecommerce.catalog.sliders.recent'), $recent_products);

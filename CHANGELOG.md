@@ -62,6 +62,19 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Ordine del catalogo e articoli in evidenza** (dal gestionale): senza
+  `?ordina=` le categorie e il tag di `/collezione/` mettono prima i loro
+  articoli in evidenza (`gst_product_placements`; per variante vince la riga
+  della variante), poi la regola della categoria o del tag; «Come il catalogo»
+  e le altre pagine usano `catalog_sort` delle impostazioni (di serie
+  `position`, l'ordine di prima). L'ordine scelto da chi visita batte tutto.
+  `CatalogFilter::sort()`, `pinned()`, `context()`, `forTag()`.
+- `Frontend\Catalog\ProductLists`: `selection($slug)` e `tag($slug)` per i
+  blocchi del sito (la home), con le card già ordinate e `context_image`, la
+  foto di contesto della riga. `ProductCard` normalizza `context_image`; le
+  card del catalogo portano anche `model_id` e `variant_id`.
+- `DataLayer::itemListEvent()`: il `view_item_list` di un elenco di card,
+  ora usato anche dagli slider della scheda prodotto.
 - **FAQ nella scheda prodotto**: sotto la scheda, prima degli slider, le
   domande frequenti che il gestionale associa al prodotto
   (`Faqs::forModel()`, variabile `faqs` della vista). Componente riusabile

@@ -132,6 +132,62 @@ La scheda prodotto ha una sezione propria:
 ],
 ```
 
+## Ordine del catalogo e articoli in evidenza
+
+L'ordine lo decide chi vende nel gestionale (Catalogo → Selezioni, il
+riquadro «Ordine nel sito» di categorie e tag, «Ordine del catalogo» nelle
+impostazioni; vedi `Support\Catalog\Placements` del gestionale). Senza
+`?ordina=`, `CatalogFilter` mette:
+
+1. in una categoria o nel tag di `/collezione/`, prima gli articoli «in
+   evidenza», nella posizione data. Con `listing_entity => 'variant'` vale la
+   riga della variante, poi quella dell'articolo intero;
+2. poi la regola della categoria o del tag (`sort_mode`); «Come il catalogo»
+   e le pagine senza contesto (`/prodotti/`, `/offerte/`, `/novita/`,
+   `/cerca/`, i marchi) usano `catalog_sort` delle impostazioni, di serie
+   `position`, l'ordine di prima.
+
+Se chi visita sceglie `?ordina=`, vale il suo ordine e gli articoli in
+evidenza non vengono prima. `ItemList`, paginazione e `view_item_list` seguono
+lo stesso ordine, perché nascono dalle stesse card.
+
+## Selezioni e tag nei blocchi del sito
+
+`ProductLists` dà ai blocchi del sito (la home) gli elenchi già ordinati:
+
+```php
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\CustomerPriceList;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductLists;
+
+$featured = ProductLists::selection('home-prodotti', 3, CustomerPriceList::current());
+// null se non c'è, è nascosta o la vendita online è spenta
+// ['name', 'slug', 'title', 'subtitle', 'text', 'image', 'products' => [...card]]
+
+$day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
+// ['name', 'slug', 'products' => [...card]]: in evidenza, poi la regola del tag
+```
+
+- `selection()` legge la selezione per url pubblico, che nasce dal nome e non
+  cambia. Una riga dell'articolo dà la sua card (o una per variante con
+  `listing_entity => 'variant'`), una riga della variante la card di quella
+  variante. Articoli e varianti nascosti al sito restano fuori.
+- `tag()` usa anche un tag nascosto: un tag «di servizio» non ha la sua
+  pagina, ma il blocco lo può mostrare.
+- Le card hanno `context_image`, la foto di contesto caricata sulla riga (in
+  una selezione, o fra gli articoli in evidenza di categoria e tag); vuota se
+  non c'è. Le viste del modulo non la usano: la usa la vista del sito che la
+  prevede, al posto di `image` o accanto.
+- `title`, `subtitle` e i nomi arrivano come testo: si stampano con `e()`.
+  `text` è HTML già ripulito dal gestionale.
+
+Per il tracciamento di ogni blocco, `DataLayer::itemListEvent($id, $name,
+$cards, $currency)` dà il `view_item_list` con `item_list_id`, nome e `index`
+da 1 nell'ordine in pagina; si passa a `DataLayer::script()` con i dati di
+pagina. Un id per blocco (`home_featured`, `home_ritual_giorno`), lo stesso
+nel `select_item` al clic. L'`ItemList` in JSON-LD, se il blocco mostra i
+prezzi, elenca le stesse card nello stesso ordine.
+
 # Ricerca nell'header e catalogo filtrato
 
 Il sito configura la ricerca come voce in `custom/config/navigation.php`:
