@@ -17,9 +17,9 @@ if ($faqs === []) {
 $title = array_key_exists('title', get_defined_vars()) ? $title : __t('ecommerce.catalog.faq.title');
 $headingId = 'faq-'.substr(md5(implode(',', array_column($faqs, 'id'))), 0, 8);
 ?>
-<section class="faq w-100"<?=$title !== null ? ' aria-labelledby="'.e($headingId).'"' : ''?>>
+<div id="faq" class="w-100" <?=$title !== null ? ' aria-labelledby="'.e($headingId).'"' : ''?>>
     <?php if ($title !== null): ?>
-        <h2 id="<?=e($headingId)?>" class="title tx-primary mb-6"><?=e($title)?></h2>
+        <h2 id="<?=e($headingId)?>" class="title tx-primary mb-6 a-c tx-upper"><?=e($title)?></h2>
     <?php endif; ?>
     <div class="d-grid col-1 gap-3 w-100">
         <?php foreach ($faqs as $faq): ?>
@@ -31,4 +31,4 @@ $headingId = 'faq-'.substr(md5(implode(',', array_column($faqs, 'id'))), 0, 8);
             </div>
         <?php endforeach; ?>
     </div>
-</section>
+</div>

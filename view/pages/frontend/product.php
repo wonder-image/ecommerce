@@ -346,11 +346,11 @@ Ecommerce::layout('shop');
     </div>
 </article>
 
-<?php if ($faqs !== []): ?><div class="mt-10"><?=View::component(Ecommerce::viewPath('components/catalog/faq.php'), ['faqs' => $faqs])?></div><?php endif; ?>
+<?php if ($faqs !== []): ?><div class="w-100 mt-10"><?=View::component(Ecommerce::viewPath('components/catalog/faq.php'), ['faqs' => $faqs])?></div><?php endif; ?>
 
-<?php if ($similar_products !== []): ?><section class="mt-10"><?=ProductList::make($similar_products)->title(__t('ecommerce.catalog.sliders.similar'))->renderSwiper()?></section><?php endif; ?>
-<?php if ($recent_products !== []): ?><section class="mt-10"><?=ProductList::make($recent_products)->title(__t('ecommerce.catalog.sliders.recent'))->renderSwiper()?></section><?php endif; ?>
-<?php if ($suggested_products !== []): ?><section class="mt-10"><?=ProductList::make($suggested_products)->title(__t('ecommerce.catalog.sliders.suggested'))->renderSwiper()?></section><?php endif; ?>
+<?php if ($similar_products !== []): ?><div class="w-100 mt-10"><?=ProductList::make($similar_products)->title(__t('ecommerce.catalog.sliders.similar'))->renderSwiper()?></div><?php endif; ?>
+<?php if ($recent_products !== []): ?><div class="w-100 mt-10"><?=ProductList::make($recent_products)->title(__t('ecommerce.catalog.sliders.recent'))->renderSwiper()?></div><?php endif; ?>
+<?php if ($suggested_products !== []): ?><div class="w-100 mt-10"><?=ProductList::make($suggested_products)->title(__t('ecommerce.catalog.sliders.suggested'))->renderSwiper()?></div><?php endif; ?>
 
 <?php if (count($data['offers']) > 1): ?>
 <?php
