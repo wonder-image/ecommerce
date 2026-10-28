@@ -68,6 +68,20 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Formato delle foto e descrizione breve nel config.** `catalog.card.image_format`
+  (di serie `1:1`) per la card in griglia ed elenco, `product.image_format`
+  (`4:5`) e `product.thumbs_format` (`1:1`) per la galleria della scheda e le
+  sue miniature. Valgono i formati della lib (`f-W-H`); uno sconosciuto ricade
+  sul default (`Frontend\Catalog\ImageFormat`). `catalog.card.short_description`
+  (di serie spento) mostra la descrizione breve sotto il nome nella card della
+  griglia; la card dell'elenco la mostrava già e resta così.
+  `catalog.card.image_fit` e `product.image_fit` (`contain` di serie, oppure
+  `cover`) scelgono se la foto sta intera o riempie il box. Formato e fit della
+  card valgono anche per le righe di mini carrello, carrello, checkout e ordine
+  dell'area cliente, che prima erano sempre quadrate. La card dell'elenco ha
+  `displaySizes` proprie (100vw su mobile, 25vw oltre).
+  `catalog.card.variants_fit` (`contain` di serie, oppure `cover`) fa lo stesso
+  per le miniature tonde delle varianti sotto la card.
 - **Bottone delle selezioni.** `Frontend\Catalog\SelectionLink::from($meta)`
   traduce i campi `cta_*` della selezione in testo e URL; `ProductList::action()`
   lo stampa nell'intestazione, accanto alle frecce. Il link personalizzato

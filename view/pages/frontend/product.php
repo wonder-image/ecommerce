@@ -6,6 +6,7 @@ use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
@@ -149,10 +150,10 @@ Ecommerce::layout('shop');
             <?=__swiper($images)
                 ->id('ecommerce-product-gallery')
                 ->size(Product::IMAGE_GALLERY)
-                ->fitContain()
-                ->ratio('4:5')
+                ->fitContain(!ImageFormat::cover('product.image_fit'))
+                ->ratio(ImageFormat::ratio('product.image_format', '4:5'))
                 ->thumbnails(count($images) > 1)
-                ->thumbsRatio('1:1')
+                ->thumbsRatio(ImageFormat::ratio('product.thumbs_format', '1:1'))
                 ->lightbox('ecommerce-product')
                 ->navigation(count($images) > 1)
                 ->pagination(count($images) > 1)
@@ -160,7 +161,7 @@ Ecommerce::layout('shop');
                 ->imageSizes('(max-width: 768px) 100vw, 45vw')
                 ->thumbsImageSizes('120px')?>
         <?php else: ?>
-            <div class="f-4-5 bg-light" role="img" aria-label="<?=e($data['name'])?>"></div>
+            <div class="<?=ImageFormat::className('product.image_format', '4:5')?> bg-light" role="img" aria-label="<?=e($data['name'])?>"></div>
         <?php endif; ?>
     </div>
 

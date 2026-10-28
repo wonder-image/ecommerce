@@ -17,6 +17,8 @@ defined('RESPONSIVE_IMAGE_SIZES') || define('RESPONSIVE_IMAGE_SIZES', [240, 480,
 \Wonder\Localization\LanguageContext::addLangPath(__DIR__.'/../lang');
 \Wonder\Localization\TranslationProvider::init();
 
+use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductCard;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 
@@ -286,6 +288,76 @@ check('il bottone della selezione va nell\'intestazione, anche senza titolo; sen
     return str_contains($html, 'href="/prodotti/"')
         && str_contains($html, 'Vedi &lt;tutti&gt;')
         && !str_contains(ProductList::make($products)->action('Vedi', '')->render('grid'), 'Vedi');
+});
+
+check('formato delle foto e descrizione breve della card vengono dal config', function () use ($products) {
+    $defaults = ProductList::make($products)->renderGrid();
+
+    Ecommerce::forgetConfig();
+    $config = Ecommerce::config();
+    $config['catalog']['card']['image_format'] = '3x4';
+    $config['catalog']['card']['short_description'] = true;
+    $config['product']['thumbs_format'] = '5:7';
+    (new ReflectionProperty(Ecommerce::class, 'config'))->setValue(null, $config);
+    $custom = ProductList::make($products)->renderGrid();
+    $thumbs = ImageFormat::ratio('product.thumbs_format', '1:1');
+    Ecommerce::forgetConfig();
+
+    return str_contains($defaults, 'product-card__media p-r d-block f-1-1')
+        && !str_contains($defaults, 'product-card__description')
+        && str_contains($custom, 'product-card__media p-r d-block f-3-4')
+        && str_contains($custom, '<p class="product-card__description text-small tx-dark mt-1 max-line-2">Cotone &amp; lino</p>')
+        // Un formato che la lib non ha ricade sul default.
+        && $thumbs === '1:1'
+        && ImageFormat::ratio('product.image_format', '4:5') === '4:5'
+        && ImageFormat::normalize('16/9') === '16-9';
+});
+
+check('il fit della card vale per la card e per la foto delle righe', function () use ($products) {
+    $thumb = static function (string $image): string {
+        ob_start();
+        (static function () use ($image): void {
+            require __DIR__.'/../view/components/cart/thumb.php';
+        })();
+
+        return (string) ob_get_clean();
+    };
+    $contain = ProductList::make($products)->renderGrid();
+    $square = $thumb('/media/felpa.jpg');
+
+    Ecommerce::forgetConfig();
+    $config = Ecommerce::config();
+    $config['catalog']['card']['image_format'] = '4:5';
+    $config['catalog']['card']['image_fit'] = 'cover';
+    (new ReflectionProperty(Ecommerce::class, 'config'))->setValue(null, $config);
+    $cover = ProductList::make($products)->renderGrid();
+    $tall = $thumb('/media/felpa.jpg');
+    $placeholder = $thumb('data:,');
+    Ecommerce::forgetConfig();
+
+    return str_contains($contain, 'bg-contain') && !str_contains($contain, 'bg-cover')
+        && str_contains($square, 'aspect-ratio: 1 / 1') && str_contains($square, 'bg-contain')
+        && str_contains($cover, 'bg-cover') && !str_contains($cover, 'bg-contain')
+        && str_contains($tall, 'aspect-ratio: 4 / 5') && str_contains($tall, 'bg-cover')
+        && str_contains($placeholder, 'class="skeleton bg bg-cover" data-line-image');
+});
+
+check('le miniature tonde delle varianti hanno il loro fit', function () {
+    $product = [['name' => 'Felpa', 'variants' => [
+        ['name' => 'Blu', 'image' => '/media/felpa-blu.jpg', 'active' => true],
+        ['name' => 'Nero', 'image' => '/media/felpa-nera.jpg', 'url' => '/felpa-nera/'],
+    ]]];
+    $contain = ProductList::make($product)->renderGrid();
+
+    Ecommerce::forgetConfig();
+    $config = Ecommerce::config();
+    $config['catalog']['card']['variants_fit'] = 'cover';
+    (new ReflectionProperty(Ecommerce::class, 'config'))->setValue(null, $config);
+    $cover = ProductList::make($product)->renderGrid();
+    Ecommerce::forgetConfig();
+
+    return substr_count($contain, 'bg-contain') === 2 && !str_contains($contain, 'bg-cover')
+        && substr_count($cover, 'bg-cover') === 2 && !str_contains($cover, 'bg-contain');
 });
 
 summary();

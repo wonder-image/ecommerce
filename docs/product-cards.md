@@ -6,7 +6,8 @@ query: ricevono array, oggetti o DTO, quindi la sorgente dati può cambiare senz
 dover riscrivere le viste.
 
 Il markup usa esclusivamente componenti e utility di `wonder-image/lib`: non è
-richiesto CSS dedicato. La card è volutamente minimale, con immagine quadrata,
+richiesto CSS dedicato. La card è volutamente minimale, con immagine nel formato di
+`catalog.card.image_format` (quadrata di serie),
 badge del design system, prezzo in evidenza e varianti circolari facoltative.
 
 La pagina dimostrativa completa è intenzionalmente esclusa dalle route del
@@ -95,11 +96,27 @@ La granularita e il contenuto delle card si scelgono in `config/module.php`:
     'listing_entity' => 'variant', // `model` oppure `variant`
     'card' => [
         'variants' => true,     // miniature delle altre varianti in card
+        'variants_fit' => 'contain',  // `contain` o `cover` per le miniature tonde
         'add_to_cart' => false, // «Aggiungi al carrello» nella card
         'quantity' => false,    // −/+ accanto al bottone della card
+        'image_format' => '1:1',      // formato della foto, griglia ed elenco
+        'image_fit' => 'contain',     // `contain` (intera) o `cover` (riempie e taglia)
+        'short_description' => false, // descrizione breve sotto il nome (griglia)
     ],
 ],
 ```
+
+I formati validi sono quelli della lib (`f-W-H`): `1:1`, `4:5`, `5:4`, `3:4`,
+`4:3`, `2:3`, `3:2`, `16:9`, `9:16`, `1:2`, `2:1`, `1:3`, `3:1`, `191:100`,
+`100:191`, scritti anche `4x5`, `4/5` o `4-5`. Un valore che la lib non ha
+ricade sul default. La card dell'elenco mostra sempre la descrizione breve.
+
+Formato e fit della card valgono anche per la foto delle righe: mini
+carrello, pagina carrello, riepilogo del checkout e ordine dell'area
+cliente (`components/cart/thumb.php`, larga 72px, alta secondo il formato).
+Ogni foto prodotto passa da `Product::image()`, cioè `__ri()`, con la misura
+del suo posto: `IMAGE_CARD` in card, `IMAGE_THUMB` in righe e miniature,
+`IMAGE_GALLERY` nella galleria.
 
 Con `model` il catalogo mostra una card per modello. Con `variant` ogni
 variante visibile e acquistabile riceve la propria card, immagine, prezzo e
@@ -125,6 +142,9 @@ La scheda prodotto ha una sezione propria:
 'product' => [
     'quantity' => false, // −/+ accanto ad «Aggiungi al carrello»
     'express' => true,   // Apple Pay, Google Pay, Link sotto il bottone
+    'image_format' => '4:5',  // galleria della scheda
+    'thumbs_format' => '1:1', // miniature sotto la galleria
+    'image_fit' => 'contain', // `contain` o `cover`, galleria e miniature
     'option_selector' => ['default' => 'auto', 'attributes' => []],
 ],
 'cart' => [
