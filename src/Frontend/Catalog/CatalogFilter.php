@@ -278,15 +278,15 @@ final class CatalogFilter
      * Il filtro della fonte automatica di una selezione (`gst_product_selections.source`):
      * tutto il catalogo (`catalog`), gli articoli in offerta (`offers`), o
      * quelli di almeno una delle categorie (sottocategorie comprese), dei tag
-     * o dei marchi in `$refIds`; mai gli articoli in `$excluded`. `$sortMode`
+     * o dei marchi con gli slug in `$refSlugs`; mai gli articoli in `$excluded`. `$sortMode`
      * è la regola della selezione: «Nell'ordine dato» segue il catalogo, o la
      * categoria o il tag quando è uno solo. Null per `manual`, per una fonte
      * ignota o se nessun riferimento c'è più.
      *
-     * @param list<int> $refIds
+     * @param list<string> $refSlugs
      * @param list<int> $excluded
      */
-    public static function forSelection(string $source, array $refIds = [], array $excluded = [], string $sortMode = 'manual'): ?self
+    public static function forSelection(string $source, array $refSlugs = [], array $excluded = [], string $sortMode = 'manual'): ?self
     {
         $filter = new self([]);
 
@@ -297,7 +297,7 @@ final class CatalogFilter
                 $filter->conditions[] = self::offersCondition();
                 break;
             case 'category':
-                $rows = self::refRows(Category::class, $refIds, ['visible' => 'true', 'deleted' => 'false']);
+                $rows = self::refRows(Category::class, $refSlugs, ['visible' => 'true', 'deleted' => 'false']);
                 if ($rows === []) return null;
                 $filter->conditions[] = '('.implode(' OR ', array_map(
                     static fn (array $row): string => $filter->categoryCondition((int) $row['id']),
@@ -307,14 +307,14 @@ final class CatalogFilter
                 break;
             case 'tag':
                 // Come forTag(): anche un tag nascosto può alimentare un blocco.
-                $rows = self::refRows(Tag::class, $refIds, ['deleted' => 'false']);
+                $rows = self::refRows(Tag::class, $refSlugs, ['deleted' => 'false']);
                 if ($rows === []) return null;
                 $ids = implode(',', array_map(static fn (array $row): int => (int) $row['id'], $rows));
                 $filter->conditions[] = "EXISTS (SELECT 1 FROM `gst_product_model_tags` mt WHERE mt.`product_model_id` = `gst_product_models`.`id` AND mt.`tag_id` IN ({$ids}) AND mt.`deleted` = 'false')";
                 if (count($rows) === 1) $filter->useContext(Placements::TAG, $rows[0]);
                 break;
             case 'brand':
-                $rows = self::refRows(Brand::class, $refIds, ['visible' => 'true', 'deleted' => 'false']);
+                $rows = self::refRows(Brand::class, $refSlugs, ['visible' => 'true', 'deleted' => 'false']);
                 if ($rows === []) return null;
                 $filter->conditions[] = '`brand_id` IN ('.implode(',', array_map(static fn (array $row): int => (int) $row['id'], $rows)).')';
                 break;
@@ -339,19 +339,19 @@ final class CatalogFilter
     }
 
     /**
-     * Le righe ancora valide fra gli id di una selezione, nell'ordine dato.
+     * Le righe ancora valide fra gli slug di una selezione, nell'ordine dato.
      *
      * @param class-string $model
-     * @param list<int> $ids
+     * @param list<string> $slugs
      * @param array<string, string> $where
      * @return list<array<string, mixed>>
      */
-    private static function refRows(string $model, array $ids, array $where): array
+    private static function refRows(string $model, array $slugs, array $where): array
     {
         $rows = [];
 
-        foreach (array_unique(array_map('intval', $ids)) as $id) {
-            $row = $id > 0 ? $model::find(['id' => $id] + $where, 1) : null;
+        foreach (array_unique(array_map(static fn (mixed $slug): string => is_scalar($slug) ? trim((string) $slug) : '', $slugs)) as $slug) {
+            $row = $slug !== '' ? $model::find(['slug' => $slug] + $where, 1) : null;
             if (is_array($row) && (int) ($row['id'] ?? 0) > 0) $rows[] = $row;
         }
 

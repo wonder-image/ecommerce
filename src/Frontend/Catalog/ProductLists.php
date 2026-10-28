@@ -80,7 +80,7 @@ final class ProductLists
             $limit = self::limit(min($limit ?? $max, $max));
             $filter = CatalogFilter::forSelection(
                 $source,
-                Placements::selectionRefIds($selection, $source),
+                Placements::selectionRefSlugs($selection, $source),
                 Placements::selectionExcluded($selection),
                 $mode
             );

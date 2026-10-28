@@ -78,13 +78,15 @@ versionamento semantico.
   checkout e ordini. `CartPresenter::money()` accetta i decimali.
 - Selezioni con fonte e blocco: `ProductLists::selection($slug, ?int $limit = null, $priceList)`
   segue `source` della selezione (`manual`, `catalog`, `offers`, `category`,
-  `tag`, `brand`, più id in OR, senza gli esclusi) con
-  `CatalogFilter::forSelection($source, $refIds, $excluded, $sortMode)`, fino a
+  `tag`, `brand`, più slug in OR, senza gli esclusi) con
+  `CatalogFilter::forSelection($source, $refSlugs, $excluded, $sortMode)`, fino a
   `max_items` (un limite passato più basso vince; per `manual` `null` vale 12).
   Per le fonti automatiche `sort_mode` entra nella query; per `manual`
   riordina tutta la selezione prima di tagliare. Il risultato ha in più `block`, `meta`
   (i campi in più del blocco), `source` e `sort_mode`. Le colonne nascono nel
-  gestionale: passo a mano `php forge update`.
+  gestionale: passo a mano `php forge update`. Categorie, tag e marchi della
+  fonte si cercano per slug, che sono uguali fra locale e produzione: le
+  selezioni arrivano col deploy. Richiede il gestionale con `source_*_slugs`.
 - `CatalogFilter::showsPlacements()`: se il contesto mostra gli articoli in
   evidenza.
 - **Ordine del catalogo e articoli in evidenza** (dal gestionale): senza

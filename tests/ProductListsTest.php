@@ -124,7 +124,7 @@ check('le fonti automatiche della selezione: catalogo, offerte, esclusi e ordine
         && CatalogFilter::forSelection('boh') === null
         && CatalogFilter::forSelection('newest') === null
         && CatalogFilter::forSelection('category', []) === null
-        && CatalogFilter::forSelection('tag', [0]) === null
+        && CatalogFilter::forSelection('tag', ['', '  ']) === null
         && CatalogFilter::forSelection('brand', []) === null
         && $catalogo !== null && !$catalogo->pinned() && $catalogo->context()['type'] === ''
         && !str_contains($catalogo->where(), 'NOT IN')
