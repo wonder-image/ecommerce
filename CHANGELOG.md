@@ -62,6 +62,15 @@ versionamento semantico.
 
 ### Aggiunto
 
+- Selezioni con fonte e blocco: `ProductLists::selection($slug, ?int $limit = null, $priceList)`
+  segue `source` della selezione (`manual`, `newest`, `novelty`, `offers`,
+  `category`, `tag`) con `CatalogFilter::forSelection()`, fino a `max_items`
+  (un limite passato più basso vince; per `manual` `null` vale 12), e riordina
+  con `sort_mode` se non è `manual`. Il risultato ha in più `block`, `meta`
+  (i campi in più del blocco), `source` e `sort_mode`. Le colonne nascono nel
+  gestionale: passo a mano `php forge update`.
+- `CatalogFilter::showsPlacements()`: se il contesto mostra gli articoli in
+  evidenza.
 - **Ordine del catalogo e articoli in evidenza** (dal gestionale): senza
   `?ordina=` le categorie e il tag di `/collezione/` mettono prima i loro
   articoli in evidenza (`gst_product_placements`; per variante vince la riga
@@ -110,6 +119,10 @@ versionamento semantico.
 
 ### Modificato
 
+- Articoli in evidenza e foto di contesto di categorie e tag valgono solo con
+  `show_placements = 1` nel gestionale («Mostra articoli in evidenza», di
+  serie no; colonna assente vale 0). **Da ricontrollare nei siti**: i tag e le
+  categorie che usavano l'evidenza vanno messi a «Sì».
 - Una pagina per valore scelta nell'articolo (gestionale #85): la scheda
   rimanda con un 301 da una pagina spenta (`/prodotto/x/blu/`) alla query del
   valore (`/prodotto/x/?colore=blu`) e, a pagine accese, dalla query alla

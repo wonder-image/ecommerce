@@ -140,7 +140,9 @@ impostazioni; vedi `Support\Catalog\Placements` del gestionale). Senza
 `?ordina=`, `CatalogFilter` mette:
 
 1. in una categoria o nel tag di `/collezione/`, prima gli articoli «in
-   evidenza», nella posizione data. Con `listing_entity => 'variant'` vale la
+   evidenza», nella posizione data, solo se la categoria o il tag ha
+   `show_placements = 1` («Mostra articoli in evidenza»; colonna assente o 0:
+   niente evidenza e niente foto di contesto, `showsPlacements()` lo dice). Con `listing_entity => 'variant'` vale la
    riga della variante, poi quella dell'articolo intero;
 2. poi la regola della categoria o del tag (`sort_mode`); «Come il catalogo»
    e le pagine senza contesto (`/prodotti/`, `/offerte/`, `/novita/`,
@@ -160,23 +162,39 @@ use Wonder\Plugin\Ecommerce\Frontend\Catalog\CustomerPriceList;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductLists;
 
-$featured = ProductLists::selection('home-prodotti', 3, CustomerPriceList::current());
+$featured = ProductLists::selection('home-prodotti', null, CustomerPriceList::current());
 // null se non c'è, è nascosta o la vendita online è spenta
-// ['name', 'slug', 'title', 'subtitle', 'text', 'image', 'products' => [...card]]
+// ['name', 'slug', 'block', 'meta', 'source', 'sort_mode',
+//  'title', 'subtitle', 'text', 'image', 'products' => [...card]]
 
 $day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
 // ['name', 'slug', 'products' => [...card]]: in evidenza, poi la regola del tag
 ```
 
 - `selection()` legge la selezione per url pubblico, che nasce dal nome e non
-  cambia. Una riga dell'articolo dà la sua card (o una per variante con
-  `listing_entity => 'variant'`), una riga della variante la card di quella
-  variante. Articoli e varianti nascosti al sito restano fuori.
+  cambia. Con `source = manual` una riga dell'articolo dà la sua card (o una
+  per variante con `listing_entity => 'variant'`), una riga della variante la
+  card di quella variante; il limite è quello passato, `null` vale 12.
+  Articoli e varianti nascosti al sito restano fuori.
+- Le altre fonti prendono le card dal catalogo con
+  `CatalogFilter::forSelection($source, $refId)`: `newest` (le più recenti),
+  `novelty` (come `/novita/`), `offers` (come `/offerte/`, nell'ordine del
+  catalogo), `category` (con le sottocategorie) e `tag` (anche nascosto), con
+  l'ordine e l'evidenza del loro contesto. Il limite è `max_items` della
+  selezione; uno passato più basso vince, più alto no. Una categoria o un tag
+  che non c'è più dà `products` vuoto.
+- `sort_mode = manual` lascia l'ordine dato o quello della fonte; le altre
+  regole riordinano le card prese, poi si taglia al limite.
+- `block` è la chiave del blocco scelto nel gestionale (`default`,
+  `spotlight` o uno del sito, vedi `SelectionBlocks` del gestionale): il sito
+  la usa per scegliere il componente. `meta` ha solo i campi in più di quel
+  blocco, in testo (per `spotlight`: `cta_label`, `cta_url`); vuoto per
+  `default`. `image` arriva comunque, anche se il blocco scelto non la usa.
 - `tag()` usa anche un tag nascosto: un tag «di servizio» non ha la sua
   pagina, ma il blocco lo può mostrare.
 - Le card hanno `context_image`, la foto di contesto caricata sulla riga (in
-  una selezione, o fra gli articoli in evidenza di categoria e tag); vuota se
-  non c'è. Le viste del modulo non la usano: la usa la vista del sito che la
+  una selezione scelta a mano, o fra gli articoli in evidenza di categoria e
+  tag con `show_placements = 1`); vuota se non c'è. Le viste del modulo non la usano: la usa la vista del sito che la
   prevede, al posto di `image` o accanto.
 - `title`, `subtitle` e i nomi arrivano come testo: si stampano con `e()`.
   `text` è HTML già ripulito dal gestionale.

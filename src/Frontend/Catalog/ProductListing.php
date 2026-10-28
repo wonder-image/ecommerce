@@ -81,7 +81,8 @@ final class ProductListing
 
         $context = $filter->context();
 
-        return $context['type'] !== '' ? self::withContextImages($cards, $context['type'], $context['id']) : $cards;
+        // Le foto di contesto vanno con gli «in evidenza»: spenti, niente foto.
+        return $context['type'] !== '' && $filter->showsPlacements() ? self::withContextImages($cards, $context['type'], $context['id']) : $cards;
     }
 
     /**

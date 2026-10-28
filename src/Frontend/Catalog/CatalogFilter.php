@@ -21,7 +21,9 @@ use Throwable;
  * chi vende ({@see Placements}): in una categoria o nel tag della collezione
  * prima gli articoli «in evidenza», nel loro ordine, poi la regola della
  * categoria o del tag; «Come il catalogo» e le pagine senza contesto usano
- * `catalog_sort` delle impostazioni.
+ * `catalog_sort` delle impostazioni. In evidenza e foto di contesto valgono
+ * solo se la categoria o il tag ha `show_placements` acceso: spento (o
+ * colonna assente) è come se non ci fossero.
  */
 final class CatalogFilter
 {
@@ -45,6 +47,7 @@ final class CatalogFilter
     private string $contextType = '';
     private int $contextId = 0;
     private string $contextSort = 'catalog';
+    private bool $showPlacements = false;
     /** @var array<string, mixed> la riga della categoria o del tag */
     private array $contextRow = [];
     private string $priceContextWhere = '';
@@ -93,6 +96,8 @@ final class CatalogFilter
     public function sort(): string { return $this->sort; }
     /** Vero quando gli articoli in evidenza del contesto vanno in cima. */
     public function pinned(): bool { return $this->pinned; }
+    /** Il contesto mostra i suoi articoli in evidenza (e le loro foto di contesto). */
+    public function showsPlacements(): bool { return $this->showPlacements; }
     /** @return array{type:string,id:int} la categoria o il tag dell'elenco; tipo vuoto senza */
     public function context(): array { return ['type' => $this->contextType, 'id' => $this->contextId]; }
     /** @return array<string, mixed> la riga della categoria o del tag del contesto */
@@ -125,17 +130,16 @@ final class CatalogFilter
             $this->descriptionKey = 'ecommerce.catalog.listing.offers.description';
             $this->canonical = '/offerte/';
             $this->breadcrumbs[] = ['url' => $this->canonical, 'name' => (string) __t($this->titleKey)];
-            $this->conditions[] = "EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`active` = 'true' AND p.`deleted` = 'false' AND p.`sale_price` > 0 AND p.`sale_price` < p.`price`)";
+            $this->conditions[] = self::offersCondition();
             return;
         }
 
         if ($action === 'new') {
-            $days = max(1, (int) Ecommerce::config('catalog.new_days', 30));
             $this->titleKey = 'ecommerce.catalog.listing.new.title';
             $this->descriptionKey = 'ecommerce.catalog.listing.new.description';
             $this->canonical = '/novita/';
             $this->breadcrumbs[] = ['url' => $this->canonical, 'name' => (string) __t($this->titleKey)];
-            $this->conditions[] = "`creation` >= DATE_SUB(NOW(), INTERVAL {$days} DAY)";
+            $this->conditions[] = self::noveltyCondition();
             return;
         }
 
@@ -203,8 +207,7 @@ final class CatalogFilter
             return;
         }
 
-        $ids = $this->descendantIds((int) $category['id']);
-        $this->conditions[] = 'EXISTS (SELECT 1 FROM `gst_product_model_categories` mc WHERE mc.`product_model_id` = `gst_product_models`.`id` AND mc.`category_id` IN ('.implode(',', $ids).") AND mc.`deleted` = 'false')";
+        $this->conditions[] = $this->categoryCondition((int) $category['id']);
         $this->titleKey = '';
         $this->descriptionKey = '';
         $this->routeTitle = (string) ($category['name'] ?? '');
@@ -249,6 +252,13 @@ final class CatalogFilter
         $this->contextId = $this->contextType !== '' ? $id : 0;
         $this->contextSort = Placements::contextSortMode($row['sort_mode'] ?? null);
         $this->contextRow = $this->contextType !== '' ? $row : [];
+        $this->showPlacements = $this->contextType !== '' && self::flag($row['show_placements'] ?? null);
+    }
+
+    /** `show_placements` letto con tolleranza: senza colonna vale spento. */
+    private static function flag(mixed $value): bool
+    {
+        return $value === true || (is_scalar($value) && in_array(strtolower(trim((string) $value)), ['1', 'true'], true));
     }
 
     /**
@@ -262,6 +272,69 @@ final class CatalogFilter
         $filter->applyOrder(null);
 
         return $tag === null ? null : $filter;
+    }
+
+    /**
+     * Il filtro della fonte automatica di una selezione (`gst_product_selections.source`),
+     * con l'ordine naturale della fonte: le più recenti prima per `newest` e
+     * `novelty`, il catalogo per `offers`, la categoria (sottocategorie
+     * comprese) o il tag con la loro regola. Null per `manual`, per una fonte
+     * ignota o se la categoria o il tag non c'è più.
+     */
+    public static function forSelection(string $source, int $refId = 0): ?self
+    {
+        $filter = new self([]);
+
+        switch ($source) {
+            case 'newest':
+                $filter->applyOrder('recenti');
+                return $filter;
+            case 'novelty':
+                $filter->conditions[] = self::noveltyCondition();
+                $filter->applyOrder('recenti');
+                return $filter;
+            case 'offers':
+                $filter->conditions[] = self::offersCondition();
+                $filter->applyOrder(null);
+                return $filter;
+            case 'category':
+                $category = $refId > 0 ? Category::find(['id' => $refId, 'visible' => 'true', 'deleted' => 'false'], 1) : null;
+                if (!is_array($category) || (int) ($category['id'] ?? 0) <= 0) return null;
+                $filter->conditions[] = $filter->categoryCondition((int) $category['id']);
+                $filter->useContext(Placements::CATEGORY, $category);
+                $filter->applyOrder(null);
+                return $filter;
+            case 'tag':
+                // Come forTag(): anche un tag nascosto può alimentare un blocco.
+                $tag = $refId > 0 ? Tag::find(['id' => $refId, 'deleted' => 'false'], 1) : null;
+                if (!is_array($tag) || (int) ($tag['id'] ?? 0) <= 0) return null;
+                if ($filter->applyTag((string) ($tag['slug'] ?? ''), false) === null) return null;
+                $filter->applyOrder(null);
+                return $filter;
+            default:
+                return null;
+        }
+    }
+
+    /** Gli articoli nuovi: creati negli ultimi `catalog.new_days` giorni, come /novita/. */
+    private static function noveltyCondition(): string
+    {
+        $days = max(1, (int) Ecommerce::config('catalog.new_days', 30));
+
+        return "`creation` >= DATE_SUB(NOW(), INTERVAL {$days} DAY)";
+    }
+
+    /** Gli articoli con almeno un prodotto scontato, come /offerte/. */
+    private static function offersCondition(): string
+    {
+        return "EXISTS (SELECT 1 FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`active` = 'true' AND p.`deleted` = 'false' AND p.`sale_price` > 0 AND p.`sale_price` < p.`price`)";
+    }
+
+    private function categoryCondition(int $id): string
+    {
+        $ids = $this->descendantIds($id);
+
+        return 'EXISTS (SELECT 1 FROM `gst_product_model_categories` mc WHERE mc.`product_model_id` = `gst_product_models`.`id` AND mc.`category_id` IN ('.implode(',', $ids).") AND mc.`deleted` = 'false')";
     }
 
     private function applyBrand(mixed $value): void
@@ -385,7 +458,7 @@ final class CatalogFilter
 
         // La scelta di chi visita batte quella di chi vende, in evidenza compresi.
         $this->sort = $visitor !== '' ? $visitor : $this->siteSort();
-        $this->pinned = $visitor === '' && $this->contextType !== '';
+        $this->pinned = $visitor === '' && $this->contextType !== '' && $this->showPlacements;
 
         [$order, $this->direction] = match ($this->sort) {
             'name' => ['name', 'ASC'],

@@ -8,18 +8,22 @@ use Wonder\Plugin\Gestionale\Models\Catalog\ProductPlacement;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductSelection;
 use Wonder\Plugin\Gestionale\Support\Catalog\Placements;
+use Wonder\Plugin\Gestionale\Support\Catalog\SelectionBlocks;
 
 /**
  * Gli elenchi di articoli per i blocchi del sito, come li ordina chi vende
  * nel gestionale ({@see Placements}):
  *
  * - {@see selection()}: una selezione di Catalogo → Selezioni, per url
- *   pubblico (`home-prodotti`), con titolo, testo e immagine del blocco;
+ *   pubblico (`home-prodotti`), con il blocco che la mostra, i suoi testi,
+ *   l'immagine e i campi in più; gli articoli scelti a mano o presi da una
+ *   fonte del catalogo;
  * - {@see tag()}: gli articoli di un tag («giorno», «notte»), prima quelli in
  *   evidenza, poi la regola del tag.
  *
  * Le card sono quelle del catalogo (`ProductListing`), con `context_image`
- * quando la riga ha la foto di contesto. I testi arrivano già decodificati:
+ * quando la riga ha la foto di contesto (in categorie e tag solo se mostrano
+ * gli articoli in evidenza). I testi arrivano già decodificati:
  * la vista li stampa con `e()`, tranne `text`, che è HTML ripulito dal
  * gestionale. Selezioni e foto di contesto esistono solo con la vendita
  * online: spenta, `selection()` risponde null.
@@ -29,11 +33,27 @@ final class ProductLists
     /** Più di così un blocco non ne mostra: è una vetrina, non il catalogo. */
     public const MAX = 48;
 
+    /** Quanti articoli scelti a mano, se chi chiama non lo dice: come prima delle fonti. */
+    public const MANUAL_LIMIT = 12;
+
     /**
+     * Gli articoli e il blocco di una selezione.
+     *
+     * - fonte `manual`: le righe della selezione; `$limit` (di serie
+     *   {@see MANUAL_LIMIT}) taglia, e un ordine diverso da «Nell'ordine dato»
+     *   riordina tutta la selezione prima di tagliare;
+     * - fonti automatiche: i primi `max_items` articoli della fonte, nel suo
+     *   ordine ({@see CatalogFilter::forSelection()}); `$limit` può solo
+     *   ridurli; un ordine diverso da «Nell'ordine dato» riordina quelli presi.
+     *
+     * `block` è la chiave del blocco ({@see SelectionBlocks}), `meta` i suoi
+     * campi in più già decodificati, una chiave per campo ('' se vuoto).
+     *
+     * @param int|null $limit null: tutti quelli della selezione (fino a `max_items` o {@see MANUAL_LIMIT})
      * @param array<string, mixed>|null $priceList il listino del cliente (CustomerPriceList::current())
-     * @return array{name:string,slug:string,title:string,subtitle:string,text:string,image:string,products:list<array<string, mixed>>}|null
+     * @return array{name:string,slug:string,block:string,meta:array<string, string>,source:string,sort_mode:string,title:string,subtitle:string,text:string,image:string,products:list<array<string, mixed>>}|null
      */
-    public static function selection(string $slug, int $limit = 12, ?array $priceList = null): ?array
+    public static function selection(string $slug, ?int $limit = null, ?array $priceList = null): ?array
     {
         $slug = trim($slug);
         if ($slug === '' || !self::onlineSales()) return null;
@@ -41,21 +61,38 @@ final class ProductLists
         $selection = ProductSelection::find(['slug' => $slug, 'visible' => 'true', 'deleted' => 'false'], 1);
         if (!is_array($selection) || (int) ($selection['id'] ?? 0) <= 0) return null;
 
-        $limit = self::limit($limit);
-        $rows = self::rows(ProductPlacement::find(
-            ['context_type' => Placements::SELECTION, 'context_id' => (int) $selection['id'], 'deleted' => 'false'],
-            null,
-            'position',
-            'ASC'
-        ));
         $mode = Placements::selectionSortMode($selection['sort_mode'] ?? null);
-        // Un'altra regola riordina tutta la selezione, poi taglia.
-        $cards = ProductListing::byPlacements($rows, $mode === 'manual' ? $limit : self::MAX, $priceList);
+        $source = Placements::selectionSource($selection['source'] ?? null);
+
+        if ($source === 'manual') {
+            $limit = self::limit($limit ?? self::MANUAL_LIMIT);
+            $rows = self::rows(ProductPlacement::find(
+                ['context_type' => Placements::SELECTION, 'context_id' => (int) $selection['id'], 'deleted' => 'false'],
+                null,
+                'position',
+                'ASC'
+            ));
+            // Un'altra regola riordina tutta la selezione, poi taglia.
+            $cards = ProductListing::byPlacements($rows, $mode === 'manual' ? $limit : self::MAX, $priceList);
+        } else {
+            $max = Placements::selectionMaxItems($selection['max_items'] ?? null);
+            $limit = self::limit(min($limit ?? $max, $max));
+            $column = Placements::SELECTION_SOURCE_REFS[$source] ?? '';
+            $filter = CatalogFilter::forSelection($source, $column !== '' ? (int) ($selection[$column] ?? 0) : 0);
+            // La fonte sceglie quali, la regola della selezione li riordina.
+            $cards = $filter === null ? [] : ProductListing::cards($filter, (string) $limit, $priceList);
+        }
+
         $cards = array_slice(self::sorted($cards, $mode), 0, $limit);
+        $block = SelectionBlocks::normalize($selection['block'] ?? null);
 
         return [
             'name' => self::text($selection['name'] ?? ''),
             'slug' => (string) ($selection['slug'] ?? ''),
+            'block' => $block,
+            'meta' => array_map(self::text(...), SelectionBlocks::cleanMeta($block, SelectionBlocks::decodeMeta($selection['block_meta'] ?? null))),
+            'source' => $source,
+            'sort_mode' => $mode,
             'title' => self::text($selection['title'] ?? ''),
             'subtitle' => self::text($selection['subtitle'] ?? ''),
             'text' => trim((string) ($selection['text'] ?? '')),

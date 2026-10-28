@@ -35,7 +35,7 @@ $ordineVarianti = static fn (CatalogFilter $filter): string => Query::orderClaus
 );
 
 check('in una categoria gli articoli in evidenza vanno in cima, poi la regola', function () use ($filtro) {
-    $filter = $filtro('', ['category', ['id' => 5, 'sort_mode' => 'catalog']]);
+    $filter = $filtro('', ['category', ['id' => 5, 'sort_mode' => 'catalog', 'show_placements' => 1]]);
     $order = Query::orderClause($filter->order(), $filter->direction());
 
     return $filter->pinned()
@@ -46,7 +46,7 @@ check('in una categoria gli articoli in evidenza vanno in cima, poi la regola', 
 });
 
 check('la regola della categoria batte quella del catalogo', function () use ($filtro) {
-    $filter = $filtro('', ['tag', ['id' => 3, 'sort_mode' => 'price_desc']]);
+    $filter = $filtro('', ['tag', ['id' => 3, 'sort_mode' => 'price_desc', 'show_placements' => 1]]);
     $order = Query::orderClause($filter->order(), $filter->direction());
 
     return $filter->pinned()
@@ -56,7 +56,7 @@ check('la regola della categoria batte quella del catalogo', function () use ($f
 });
 
 check('se chi visita sceglie un ordine, vale il suo e niente in evidenza', function () use ($filtro) {
-    $filter = $filtro('prezzo_asc', ['category', ['id' => 5, 'sort_mode' => 'newest']]);
+    $filter = $filtro('prezzo_asc', ['category', ['id' => 5, 'sort_mode' => 'newest', 'show_placements' => 1]]);
 
     return !$filter->pinned()
         && $filter->sort() === 'price_asc'
@@ -78,7 +78,7 @@ check('una regola sconosciuta della categoria torna «come il catalogo»', funct
 });
 
 check('per variante: prima la riga della variante, poi quella dell\'articolo intero', function () use ($filtro, $ordineVarianti) {
-    $order = $ordineVarianti($filtro('', ['category', ['id' => 5, 'sort_mode' => 'catalog']]));
+    $order = $ordineVarianti($filtro('', ['category', ['id' => 5, 'sort_mode' => 'catalog', 'show_placements' => 1]]));
 
     return str_starts_with($order, ' ORDER BY COALESCE((SELECT MIN(pl.`position`)')
         && str_contains($order, 'AND pl.`product_variant_id` = `gst_product_variants`.`id`), (SELECT MIN(pl.`position`)')
@@ -87,10 +87,47 @@ check('per variante: prima la riga della variante, poi quella dell\'articolo int
 });
 
 check('per variante l\'ordine di chi visita resta quello di prima', function () use ($filtro, $ordineVarianti) {
-    $order = $ordineVarianti($filtro('nome_desc', ['category', ['id' => 5, 'sort_mode' => 'catalog']]));
+    $order = $ordineVarianti($filtro('nome_desc', ['category', ['id' => 5, 'sort_mode' => 'catalog', 'show_placements' => 1]]));
 
     return !str_contains($order, 'gst_product_placements')
         && str_contains($order, '`product_model_id`) DESC, position ASC, name ASC');
+});
+
+check('senza «Mostra articoli in evidenza» la categoria o il tag tiene la sua regola, ma niente in evidenza', function () use ($filtro, $ordineVarianti) {
+    $ok = true;
+
+    // Spento, colonna assente o valore strano: come se non ci fossero righe.
+    foreach ([0, '0', '', null, 'boh'] as $valore) {
+        $row = ['id' => 5, 'sort_mode' => 'price_asc'] + ($valore === null ? [] : ['show_placements' => $valore]);
+        $filter = $filtro('', ['category', $row]);
+        $ok = $ok
+            && !$filter->pinned()
+            && !$filter->showsPlacements()
+            && $filter->sort() === 'price_asc'
+            && $filter->context() === ['type' => 'category', 'id' => 5]
+            && !str_contains($filter->order(), 'gst_product_placements')
+            && !str_contains($ordineVarianti($filter), 'gst_product_placements');
+    }
+
+    foreach ([1, '1', true, 'true'] as $valore) {
+        $ok = $ok && $filtro('', ['tag', ['id' => 3, 'sort_mode' => 'catalog', 'show_placements' => $valore]])->pinned();
+    }
+
+    return $ok;
+});
+
+check('le fonti automatiche della selezione: ordine della fonte, niente in evidenza', function () {
+    $nuovi = CatalogFilter::forSelection('newest');
+    $novita = CatalogFilter::forSelection('novelty');
+    $offerte = CatalogFilter::forSelection('offers');
+
+    return CatalogFilter::forSelection('manual') === null
+        && CatalogFilter::forSelection('boh') === null
+        && CatalogFilter::forSelection('category', 0) === null
+        && CatalogFilter::forSelection('tag', 0) === null
+        && $nuovi !== null && $nuovi->sort() === 'newest' && !$nuovi->pinned() && $nuovi->context()['type'] === ''
+        && $novita !== null && $novita->sort() === 'newest' && str_contains($novita->where(), 'DATE_SUB(NOW(), INTERVAL')
+        && $offerte !== null && str_contains($offerte->where(), 'p.`sale_price` < p.`price`') && !$offerte->pinned();
 });
 
 check('un contesto sconosciuto non entra nell\'SQL', function () {
