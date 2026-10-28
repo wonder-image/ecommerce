@@ -78,6 +78,8 @@ final class ProductCard
             'url' => self::string($row['url'] ?? null),
             'image' => $image,
             'image_alt' => self::string($row['image_alt'] ?? null) ?: $name,
+            // La foto di contesto della riga in evidenza o della selezione; vuota se non c'è.
+            'context_image' => self::string($row['context_image'] ?? null),
             'price' => $price,
             'compare_at_price' => $compareAtPrice,
             'badge' => $badge,

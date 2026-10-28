@@ -30,4 +30,42 @@ final class DataLayer
 
         return $script."</script>";
     }
+
+    /**
+     * `view_item_list` di un elenco di card (`ProductListing`), con l'id e il
+     * nome dell'elenco su ogni item e `index` da 1, nell'ordine in pagina:
+     * lo stesso ordine dell'`ItemList` e degli articoli in evidenza.
+     *
+     * @param list<array<string, mixed>> $cards
+     * @return array<string, mixed>
+     */
+    public static function itemListEvent(string $id, string $name, array $cards, string $currency): array
+    {
+        $items = [];
+
+        foreach (array_values($cards) as $index => $card) {
+            $item = [
+                'item_id' => (string) ($card['meta']['item_id'] ?? $card['id'] ?? ''),
+                'item_name' => (string) ($card['meta']['item_name'] ?? $card['name'] ?? ''),
+                'price' => (float) ($card['meta']['price'] ?? 0),
+                'item_list_id' => $id,
+                'item_list_name' => $name,
+                'index' => $index + 1,
+            ];
+            if (($card['meta']['item_variant'] ?? '') !== '') {
+                $item['item_variant'] = (string) $card['meta']['item_variant'];
+            }
+            $items[] = $item;
+        }
+
+        return [
+            'event' => 'view_item_list',
+            'ecommerce' => [
+                'currency' => $currency,
+                'item_list_id' => $id,
+                'item_list_name' => $name,
+                'items' => $items,
+            ],
+        ];
+    }
 }

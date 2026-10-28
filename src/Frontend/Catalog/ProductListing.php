@@ -7,6 +7,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductImage;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
+use Wonder\Plugin\Gestionale\Models\Catalog\ProductPlacement;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductVariant;
 use Wonder\Plugin\Gestionale\Support\Catalog\Bundles;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
@@ -57,7 +58,7 @@ final class ProductListing
                 'ASC'
             ));
 
-            return array_values(array_filter(array_map(static function (array $variant) use ($priceList): ?array {
+            $cards = array_values(array_filter(array_map(static function (array $variant) use ($priceList): ?array {
                 $model = ProductModel::find([
                     'id' => (int) ($variant['product_model_id'] ?? 0),
                     'visible' => 'true',
@@ -67,16 +68,104 @@ final class ProductListing
 
                 return is_array($model) ? self::card($model, $variant, $priceList) : null;
             }, $variants)));
+        } else {
+            $models = self::rows(ProductModel::find(
+                $filter->where(),
+                $limit,
+                $filter->order(),
+                $filter->direction()
+            ));
+
+            $cards = array_values(array_filter(array_map(static fn (array $model): ?array => self::card($model, null, $priceList), $models)));
         }
 
-        $models = self::rows(ProductModel::find(
-            $filter->where(),
-            $limit,
-            $filter->order(),
-            $filter->direction()
-        ));
+        $context = $filter->context();
 
-        return array_values(array_filter(array_map(static fn (array $model): ?array => self::card($model, null, $priceList), $models)));
+        return $context['type'] !== '' ? self::withContextImages($cards, $context['type'], $context['id']) : $cards;
+    }
+
+    /**
+     * Le card delle righe date di `gst_product_placements` (una selezione),
+     * nel loro ordine: una riga dell'articolo dà la card dell'articolo, o una
+     * per variante se il catalogo elenca le varianti; una riga della variante
+     * dà la card di quella variante. Restano fuori gli articoli e le varianti
+     * che il sito non mostra e i doppioni.
+     *
+     * @param list<array<string, mixed>> $rows
+     * @param array<string, mixed>|null $priceList come in cards()
+     * @return list<array<string, mixed>>
+     */
+    public static function byPlacements(array $rows, int $limit = 12, ?array $priceList = null): array
+    {
+        $cards = [];
+        $seen = [];
+
+        foreach ($rows as $row) {
+            if (count($cards) >= $limit) break;
+
+            $model = ProductModel::find([
+                'id' => (int) ($row['product_model_id'] ?? 0),
+                'visible' => 'true',
+                'visible_online' => 'true',
+                'deleted' => 'false',
+            ], 1);
+            if (!is_array($model) || (int) ($model['id'] ?? 0) <= 0) continue;
+
+            $variantId = (int) ($row['product_variant_id'] ?? 0);
+            $variants = $variantId > 0
+                ? self::rows(ProductVariant::find(['id' => $variantId, 'product_model_id' => (int) $model['id'], 'visible' => 'true', 'deleted' => 'false'], 1))
+                : (self::entity() === 'variant'
+                    ? self::rows(ProductVariant::find(['product_model_id' => (int) $model['id'], 'visible' => 'true', 'deleted' => 'false'], null, 'position', 'ASC'))
+                    : [null]);
+            $contextImage = ProductPlacement::imageUrl($row);
+
+            foreach ($variants as $variant) {
+                $key = is_array($variant) ? 'v'.(int) $variant['id'] : 'm'.(int) $model['id'];
+                if (isset($seen[$key]) || ($card = self::card($model, $variant, $priceList)) === null) continue;
+
+                $seen[$key] = true;
+                $cards[] = $card + ['context_image' => $contextImage];
+                if (count($cards) >= $limit) break;
+            }
+        }
+
+        return $cards;
+    }
+
+    /**
+     * La foto di contesto degli articoli in evidenza di una categoria o di un
+     * tag, sulle loro card: quella della variante della card, altrimenti
+     * quella dell'articolo intero, altrimenti la prima delle sue righe.
+     *
+     * @param list<array<string, mixed>> $cards
+     * @return list<array<string, mixed>>
+     */
+    private static function withContextImages(array $cards, string $type, int $id): array
+    {
+        $images = [];
+
+        foreach (self::rows(ProductPlacement::find(['context_type' => $type, 'context_id' => $id, 'deleted' => 'false'], null, 'position', 'ASC')) as $row) {
+            $url = ProductPlacement::imageUrl($row);
+            if ($url === '') continue;
+
+            $variantId = (int) ($row['product_variant_id'] ?? 0);
+            $modelId = (int) ($row['product_model_id'] ?? 0);
+            $images[$variantId > 0 ? 'v'.$variantId : 'm'.$modelId] ??= $url;
+            $images['any'.$modelId] ??= $url;
+        }
+
+        if ($images === []) return $cards;
+
+        return array_map(static function (array $card) use ($images): array {
+            $modelId = (int) ($card['model_id'] ?? 0);
+            $variantId = (int) ($card['variant_id'] ?? 0);
+            $image = ($variantId > 0 ? ($images['v'.$variantId] ?? null) : null)
+                ?? $images['m'.$modelId]
+                ?? $images['any'.$modelId]
+                ?? '';
+
+            return $image !== '' ? ['context_image' => $image] + $card : $card;
+        }, $cards);
     }
 
     /** @param list<int> $ids @param array<string, mixed>|null $priceList come in cards() @return list<array<string, mixed>> */
@@ -206,6 +295,8 @@ final class ProductListing
 
         return [
             'id' => $cardId,
+            'model_id' => $modelId,
+            'variant_id' => is_array($selectedVariant) ? (int) ($firstVariant['id'] ?? 0) : 0,
             'name' => $name,
             // La card del modello porta al modello, quella di una variante alla variante.
             'url' => is_array($selectedVariant)
@@ -268,23 +359,26 @@ final class ProductListing
 
     /**
      * Il core applica la direzione solo all'ultima colonna: qui va sulla
-     * prima espressione, e `cards()` chiude con ASC su `position`/`name`.
+     * prima espressione della regola, e `cards()` chiude con ASC su
+     * `position`/`name`. Gli articoli in evidenza, se valgono, vengono prima.
      */
     private static function variantOrder(CatalogFilter $filter): string
     {
-        $order = $filter->order();
         $direction = $filter->direction() === 'DESC' ? 'DESC' : 'ASC';
-        if (str_contains($order, 'SELECT MIN')) {
-            return str_replace('`gst_product_models`.`id`', '`gst_product_variants`.`product_model_id`', $order)." {$direction}, position";
+        $context = $filter->context();
+        $pin = $filter->pinned() ? CatalogFilter::pinOrder($context['type'], $context['id'], 'variant').', ' : '';
+
+        if (in_array($filter->sort(), ['price_asc', 'price_desc'], true)) {
+            return $pin.str_replace('`gst_product_models`.`id`', '`gst_product_variants`.`product_model_id`', CatalogFilter::priceOrder())." {$direction}, position";
         }
 
-        $column = match ($order) {
-            'name' => 'name',
-            'creation' => 'creation',
+        $column = match ($filter->sort()) {
+            'name', 'name_desc' => 'name',
+            'newest' => 'creation',
             default => 'position',
         };
 
-        return "(SELECT m.`{$column}` FROM `gst_product_models` m WHERE m.`id` = `gst_product_variants`.`product_model_id`) {$direction}, position ASC, name";
+        return $pin."(SELECT m.`{$column}` FROM `gst_product_models` m WHERE m.`id` = `gst_product_variants`.`product_model_id`) {$direction}, position ASC, name";
     }
 
     private static function effectivePrice(array $product): float

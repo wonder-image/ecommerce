@@ -7,12 +7,27 @@ use Wonder\Plugin\Gestionale\Models\Catalog\Attribute;
 use Wonder\Plugin\Gestionale\Models\Catalog\AttributeValue;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Category;
+use Wonder\Plugin\Gestionale\Models\Catalog\ProductPlacement;
 use Wonder\Plugin\Gestionale\Models\Catalog\Tag;
+use Wonder\Plugin\Gestionale\Models\System\Setting;
+use Wonder\Plugin\Gestionale\Support\Catalog\Placements;
 use Wonder\Sql\Query;
+use Throwable;
 
-/** Traduce URL e query string in un filtro sicuro per il catalogo pubblico. */
+/**
+ * Traduce URL e query string in un filtro sicuro per il catalogo pubblico.
+ *
+ * L'ordine: se chi visita sceglie `?ordina=`, vale quello. Altrimenti decide
+ * chi vende ({@see Placements}): in una categoria o nel tag della collezione
+ * prima gli articoli «in evidenza», nel loro ordine, poi la regola della
+ * categoria o del tag; «Come il catalogo» e le pagine senza contesto usano
+ * `catalog_sort` delle impostazioni.
+ */
 final class CatalogFilter
 {
+    /** La posizione di chi non è in evidenza: dopo tutti quelli che lo sono. */
+    private const UNPINNED = 2147483647;
+
     private array $conditions = [];
     private array $breadcrumbs = [];
     private array $attributes = [];
@@ -24,6 +39,14 @@ final class CatalogFilter
     private string $canonical = '/prodotti/';
     private string $order = 'position, name';
     private string $direction = 'ASC';
+    /** La regola: `position`, `newest`, `name`, `name_desc`, `price_asc` o `price_desc`. */
+    private string $sort = 'position';
+    private bool $pinned = false;
+    private string $contextType = '';
+    private int $contextId = 0;
+    private string $contextSort = 'catalog';
+    /** @var array<string, mixed> la riga della categoria o del tag */
+    private array $contextRow = [];
     private string $priceContextWhere = '';
     private ?float $priceMin = null;
     private ?float $priceMax = null;
@@ -67,6 +90,13 @@ final class CatalogFilter
     public function where(): string { return 'WHERE '.implode(' AND ', $this->conditions); }
     public function order(): string { return $this->order; }
     public function direction(): string { return $this->direction; }
+    public function sort(): string { return $this->sort; }
+    /** Vero quando gli articoli in evidenza del contesto vanno in cima. */
+    public function pinned(): bool { return $this->pinned; }
+    /** @return array{type:string,id:int} la categoria o il tag dell'elenco; tipo vuoto senza */
+    public function context(): array { return ['type' => $this->contextType, 'id' => $this->contextId]; }
+    /** @return array<string, mixed> la riga della categoria o del tag del contesto */
+    public function contextRow(): array { return $this->contextRow; }
     public function title(): string { return $this->filtered ? (string) __t('ecommerce.catalog.listing.filtered.title') : ($this->routeTitle !== '' ? $this->routeTitle : (string) __t($this->titleKey)); }
     public function description(): string { return $this->filtered ? (string) __t('ecommerce.catalog.listing.filtered.description') : ($this->routeDescription !== '' ? $this->routeDescription : (string) __t($this->descriptionKey)); }
     public function hasActiveFilters(): bool { return $this->filtered; }
@@ -110,18 +140,11 @@ final class CatalogFilter
         }
 
         if ($action === 'collection') {
-            $slug = (string) Ecommerce::config('catalog.collection_tag', 'collezione');
-            $tag = Tag::find(['slug' => $slug, 'visible' => 'true', 'deleted' => 'false'], 1);
             $this->titleKey = 'ecommerce.catalog.listing.collection.title';
             $this->descriptionKey = 'ecommerce.catalog.listing.collection.description';
             $this->canonical = '/collezione/';
             $this->breadcrumbs[] = ['url' => $this->canonical, 'name' => (string) __t($this->titleKey)];
-            if (is_array($tag) && (int) ($tag['id'] ?? 0) > 0) {
-                $id = (int) $tag['id'];
-                $this->conditions[] = "EXISTS (SELECT 1 FROM `gst_product_model_tags` mt WHERE mt.`product_model_id` = `gst_product_models`.`id` AND mt.`tag_id` = {$id} AND mt.`deleted` = 'false')";
-            } else {
-                $this->conditions[] = '1 = 0';
-            }
+            $this->applyTag((string) Ecommerce::config('catalog.collection_tag', 'collezione'), true);
             return;
         }
 
@@ -190,6 +213,55 @@ final class CatalogFilter
             $this->routeDescription = (string) __t('ecommerce.catalog.listing.category.description');
         }
         $this->canonical = '/prodotti/'.implode('/', array_map('rawurlencode', $path)).'/';
+        $this->useContext(Placements::CATEGORY, $category);
+    }
+
+    /**
+     * Gli articoli con il tag di quello slug, nel suo ordine. `$onlyVisible`
+     * per le pagine del tag: un blocco del sito («Giorno», «Notte») può usare
+     * anche un tag nascosto, che non ha una pagina sua.
+     *
+     * @return array<string, mixed>|null il tag, o null se non c'è
+     */
+    private function applyTag(string $slug, bool $onlyVisible): ?array
+    {
+        $where = ['slug' => trim($slug), 'deleted' => 'false'];
+        if ($onlyVisible) $where['visible'] = 'true';
+        $tag = trim($slug) !== '' ? Tag::find($where, 1) : null;
+
+        if (!is_array($tag) || (int) ($tag['id'] ?? 0) <= 0) {
+            $this->conditions[] = '1 = 0';
+            return null;
+        }
+
+        $id = (int) $tag['id'];
+        $this->conditions[] = "EXISTS (SELECT 1 FROM `gst_product_model_tags` mt WHERE mt.`product_model_id` = `gst_product_models`.`id` AND mt.`tag_id` = {$id} AND mt.`deleted` = 'false')";
+        $this->useContext(Placements::TAG, $tag);
+
+        return $tag;
+    }
+
+    /** @param array<string, mixed> $row la categoria o il tag */
+    private function useContext(string $type, array $row): void
+    {
+        $id = (int) ($row['id'] ?? 0);
+        $this->contextType = in_array($type, Placements::CONTEXTS, true) && $id > 0 ? $type : '';
+        $this->contextId = $this->contextType !== '' ? $id : 0;
+        $this->contextSort = Placements::contextSortMode($row['sort_mode'] ?? null);
+        $this->contextRow = $this->contextType !== '' ? $row : [];
+    }
+
+    /**
+     * Il filtro degli articoli di un tag, per un blocco del sito: stessi
+     * criteri del catalogo, l'ordine del tag. Null se il tag non c'è.
+     */
+    public static function forTag(string $slug): ?self
+    {
+        $filter = new self([]);
+        $tag = $filter->applyTag($slug, false);
+        $filter->applyOrder(null);
+
+        return $tag === null ? null : $filter;
     }
 
     private function applyBrand(mixed $value): void
@@ -302,14 +374,66 @@ final class CatalogFilter
 
     private function applyOrder(mixed $value): void
     {
-        [$this->order, $this->direction] = match ((string) $value) {
-            'nome_asc' => ['name', 'ASC'],
-            'nome_desc' => ['name', 'DESC'],
-            'prezzo_asc' => [self::priceOrder(), 'ASC'],
-            'prezzo_desc' => [self::priceOrder(), 'DESC'],
-            'recenti' => ['creation', 'DESC'],
+        $visitor = match (is_scalar($value) ? (string) $value : '') {
+            'nome_asc' => 'name',
+            'nome_desc' => 'name_desc',
+            'prezzo_asc' => 'price_asc',
+            'prezzo_desc' => 'price_desc',
+            'recenti' => 'newest',
+            default => '',
+        };
+
+        // La scelta di chi visita batte quella di chi vende, in evidenza compresi.
+        $this->sort = $visitor !== '' ? $visitor : $this->siteSort();
+        $this->pinned = $visitor === '' && $this->contextType !== '';
+
+        [$order, $this->direction] = match ($this->sort) {
+            'name' => ['name', 'ASC'],
+            'name_desc' => ['name', 'DESC'],
+            'price_asc' => [self::priceOrder(), 'ASC'],
+            'price_desc' => [self::priceOrder(), 'DESC'],
+            'newest' => ['creation', 'DESC'],
             default => ['position, name', 'ASC'],
         };
+        $this->order = ($this->pinned ? self::pinOrder($this->contextType, $this->contextId, 'model').', ' : '').$order;
+    }
+
+    /** La regola di chi vende: quella della categoria o del tag, altrimenti del catalogo. */
+    private function siteSort(): string
+    {
+        if ($this->contextSort !== 'catalog') {
+            return $this->contextSort;
+        }
+
+        try {
+            return Placements::catalogSortMode(Setting::current()['catalog_sort'] ?? null);
+        } catch (Throwable) {
+            return 'position';
+        }
+    }
+
+    /**
+     * La posizione «in evidenza» di ogni riga nel contesto, da mettere prima
+     * dell'ordine: chi non è in evidenza vale {@see UNPINNED} e va dopo. Per
+     * `model` conta qualunque riga dell'articolo; per `variant` vince la riga
+     * della variante, poi quella dell'articolo intero.
+     */
+    public static function pinOrder(string $type, int $id, string $entity = 'model'): string
+    {
+        if (!in_array($type, Placements::CONTEXTS, true) || $id <= 0) {
+            return (string) self::UNPINNED;
+        }
+
+        $table = ProductPlacement::$table;
+        $rows = "SELECT MIN(pl.`position`) FROM `{$table}` pl WHERE pl.`context_type` = '{$type}' AND pl.`context_id` = {$id} AND pl.`deleted` = 'false'";
+
+        if ($entity === 'variant') {
+            return "COALESCE(({$rows} AND pl.`product_variant_id` = `gst_product_variants`.`id`), "
+                ."({$rows} AND pl.`product_model_id` = `gst_product_variants`.`product_model_id` AND COALESCE(pl.`product_variant_id`, 0) = 0), "
+                .self::UNPINNED.')';
+        }
+
+        return "COALESCE(({$rows} AND pl.`product_model_id` = `gst_product_models`.`id`), ".self::UNPINNED.')';
     }
 
     private function descendantIds(int $root): array
@@ -326,7 +450,7 @@ final class CatalogFilter
         return $ids;
     }
 
-    private static function priceOrder(): string
+    public static function priceOrder(): string
     {
         return "(SELECT MIN(CASE WHEN p.`sale_price` > 0 AND p.`sale_price` < p.`price` THEN p.`sale_price` ELSE p.`price` END) FROM `gst_products` p WHERE p.`product_model_id` = `gst_product_models`.`id` AND p.`active` = 'true' AND p.`deleted` = 'false')";
     }
