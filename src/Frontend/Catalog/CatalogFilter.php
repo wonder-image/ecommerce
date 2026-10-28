@@ -275,45 +275,87 @@ final class CatalogFilter
     }
 
     /**
-     * Il filtro della fonte automatica di una selezione (`gst_product_selections.source`),
-     * con l'ordine naturale della fonte: le più recenti prima per `newest` e
-     * `novelty`, il catalogo per `offers`, la categoria (sottocategorie
-     * comprese) o il tag con la loro regola. Null per `manual`, per una fonte
-     * ignota o se la categoria o il tag non c'è più.
+     * Il filtro della fonte automatica di una selezione (`gst_product_selections.source`):
+     * tutto il catalogo (`catalog`), gli articoli in offerta (`offers`), o
+     * quelli di almeno una delle categorie (sottocategorie comprese), dei tag
+     * o dei marchi in `$refIds`; mai gli articoli in `$excluded`. `$sortMode`
+     * è la regola della selezione: «Nell'ordine dato» segue il catalogo, o la
+     * categoria o il tag quando è uno solo. Null per `manual`, per una fonte
+     * ignota o se nessun riferimento c'è più.
+     *
+     * @param list<int> $refIds
+     * @param list<int> $excluded
      */
-    public static function forSelection(string $source, int $refId = 0): ?self
+    public static function forSelection(string $source, array $refIds = [], array $excluded = [], string $sortMode = 'manual'): ?self
     {
         $filter = new self([]);
 
         switch ($source) {
-            case 'newest':
-                $filter->applyOrder('recenti');
-                return $filter;
-            case 'novelty':
-                $filter->conditions[] = self::noveltyCondition();
-                $filter->applyOrder('recenti');
-                return $filter;
+            case 'catalog':
+                break;
             case 'offers':
                 $filter->conditions[] = self::offersCondition();
-                $filter->applyOrder(null);
-                return $filter;
+                break;
             case 'category':
-                $category = $refId > 0 ? Category::find(['id' => $refId, 'visible' => 'true', 'deleted' => 'false'], 1) : null;
-                if (!is_array($category) || (int) ($category['id'] ?? 0) <= 0) return null;
-                $filter->conditions[] = $filter->categoryCondition((int) $category['id']);
-                $filter->useContext(Placements::CATEGORY, $category);
-                $filter->applyOrder(null);
-                return $filter;
+                $rows = self::refRows(Category::class, $refIds, ['visible' => 'true', 'deleted' => 'false']);
+                if ($rows === []) return null;
+                $filter->conditions[] = '('.implode(' OR ', array_map(
+                    static fn (array $row): string => $filter->categoryCondition((int) $row['id']),
+                    $rows
+                )).')';
+                if (count($rows) === 1) $filter->useContext(Placements::CATEGORY, $rows[0]);
+                break;
             case 'tag':
                 // Come forTag(): anche un tag nascosto può alimentare un blocco.
-                $tag = $refId > 0 ? Tag::find(['id' => $refId, 'deleted' => 'false'], 1) : null;
-                if (!is_array($tag) || (int) ($tag['id'] ?? 0) <= 0) return null;
-                if ($filter->applyTag((string) ($tag['slug'] ?? ''), false) === null) return null;
-                $filter->applyOrder(null);
-                return $filter;
+                $rows = self::refRows(Tag::class, $refIds, ['deleted' => 'false']);
+                if ($rows === []) return null;
+                $ids = implode(',', array_map(static fn (array $row): int => (int) $row['id'], $rows));
+                $filter->conditions[] = "EXISTS (SELECT 1 FROM `gst_product_model_tags` mt WHERE mt.`product_model_id` = `gst_product_models`.`id` AND mt.`tag_id` IN ({$ids}) AND mt.`deleted` = 'false')";
+                if (count($rows) === 1) $filter->useContext(Placements::TAG, $rows[0]);
+                break;
+            case 'brand':
+                $rows = self::refRows(Brand::class, $refIds, ['visible' => 'true', 'deleted' => 'false']);
+                if ($rows === []) return null;
+                $filter->conditions[] = '`brand_id` IN ('.implode(',', array_map(static fn (array $row): int => (int) $row['id'], $rows)).')';
+                break;
             default:
                 return null;
         }
+
+        $excluded = array_values(array_filter(array_map('intval', $excluded), static fn (int $id): bool => $id > 0));
+        if ($excluded !== []) {
+            $filter->conditions[] = '`gst_product_models`.`id` NOT IN ('.implode(',', array_unique($excluded)).')';
+        }
+
+        $filter->applyOrder(match ($sortMode) {
+            'newest' => 'recenti',
+            'name' => 'nome_asc',
+            'price_asc' => 'prezzo_asc',
+            'price_desc' => 'prezzo_desc',
+            default => null,
+        });
+
+        return $filter;
+    }
+
+    /**
+     * Le righe ancora valide fra gli id di una selezione, nell'ordine dato.
+     *
+     * @param class-string $model
+     * @param list<int> $ids
+     * @param array<string, string> $where
+     * @return list<array<string, mixed>>
+     */
+    private static function refRows(string $model, array $ids, array $where): array
+    {
+        $rows = [];
+
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $row = $id > 0 ? $model::find(['id' => $id] + $where, 1) : null;
+            if (is_array($row) && (int) ($row['id'] ?? 0) > 0) $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     /** Gli articoli nuovi: creati negli ultimi `catalog.new_days` giorni, come /novita/. */

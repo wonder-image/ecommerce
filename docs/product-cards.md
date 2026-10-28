@@ -177,14 +177,16 @@ $day = ProductLists::tag('giorno', 8, CustomerPriceList::current());
   card di quella variante; il limite è quello passato, `null` vale 12.
   Articoli e varianti nascosti al sito restano fuori.
 - Le altre fonti prendono le card dal catalogo con
-  `CatalogFilter::forSelection($source, $refId)`: `newest` (le più recenti),
-  `novelty` (come `/novita/`), `offers` (come `/offerte/`, nell'ordine del
-  catalogo), `category` (con le sottocategorie) e `tag` (anche nascosto), con
-  l'ordine e l'evidenza del loro contesto. Il limite è `max_items` della
-  selezione; uno passato più basso vince, più alto no. Una categoria o un tag
-  che non c'è più dà `products` vuoto.
-- `sort_mode = manual` lascia l'ordine dato o quello della fonte; le altre
-  regole riordinano le card prese, poi si taglia al limite.
+  `CatalogFilter::forSelection($source, $refIds, $excluded, $sortMode)`:
+  `catalog` (tutto), `offers` (come `/offerte/`), `category` (una o più, con
+  le sottocategorie), `tag` (anche nascosti) e `brand`, in OR fra gli id
+  scelti; gli articoli in `excluded_model_ids` restano fuori. Il limite è
+  `max_items` della selezione; uno passato più basso vince, più alto no. Se
+  nessun riferimento c'è più, `products` è vuoto.
+- `sort_mode` vale per tutta la fonte, prima del limite. `manual` lascia
+  l'ordine del catalogo, o quello (con l'evidenza) della categoria o del tag
+  quando è uno solo. Per `source = manual` le altre regole riordinano tutta
+  la selezione, poi si taglia.
 - `block` è la chiave del blocco scelto nel gestionale (`default`,
   `spotlight` o uno del sito, vedi `SelectionBlocks` del gestionale): il sito
   la usa per scegliere il componente. `meta` ha solo i campi in più di quel

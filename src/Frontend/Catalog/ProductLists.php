@@ -42,9 +42,10 @@ final class ProductLists
      * - fonte `manual`: le righe della selezione; `$limit` (di serie
      *   {@see MANUAL_LIMIT}) taglia, e un ordine diverso da «Nell'ordine dato»
      *   riordina tutta la selezione prima di tagliare;
-     * - fonti automatiche: i primi `max_items` articoli della fonte, nel suo
-     *   ordine ({@see CatalogFilter::forSelection()}); `$limit` può solo
-     *   ridurli; un ordine diverso da «Nell'ordine dato» riordina quelli presi.
+     * - fonti automatiche: i primi `max_items` articoli della fonte, tolti gli
+     *   esclusi, già nell'ordine della selezione ({@see CatalogFilter::forSelection()}):
+     *   la regola vale per tutta la fonte, prima di tagliare; `$limit` può
+     *   solo ridurli.
      *
      * `block` è la chiave del blocco ({@see SelectionBlocks}), `meta` i suoi
      * campi in più già decodificati, una chiave per campo ('' se vuoto).
@@ -77,13 +78,18 @@ final class ProductLists
         } else {
             $max = Placements::selectionMaxItems($selection['max_items'] ?? null);
             $limit = self::limit(min($limit ?? $max, $max));
-            $column = Placements::SELECTION_SOURCE_REFS[$source] ?? '';
-            $filter = CatalogFilter::forSelection($source, $column !== '' ? (int) ($selection[$column] ?? 0) : 0);
-            // La fonte sceglie quali, la regola della selezione li riordina.
+            $filter = CatalogFilter::forSelection(
+                $source,
+                Placements::selectionRefIds($selection, $source),
+                Placements::selectionExcluded($selection),
+                $mode
+            );
             $cards = $filter === null ? [] : ProductListing::cards($filter, (string) $limit, $priceList);
         }
 
-        $cards = array_slice(self::sorted($cards, $mode), 0, $limit);
+        if ($source === 'manual') {
+            $cards = array_slice(self::sorted($cards, $mode), 0, $limit);
+        }
         $block = SelectionBlocks::normalize($selection['block'] ?? null);
 
         return [

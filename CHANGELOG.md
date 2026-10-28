@@ -63,10 +63,12 @@ versionamento semantico.
 ### Aggiunto
 
 - Selezioni con fonte e blocco: `ProductLists::selection($slug, ?int $limit = null, $priceList)`
-  segue `source` della selezione (`manual`, `newest`, `novelty`, `offers`,
-  `category`, `tag`) con `CatalogFilter::forSelection()`, fino a `max_items`
-  (un limite passato più basso vince; per `manual` `null` vale 12), e riordina
-  con `sort_mode` se non è `manual`. Il risultato ha in più `block`, `meta`
+  segue `source` della selezione (`manual`, `catalog`, `offers`, `category`,
+  `tag`, `brand`, più id in OR, senza gli esclusi) con
+  `CatalogFilter::forSelection($source, $refIds, $excluded, $sortMode)`, fino a
+  `max_items` (un limite passato più basso vince; per `manual` `null` vale 12).
+  Per le fonti automatiche `sort_mode` entra nella query; per `manual`
+  riordina tutta la selezione prima di tagliare. Il risultato ha in più `block`, `meta`
   (i campi in più del blocco), `source` e `sort_mode`. Le colonne nascono nel
   gestionale: passo a mano `php forge update`.
 - `CatalogFilter::showsPlacements()`: se il contesto mostra gli articoli in

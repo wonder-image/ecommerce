@@ -116,18 +116,23 @@ check('senza «Mostra articoli in evidenza» la categoria o il tag tiene la sua 
     return $ok;
 });
 
-check('le fonti automatiche della selezione: ordine della fonte, niente in evidenza', function () {
-    $nuovi = CatalogFilter::forSelection('newest');
-    $novita = CatalogFilter::forSelection('novelty');
-    $offerte = CatalogFilter::forSelection('offers');
+check('le fonti automatiche della selezione: catalogo, offerte, esclusi e ordine della selezione', function () {
+    $catalogo = CatalogFilter::forSelection('catalog');
+    $offerte = CatalogFilter::forSelection('offers', [], [4, '9', 0], 'price_desc');
 
     return CatalogFilter::forSelection('manual') === null
         && CatalogFilter::forSelection('boh') === null
-        && CatalogFilter::forSelection('category', 0) === null
-        && CatalogFilter::forSelection('tag', 0) === null
-        && $nuovi !== null && $nuovi->sort() === 'newest' && !$nuovi->pinned() && $nuovi->context()['type'] === ''
-        && $novita !== null && $novita->sort() === 'newest' && str_contains($novita->where(), 'DATE_SUB(NOW(), INTERVAL')
-        && $offerte !== null && str_contains($offerte->where(), 'p.`sale_price` < p.`price`') && !$offerte->pinned();
+        && CatalogFilter::forSelection('newest') === null
+        && CatalogFilter::forSelection('category', []) === null
+        && CatalogFilter::forSelection('tag', [0]) === null
+        && CatalogFilter::forSelection('brand', []) === null
+        && $catalogo !== null && !$catalogo->pinned() && $catalogo->context()['type'] === ''
+        && !str_contains($catalogo->where(), 'NOT IN')
+        && $offerte !== null && str_contains($offerte->where(), 'p.`sale_price` < p.`price`') && !$offerte->pinned()
+        && str_contains($offerte->where(), '`gst_product_models`.`id` NOT IN (4,9)')
+        && $offerte->sort() === 'price_desc'
+        && CatalogFilter::forSelection('catalog', [], [], 'newest')->sort() === 'newest'
+        && CatalogFilter::forSelection('catalog', [], [], 'name')->sort() === 'name';
 });
 
 check('un contesto sconosciuto non entra nell\'SQL', function () {
