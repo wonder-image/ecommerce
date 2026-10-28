@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Payments\PaymentMethod;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
@@ -53,6 +54,9 @@ final class CheckoutSummary
             $preview['items'][$i]['line_total_display'] = CartPresenter::money($riga['line_total'] ?? 0, $valuta);
             $preview['items'][$i]['quantity_display'] = CartPresenter::quantity($riga['quantity'] ?? 1);
             $preview['items'][$i]['parts'] = CartPresenter::parts($riga);
+            // La foto già pronta (`__ri()`): il JS la mette al posto del segnaposto.
+            $foto = trim((string) ($riga['image'] ?? ''));
+            $preview['items'][$i]['image_html'] = $foto !== '' ? (string) Product::image($foto, Product::IMAGE_THUMB)->displaySizes('72px') : '';
         }
 
         foreach ($preview['shipping_methods']['options'] as $i => $opzione) {

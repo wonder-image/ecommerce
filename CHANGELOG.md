@@ -5,6 +5,12 @@ versionamento semantico.
 
 ## 0.2.0-beta.1 — non rilasciata
 
+### Corretto
+
+- **Immagini sempre da `__ri()`.** La foto e lo sfondo dello spotlight sono
+  immagini responsive (lo sfondo non è più un `background` CSS); il riepilogo
+  del checkout riceve `image_html` dal server invece di cambiare solo il `src`.
+
 ### BREAKING
 
 - Slot delle pagine sigillate (issue #25): carrello, checkout, conferma
@@ -62,6 +68,13 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Bottone delle selezioni.** `Frontend\Catalog\SelectionLink::from($meta)`
+  traduce i campi `cta_*` della selezione in testo e URL; `ProductList::action()`
+  lo stampa nell'intestazione, accanto alle frecce. Il link personalizzato
+  accetta solo `/…`, `http(s)://`, `mailto:` e `tel:`; una voce nascosta o
+  sparita toglie il bottone.
+- **Pagina del tag** `/tag/{slug}/` (`ecommerce.catalog.tag`): i prodotti di
+  un tag; il tag della collezione resta su `/collezione/`.
 - `Frontend\Catalog\SelectionBlock::render($slug)`: stampa una selezione
   di Catalogo → Selezioni con il blocco scelto nel gestionale (elenco, swiper
   o articolo in primo piano), con `view_item_list` e `select_item`.

@@ -247,8 +247,8 @@ class Checkout {
         const node = template.content.cloneNode(true).firstElementChild;
         const image = node.querySelector('[data-line-image]');
 
-        if (image && item.image) {
-            image.src = item.image;
+        if (image && item.image_html) {
+            image.outerHTML = item.image_html;
         } else {
             image?.remove();
         }

@@ -20,10 +20,13 @@ $text = ($selection['text'] ?? '') !== '' ? $selection['text'] : null;
 <div class="selection-spotlight w-100 d-grid col-2 col-p-1 gap-5">
     <div class="selection-spotlight__media p-r f-1-1 o-hidden bg-light"<?=$right ? ' style="order: 2"' : ''?>>
         <?php if ($image !== ''): ?>
-            <img class="p-a top start w-100 h-100" style="object-fit: cover" src="<?=e($image)?>" alt="<?=e($product['name'] ?? '')?>" loading="lazy">
+            <?=__ri($image)->size(960)->displaySizes('(max-width: 768px) 100vw, 50vw')->fitCover()->attr('alt', (string) ($product['name'] ?? ''))?>
         <?php endif; ?>
     </div>
-    <div class="selection-spotlight__product p-r d-flex o-hidden p-5" style="align-items: center; justify-content: center<?=$background !== '' ? "; background: url('".e($background)."') center / cover no-repeat" : ''?>">
-        <div class="w-100" style="max-width: 320px"><?=$card?></div>
+    <div class="selection-spotlight__product p-r d-flex o-hidden p-5" style="align-items: center; justify-content: center">
+        <?php if ($background !== ''): ?>
+            <?=__ri($background)->size(1440)->displaySizes('(max-width: 768px) 100vw, 50vw')->fitCover()->attr('alt', '')?>
+        <?php endif; ?>
+        <div class="p-r w-100" style="max-width: 320px"><?=$card?></div>
     </div>
 </div>

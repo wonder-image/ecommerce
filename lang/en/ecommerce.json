@@ -22,6 +22,7 @@
             "collection": { "title": "Collection", "description": "Explore the selected collection." },
             "brand": { "description": "Discover all products from this brand." },
             "category": { "description": "Explore all products in this category." },
+            "tag": { "description": "Discover all products with this tag." },
             "search": { "title": "Search", "description": "Search products by name, code or description." },
             "results": "{{count}} products",
             "empty": "No products match the selected filters"

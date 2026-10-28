@@ -46,6 +46,8 @@ Route::area('frontend')
             ->name('ecommerce.catalog.collection');
         Route::get('/marchi/{marca}/', $catalog, ['catalog_action' => 'brand'])
             ->name('ecommerce.catalog.brand');
+        Route::get('/tag/{tag}/', $catalog, ['catalog_action' => 'tag'])
+            ->name('ecommerce.catalog.tag');
         Route::get('/cerca/', $catalog, ['catalog_action' => 'search'])
             ->name('ecommerce.catalog.search');
 

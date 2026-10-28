@@ -243,7 +243,7 @@ check('le FAQ: domanda protetta, risposta HTML, titolo tradotto o tolto, niente 
         && trim($faq(['faqs' => []])) === '';
 });
 
-check('la selezione in primo piano: foto 1:1 dal lato scelto, card sopra lo sfondo', function () use ($products) {
+check('la selezione in primo piano: foto 1:1 dal lato scelto, card sopra lo sfondo, immagini da __ri()', function () use ($products) {
     $spotlight = static fn (array $meta, string $background): string => \Wonder\View\View::component(
         \Wonder\Plugin\Ecommerce\Ecommerce::viewPath('components/catalog/selection/spotlight.php'),
         ['selection' => ['title' => 'Alba', 'subtitle' => '', 'text' => '<p>Testo</p>', 'image' => '', 'background' => $background, 'meta' => $meta, 'products' => [$products[0]]], 'card' => '<article class="product-card">x</article>']
@@ -252,13 +252,13 @@ check('la selezione in primo piano: foto 1:1 dal lato scelto, card sopra lo sfon
     $right = $spotlight(['image_side' => 'right'], '/media/sfondo.jpg');
 
     return str_contains($left, 'f-1-1')
-        && str_contains($left, 'src="/media/t-shirt.jpg"')
+        && str_contains($left, 'data-wi-image-name="t-shirt.jpg"')
         && !str_contains($left, 'order: 2')
-        && !str_contains($left, 'background:')
+        && !str_contains($left, 'sfondo')
         && str_contains($left, '<h2 class="title tx-primary">Alba</h2>')
         && str_contains($left, '<p>Testo</p>')
         && str_contains($right, 'order: 2')
-        && str_contains($right, "url('/media/sfondo.jpg')");
+        && str_contains($right, 'data-wi-image-name="sfondo.jpg"');
 });
 
 check('il blocco della selezione manda view_item_list e prepara select_item', function () {
@@ -278,6 +278,14 @@ check('il testo della selezione va nell\'intestazione dell\'elenco', function ()
     $html = ProductList::make($products)->title('Titolo', null, '<p>Due righe</p>')->render('grid');
 
     return str_contains($html, '<div class="text mt-2"><p>Due righe</p></div>');
+});
+
+check('il bottone della selezione va nell\'intestazione, anche senza titolo; senza link niente bottone', function () use ($products) {
+    $html = ProductList::make($products)->action('Vedi <tutti>', '/prodotti/')->render('grid');
+
+    return str_contains($html, 'href="/prodotti/"')
+        && str_contains($html, 'Vedi &lt;tutti&gt;')
+        && !str_contains(ProductList::make($products)->action('Vedi', '')->render('grid'), 'Vedi');
 });
 
 summary();

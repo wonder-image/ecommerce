@@ -167,6 +167,19 @@ final class CatalogFilter
             return;
         }
 
+        if ($action === 'tag') {
+            $tag = $this->applyTag((string) ($parameters['tag'] ?? ''), true);
+            $this->valid = $tag !== null;
+            if ($this->valid) {
+                $this->titleKey = '';
+                $this->routeTitle = (string) $tag['name'];
+                $this->descriptionKey = 'ecommerce.catalog.listing.tag.description';
+                $this->canonical = '/tag/'.rawurlencode((string) $tag['slug']).'/';
+                $this->breadcrumbs[] = ['url' => $this->canonical, 'name' => self::clean((string) $tag['name'])];
+            }
+            return;
+        }
+
         if ($action === 'search') {
             $this->titleKey = 'ecommerce.catalog.listing.search.title';
             $this->descriptionKey = 'ecommerce.catalog.listing.search.description';

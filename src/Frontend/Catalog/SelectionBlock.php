@@ -16,6 +16,7 @@ use Wonder\View\View;
  *
  * - `default`: griglia di card ({@see ProductList});
  * - `swiper`: le stesse card in uno slider;
+ *   tutti e due con il bottone della selezione, se c'è ({@see SelectionLink});
  * - `spotlight`: il primo articolo, foto 1:1 da un lato e card dall'altro,
  *   sopra lo sfondo della selezione.
  *
@@ -45,8 +46,10 @@ final class SelectionBlock
             if ($selection['block'] === 'swiper') {
                 $cards = array_slice($cards, 0, max(1, (int) (((array) Ecommerce::config('catalog.swiper', []))['max'] ?? 12)));
             }
+            $action = SelectionLink::from($selection['meta'] ?? []);
             $html = ProductList::make($cards)
                 ->title($selection['title'], $selection['subtitle'], $selection['text'])
+                ->action($action['label'] ?? null, $action['url'] ?? null)
                 ->render($selection['block'] === 'swiper' ? 'swiper' : 'grid');
         }
         if ($html === '') return '';

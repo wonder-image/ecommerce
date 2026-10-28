@@ -24,6 +24,7 @@
             "collection": { "title": "Collezione", "description": "Esplora la collezione selezionata." },
             "brand": { "description": "Scopri tutti i prodotti di questo marchio." },
             "category": { "description": "Esplora tutti i prodotti di questa categoria." },
+            "tag": { "description": "Scopri tutti i prodotti con questo tag." },
             "search": { "title": "Cerca", "description": "Cerca prodotti per nome, codice o descrizione." },
             "results": "{{count}} prodotti",
             "empty": "Nessun prodotto corrisponde ai filtri selezionati"

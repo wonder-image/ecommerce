@@ -20,7 +20,7 @@ $attributes = $url !== '' ? ' href="'.e($url).'" tabindex="-1" aria-hidden="true
 ?>
 <<?=$tag.$attributes?> class="wi-thumb" style="--wi-thumb-size: <?=$size?>px">
     <?php if ($image === 'data:,'): ?>
-        <?php // Il template del JS ha un <img> semplice: checkout.js ne cambia solo il src. ?>
+        <?php // Segnaposto del template JS: checkout.js lo sostituisce con la foto fatta da `__ri()`. ?>
         <img src="data:," alt="" class="skeleton bg bg-contain" data-line-image>
     <?php elseif ($image !== ''): ?>
         <?=Product::image($image, Product::IMAGE_THUMB)->displaySizes($size.'px')?>

@@ -17,6 +17,8 @@ final class ProductList
     private ?string $title = null;
     private ?string $subtitle = null;
     private ?string $text = null;
+    /** @var array{label:string,url:string}|null */
+    private ?array $action = null;
     private string $emptyMessage = 'Nessun prodotto disponibile';
     private int $desktopColumns = 4;
     private int $tabletColumns = 3;
@@ -90,6 +92,16 @@ final class ProductList
         $this->title = self::nullableText($title);
         $this->subtitle = self::nullableText($subtitle);
         $this->text = self::nullableText($text);
+
+        return $this;
+    }
+
+    /** Il bottone dell'intestazione, accanto al titolo: senza testo o link non c'è. */
+    public function action(?string $label, ?string $url): static
+    {
+        $label = self::nullableText($label);
+        $url = self::nullableText($url);
+        $this->action = $label !== null && $url !== null ? ['label' => $label, 'url' => $url] : null;
 
         return $this;
     }
@@ -239,6 +251,7 @@ final class ProductList
             'subtitle' => $this->subtitle,
             'text' => $this->text,
             'navigation' => $navigation,
+            'action' => $this->action,
         ]);
 
         if ($this->cards === []) {
