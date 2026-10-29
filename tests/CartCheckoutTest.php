@@ -60,9 +60,10 @@ check('il mini-carrello usa le utility del design system e conserva il fallback 
     $script = (string) file_get_contents($root.'/resources/assets/js/mini-cart.js');
 
     return str_contains($shell, 'id="cart-offpage"')
-        && str_contains($shell, 'class="p-f top end full-page no-interaction intro"')
+        && str_contains($shell, 'class="p-f top end w-100 full-page o-hidden no-interaction"')
         && str_contains($shell, 'background-blur" style="opacity: 0"')
-        && substr_count($shell, 'style="right: 0; translate: 100vw 0"') === 3
+        && substr_count($shell, 'style="right: 0; translate: 100vw 0') === 1
+        && str_contains($shell, 'class="cart-content ')
         && !preg_match('/style="[^"]*transition/', $shell)
         && str_contains($script, 'void this.element.offsetWidth')
         && strpos($script, 'void this.element.offsetWidth') < (int) strpos($script, "transitionProperty = 'translate'")
