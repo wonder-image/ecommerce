@@ -689,8 +689,9 @@ final class ProductCatalog
     /**
      * Senza «Una pagina per ogni valore» l'unica variante è lo scheletro, che
      * non ha valore e porta il nome del modello: il bottone ripeterebbe il
-     * titolo. Con un'opzione sola dice i suoi valori (es. «150ml»); con più
-     * opzioni non serve, sceglie il selettore.
+     * titolo. Con un'opzione sola dice i suoi valori (es. «150ml»), anche di
+     * attributi di livello variante finiti sull'opzione; con più opzioni non
+     * serve, sceglie il selettore.
      *
      * @param list<array<string, mixed>> $cards
      * @param list<array<string, mixed>> $groups
@@ -699,20 +700,22 @@ final class ProductCatalog
      */
     private static function skeletonCards(array $cards, int $variantId, array $groups, array $offers): array
     {
-        if (count($cards) !== 1 || $groups === []) return $cards;
+        if (count($cards) !== 1) return $cards;
 
         foreach (ProductAttributes::read('variant', $variantId) as $link) {
             if ((int) ($link['attribute_value_id'] ?? 0) > 0) return $cards;
         }
 
-        if (count($offers) !== 1) return [];
+        if (count($offers) !== 1) return $groups === [] ? $cards : [];
 
         $labels = [];
-        foreach ($groups as $group) {
-            $valueId = (string) ($offers[0]['attributes'][(string) ($group['id'] ?? '')] ?? '');
-            foreach ((array) ($group['values'] ?? []) as $value) {
-                if ((string) ($value['id'] ?? '') === $valueId) $labels[] = (string) ($value['label'] ?? '');
-            }
+        foreach (ProductAttributes::read('product', (int) ($offers[0]['product_id'] ?? 0)) as $attributeId => $link) {
+            $attribute = Attribute::find(['id' => $attributeId], 1);
+            if (!is_array($attribute)) continue;
+            $valueId = (int) ($link['attribute_value_id'] ?? 0);
+            $value = $valueId > 0 ? AttributeValue::find(['id' => $valueId], 1) : [];
+            $label = Attributes::format($attribute, $link, is_array($value) ? [$valueId => $value] : []);
+            if ($label !== '') $labels[] = $label;
         }
 
         if ($labels === []) return $cards;

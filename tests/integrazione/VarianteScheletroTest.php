@@ -53,7 +53,25 @@ try {
         }
         ProductModelResource::forgetCatalogCache();
 
-        $modello = static function (array $scelti) use ($formato): array {
+        // Come su illuna.it: «Formati» è di livello variante ma, senza una
+        // pagina per valore, finisce sull'opzione.
+        $formatoVariante = (int) (Attribute::create([
+            'code' => Code::make(Attribute::class, Codes::ATTRIBUTE),
+            'name' => 'Prova scheletro formato variante',
+            'slug' => Slug::make('prova-scheletro-formato-variante-'.uniqid()),
+            'type' => 'button',
+            'level' => 'variant',
+            'unit' => '',
+            'group_name' => '',
+            'is_filterable' => 'true',
+            'is_visible' => 'true',
+            'position' => 91,
+        ])->insert_id ?? 0);
+        $valoreVariante = (string) (AttributeValue::create(['attribute_id' => $formatoVariante, 'label' => '50ml', 'color' => '', 'position' => 1])->insert_id ?? 0);
+        ProductModelResource::forgetCatalogCache();
+
+        $modello = static function (array $scelti, ?int $attributo = null) use ($formato): array {
+            $attributo ??= $formato;
             $id = (int) (ProductModel::create([
                 'code' => Code::make(ProductModel::class, Codes::MODEL),
                 'name' => 'Prova scheletro',
@@ -68,7 +86,7 @@ try {
             Skeleton::forModel($id, 'Prova scheletro', 'SCH');
             ProvaScheletroEcommerce::saveExtras($id, [
                 'has_variants' => 'true',
-                'option_'.$formato => $scelti,
+                'option_'.$attributo => $scelti,
                 'product_price' => '30,00',
                 'page_attribute' => '',
             ], 'SCH');
@@ -88,6 +106,11 @@ try {
         check('più formati: niente bottone col nome del modello, sceglie il selettore', fn () =>
             count($due['offers'] ?? []) === 2
             && ($due['variants'] ?? null) === []
+        );
+
+        $variante = $modello([$valoreVariante], $formatoVariante);
+        check('attributo di livello variante sull\'opzione: il bottone dice «50ml»', fn () =>
+            array_column($variante['variants'] ?? [], 'name') === ['50ml']
         );
 
         throw new AnnullaVarianteScheletro();
