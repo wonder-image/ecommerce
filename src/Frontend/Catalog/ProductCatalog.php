@@ -226,6 +226,7 @@ final class ProductCatalog
                 'active' => (int) ($row['id'] ?? 0) === $variantId,
             ];
         }
+        $variantCards = self::skeletonCards($variantCards, $variantId, $optionGroups, $offers);
 
         $breadcrumbs = [[
             'url' => self::absolute('/'),
@@ -683,6 +684,41 @@ final class ProductCatalog
         }
 
         return array_is_list($rows) ? array_values(array_filter($rows, 'is_array')) : [$rows];
+    }
+
+    /**
+     * Senza «Una pagina per ogni valore» l'unica variante è lo scheletro, che
+     * non ha valore e porta il nome del modello: il bottone ripeterebbe il
+     * titolo. Con un'opzione sola dice i suoi valori (es. «150ml»); con più
+     * opzioni non serve, sceglie il selettore.
+     *
+     * @param list<array<string, mixed>> $cards
+     * @param list<array<string, mixed>> $groups
+     * @param list<array<string, mixed>> $offers
+     * @return list<array<string, mixed>>
+     */
+    private static function skeletonCards(array $cards, int $variantId, array $groups, array $offers): array
+    {
+        if (count($cards) !== 1 || $groups === []) return $cards;
+
+        foreach (ProductAttributes::read('variant', $variantId) as $link) {
+            if ((int) ($link['attribute_value_id'] ?? 0) > 0) return $cards;
+        }
+
+        if (count($offers) !== 1) return [];
+
+        $labels = [];
+        foreach ($groups as $group) {
+            $valueId = (string) ($offers[0]['attributes'][(string) ($group['id'] ?? '')] ?? '');
+            foreach ((array) ($group['values'] ?? []) as $value) {
+                if ((string) ($value['id'] ?? '') === $valueId) $labels[] = (string) ($value['label'] ?? '');
+            }
+        }
+
+        if ($labels === []) return $cards;
+        $cards[0]['name'] = implode(' / ', $labels);
+
+        return $cards;
     }
 
     /** Un attributo di variante di tipo «Bottone» chiede bottoni di testo, anche con la foto. */

@@ -7,6 +7,10 @@ versionamento semantico.
 
 ### Corretto
 
+- **Bottone variante col nome del modello.** Con «Una pagina per ogni valore»
+  spento l'unica variante è lo scheletro: il bottone ora dice il valore
+  dell'opzione (es. «150ml») se l'opzione è una sola, e sparisce se sono più
+  d'una, perché sceglie il selettore.
 - **Immagini sempre da `__ri()`.** La foto e lo sfondo dello spotlight sono
   immagini responsive (lo sfondo non è più un `background` CSS); il riepilogo
   del checkout riceve `image_html` dal server invece di cambiare solo il `src`.
