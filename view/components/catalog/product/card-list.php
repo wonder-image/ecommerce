@@ -7,9 +7,11 @@ $product = is_array($product ?? null) ? $product : [];
 $url = (string) ($product['url'] ?? '');
 $tag = $url !== '' ? 'a' : 'div';
 $link = $url !== '' ? ' href="'.e($url).'"' : '';
+// Il link del nome è quello accessibile: la foto resta cliccabile ma fuori dal tab e dallo screen reader.
+$mediaA11y = $url !== '' ? ' tabindex="-1" aria-hidden="true"' : '';
 ?>
 <article class="product-card product-card--list d-grid col-4 col-p-1 gap-4 pb-4">
-    <<?=$tag?> class="product-card__media p-r d-block <?=ImageFormat::className('catalog.card.image_format', '1:1')?> bg-light o-hidden"<?=$link?>>
+    <<?=$tag?> class="product-card__media p-r d-block <?=ImageFormat::className('catalog.card.image_format', '1:1')?> bg-light o-hidden"<?=$link?><?=$mediaA11y?>>
         <?php if (($product['image'] ?? '') !== ''): ?>
             <?=ImageFormat::fit(Product::image((string) $product['image'], Product::IMAGE_CARD, (string) ($product['image_alt'] ?? ''))->displaySizes('(max-width: 768px) 100vw, 25vw'), 'catalog.card.image_fit')?>
         <?php else: ?>
