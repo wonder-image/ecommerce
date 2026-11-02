@@ -7,6 +7,10 @@ versionamento semantico.
 
 ### Corretto
 
+- **Niente zoom su iPhone toccando un campo.** `store.css` non forza più il testo
+  degli input di accesso, account, carrello e checkout a 14px: vale quello del sito
+  (Dev → Stile → Input, 16px di default), perché sotto i 16px Safari iOS ingrandisce
+  la pagina al focus. Label, testi e bottoni restano a 14px.
 - **Bottone variante col nome del modello.** Con «Una pagina per ogni valore»
   spento l'unica variante è lo scheletro: il bottone ora dice il valore
   dell'opzione (es. «150ml») se l'opzione è una sola, e sparisce se sono più
