@@ -237,6 +237,7 @@ try {
     Transaction::run(static function (): void {
         $GLOBALS['REGISTRA'] = static function (): void {
             Route::reset();
+            routeDelSito();
             AccountRoutes::reset();
             AuthRoutes::register(new AuthProfile()); // così `route('logout')` si risolve senza ricaricare le route
             AccountRoutes::register(new AccountPanel(), new AuthProfile());
@@ -539,6 +540,7 @@ try {
     Transaction::run(static function (): void {
         $GLOBALS['REGISTRA'] = static function (): void {
             Route::reset();
+            routeDelSito();
             AccountRoutes::reset();
             AuthRoutes::register(new AuthProfile());
             AccountRoutes::register(new AccountPanel(), new AuthProfile());
@@ -644,6 +646,7 @@ try {
         // azzera), e il pannello del core con la sua estensione deve ritornare, la prima volta e le successive.
         unset($GLOBALS['REGISTRA']);
         Route::reset();
+        routeDelSito();
         AccountRoutes::reset();
         __r('nessuna-route-con-questo-nome');
         $dopoIlPrimo = [Route::url('account.index'), Route::url('account.payment-methods')];

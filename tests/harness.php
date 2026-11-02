@@ -165,6 +165,31 @@ final class Istantanea
     }
 }
 
+/**
+ * Route del sito caricate prima di quelle del test: l'header le chiede con `__r()`,
+ * che altrimenti le caricherebbe a metà pagina e col pannello del negozio sopra quello del test.
+ * Le route dell'account e il pannello del negozio si tolgono: li registra il test.
+ */
+function routeDelSito(): void
+{
+    \Wonder\Auth\Frontend\AccountRoutes::reset();
+    \Wonder\Http\Route::loadDirectories([
+        $GLOBALS['ROOT_APP'].'/config/routes',
+        $GLOBALS['ROOT'].'/custom/routes',
+    ], [
+        'ROOT' => $GLOBALS['ROOT'],
+        'ROOT_APP' => $GLOBALS['ROOT_APP'],
+    ]);
+    \Wonder\Auth\Frontend\AccountRoutes::reset();
+
+    $account = static fn (array $route): bool => !str_starts_with((string) ($route['name'] ?? ''), 'account.');
+    foreach (['routes' => true, 'namedRoutes' => false] as $nome => $lista) {
+        $proprieta = new \ReflectionProperty(\Wonder\Http\Route::class, $nome);
+        $route = array_filter($proprieta->getValue(), $account);
+        $proprieta->setValue(null, $lista ? array_values($route) : $route);
+    }
+}
+
 function summary(): void
 {
     $t = $GLOBALS['__tests'];

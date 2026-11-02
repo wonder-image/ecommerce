@@ -55,19 +55,24 @@ foreach (['', 'maglietta', '<script>', ['malformed']] as $term) {
     });
 }
 
+// Con le card per modello (`catalog.listing_entity` del sito) la ricerca della variante porta al suo modello.
+$configSito = (getenv('WI_TEST_SITE') ?: '/Users/andreamarinoni/Developer/boilerplates/ecommerce-site').'/custom/config/modules/ecommerce.php';
+$perVariante = ((is_file($configSito) ? (array) require $configSito : [])['catalog']['listing_entity'] ?? 'model') === 'variant';
+$atteso = $perVariante
+    ? ['Maglietta Girocollo Rosso', '/prodotto/maglietta-girocollo/rosso/']
+    : ['Maglietta Girocollo', '/prodotto/maglietta-girocollo/'];
 foreach (['Maglietta Girocollo Ros', 'Maglietta Girocollo Rosso'] as $term) {
     [$status, $html] = $request('/cerca/?q='.rawurlencode($term));
-    check('la ricerca composta trova la variante: '.$term, function () use ($status, $html) {
-        return $status === 200 && str_contains($html, 'Maglietta Girocollo Rosso')
-            && str_contains($html, '/prodotto/maglietta-girocollo/rosso/');
+    check('la ricerca composta trova la variante: '.$term, function () use ($status, $html, $atteso) {
+        return $status === 200 && str_contains($html, $atteso[0]) && str_contains($html, $atteso[1]);
     });
 }
 [$status, $body] = $request('/api/ecommerce/catalog/products/search/', ['search' => 'Maglietta Girocollo Ros']);
-check('il suggerimento della variante contiene il suo URL', function () use ($status, $body) {
+check('il suggerimento della variante contiene il suo URL', function () use ($status, $body, $atteso) {
     $results = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
     return $status === 200 && count($results) === 1
-        && $results[0]['input-value'] === 'Maglietta Girocollo Rosso'
-        && str_ends_with($results[0]['value'], '/prodotto/maglietta-girocollo/rosso/');
+        && $results[0]['input-value'] === $atteso[0]
+        && str_ends_with($results[0]['value'], $atteso[1]);
 });
 [$status, $html] = $request('/prodotto/maglietta-girocollo/rosso/');
 check('la scheda conserva SEO e tracking senza il titolo Varianti', function () use ($status, $html) {

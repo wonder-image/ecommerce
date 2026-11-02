@@ -117,6 +117,7 @@ function paginaNegozio(string $action, array $parameters = [], array $get = []):
 
 $GLOBALS['REGISTRA'] = static function (): void {
     Route::reset();
+    routeDelSito();
     AccountRoutes::reset();
     AuthRoutes::register(new AuthProfile());
     AccountRoutes::register(new AccountPanel(), new AuthProfile());
@@ -347,9 +348,9 @@ check('dettaglio: informazioni, tracking, prodotti, riepilogo e indirizzi', fn (
         && str_contains($html, '05/03/2026 09:30')
         && str_contains($html, e((string) __t('ecommerce.account.orders.status.confirmed')))
         && str_contains($html, e((string) __t('ecommerce.account.orders.payment_status.paid')))
-        // I nomi dei metodi li scrive il modello con le iniziali maiuscole (`sanitizeFirst()`).
+        // I nomi dei metodi restano come scritti nel gestionale.
         // Il pagamento è il solo nome del metodo, senza le icone delle carte.
-        && str_contains($html, 'Corriere Espresso') && str_contains($html, 'Carta Di Prova') && !str_contains($html, 'payment-icons/visa.svg')
+        && str_contains($html, 'Corriere espresso') && str_contains($html, 'Carta di prova') && !str_contains($html, 'payment-icons/visa.svg')
         && str_contains($html, e((string) __t('ecommerce.account.orders.fulfillment_label')))
         && str_contains($html, '/'.$code.'/proforma/') && str_contains($html, e((string) __t('ecommerce.account.orders.proforma')))
         && str_contains($html, 'TRK123') && str_contains($html, 'href="https://traccia.example/TRK123"') && !str_contains($html, 'ANNULLATA')
