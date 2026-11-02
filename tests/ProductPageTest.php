@@ -349,4 +349,13 @@ check('frecce e bullet della galleria prendono i colori da product.arrows e prod
         && $config['product']['bullets'] === 'primary';
 });
 
+check('le miniature della galleria si spengono con product.thumbs', function () {
+    $root = dirname(__DIR__);
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+    $config = require $root.'/config/module.php';
+
+    return str_contains($view, "->thumbnails(count(\$images) > 1 && (bool) Ecommerce::config('product.thumbs', true))")
+        && $config['product']['thumbs'] === true;
+});
+
 summary();

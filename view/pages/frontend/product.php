@@ -160,7 +160,7 @@ Ecommerce::layout('shop');
                 ->size(Product::IMAGE_GALLERY)
                 ->fitContain(!ImageFormat::cover('product.image_fit'))
                 ->ratio(ImageFormat::ratio('product.image_format', '4:5'))
-                ->thumbnails(count($images) > 1)
+                ->thumbnails(count($images) > 1 && (bool) Ecommerce::config('product.thumbs', true))
                 ->thumbsRatio(ImageFormat::ratio('product.thumbs_format', '1:1'))
                 ->lightbox('ecommerce-product')
                 ->navigation(count($images) > 1)

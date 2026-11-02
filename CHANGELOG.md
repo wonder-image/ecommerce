@@ -97,6 +97,9 @@ versionamento semantico.
 - **Colori della galleria prodotto da config.** `product.arrows` (default `black`)
   e `product.bullets` (default `primary`) accettano un colore della lib: black,
   white, primary, secondary, gray, light, dark.
+- **Miniature della galleria opzionali.** `product.thumbs` (default `true`)
+  spegne le miniature sotto la galleria della scheda prodotto; frecce e bullet
+  restano.
 - **Spazio fra le card configurabile.** `catalog.gap` per la griglia e
   `catalog.swiper.gap` per gli slider, per desktop, tablet e phone, in passi
   della lib da 0 a 12 (4px l'uno). `ProductList::gap()` accetta anche tablet

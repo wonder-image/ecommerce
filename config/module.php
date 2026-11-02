@@ -89,6 +89,8 @@ return [
         // Formato delle foto della galleria e delle sue miniature, fra quelli della lib.
         'image_format' => '4:5',
         'thumbs_format' => '1:1',
+        // Miniature sotto la galleria, con più di una foto.
+        'thumbs' => true,
         // `contain` o `cover`, per la galleria e le sue miniature.
         'image_fit' => 'contain',
         // Colori di frecce e bullet della galleria, fra quelli della lib:

@@ -148,6 +148,7 @@ La scheda prodotto ha una sezione propria:
     'express' => true,   // Apple Pay, Google Pay, Link sotto il bottone
     'image_format' => '4:5',  // galleria della scheda
     'thumbs_format' => '1:1', // miniature sotto la galleria
+    'thumbs' => true,         // miniature sotto la galleria, con più di una foto
     'image_fit' => 'contain', // `contain` o `cover`, galleria e miniature
     'option_selector' => ['default' => 'auto', 'attributes' => []],
 ],
