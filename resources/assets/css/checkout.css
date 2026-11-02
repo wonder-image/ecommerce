@@ -71,3 +71,17 @@
         display: none;
     }
 }
+/* Riepilogo mobile: niente triangolo nativo, lo chevron gira all'apertura. */
+.wi-checkout__mobile > summary {
+    list-style: none;
+    cursor: pointer;
+}
+.wi-checkout__mobile > summary::-webkit-details-marker {
+    display: none;
+}
+.wi-checkout__mobile > summary .bi-chevron-down {
+    transition: transform .3s;
+}
+.wi-checkout__mobile[open] > summary .bi-chevron-down {
+    transform: rotate(180deg);
+}

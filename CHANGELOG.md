@@ -7,6 +7,9 @@ versionamento semantico.
 
 ### Corretto
 
+- **Label degli input non più tagliate.** Su accesso, account, carrello e checkout
+  la label rimpicciolita aveva l'interlinea uguale al corpo e perdeva le discendenti
+  (la «g» di «Cognome»): ora è 12/16px, centrata come prima.
 - **Niente zoom su iPhone toccando un campo.** `store.css` non forza più il testo
   degli input di accesso, account, carrello e checkout a 14px: vale quello del sito
   (Dev → Stile → Input, 16px di default), perché sotto i 16px Safari iOS ingrandisce
@@ -77,6 +80,14 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Coupon applicato in un riquadro.** In carrello e checkout, col codice valido
+  l'input lascia il posto a un box verde: «Codice applicato!», quanto si è
+  risparmiato, il codice e «Rimuovi», che riporta l'input. Il JS lo aggiorna a ogni
+  riepilogo (`display.discount_saved`).
+- **Riepilogo ordine su mobile.** Il pannello del checkout si chiama «Riepilogo
+  ordine» e ha uno chevron che gira all'apertura.
+- **Colore delle frecce degli slider da config.** `catalog.swiper.button` accetta
+  una variante dei bottoni della lib (default `black`).
 - **Spazio fra le card configurabile.** `catalog.gap` per la griglia e
   `catalog.swiper.gap` per gli slider, per desktop, tablet e phone, in passi
   della lib da 0 a 12 (4px l'uno). `ProductList::gap()` accetta anche tablet

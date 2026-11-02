@@ -133,7 +133,7 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
                 <?php
                 $couponCode = (string) ($order['coupon_code'] ?? '');
                 // Il tema Wonder non rende `Text`: all'accordion basta un oggetto con render().
-                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => ''])) {
+                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => '', 'order' => $order, 'currency' => $currency])) {
                     public function __construct(private string $html) {}
                     public function render(): string { return $this->html; }
                 };

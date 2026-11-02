@@ -38,6 +38,9 @@ return [
                 'tablet' => 4,
                 'phone' => 3,
             ],
+            // Colore delle frecce, una variante dei bottoni della lib:
+            // black, white, primary, secondary, gray, light, dark e le versioni `-o` (solo bordo).
+            'button' => 'black',
         ],
         // `model`: una card per articolo; `variant`: una card per variante.
         // Decimali dei prezzi mostrati, da 0 a 4: `product` nella scheda,

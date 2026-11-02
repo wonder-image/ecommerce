@@ -47,6 +47,8 @@ final class CheckoutSummary
             $importo = $chiave === 'discount_total' ? -abs((float) $preview['order'][$chiave]) : $preview['order'][$chiave];
             $preview['display'][$chiave] = CartPresenter::money($importo, $valuta);
         }
+        // Il box del coupon dice quanto si risparmia: qui senza meno.
+        $preview['display']['discount_saved'] = CartPresenter::money(abs((float) $preview['order']['discount_total']), $valuta);
 
         // Spedizione e commissione stanno nei totali, non tra gli articoli.
         $preview['items'] = CartPresenter::lines($preview['items']);

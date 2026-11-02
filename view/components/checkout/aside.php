@@ -22,7 +22,7 @@ $afterShipping = $cartShipping !== null ? Slots::render('cart.after_shipping', c
     <?php if ($withLines): ?><?=View::component(Ecommerce::viewPath('components/checkout/lines.php'), compact('items', 'currency'))?><?php endif; ?>
     
     <?php if ($coupons): ?>
-        <?=View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => $step === 'cart' ? 'cart' : 'checkout', 'id' => 'checkout-coupon'])?>
+        <?=View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => $step === 'cart' ? 'cart' : 'checkout', 'id' => 'checkout-coupon', 'order' => $order, 'currency' => $currency])?>
     <?php endif; ?>
 
     <div class="w-100<?=$withLines ? ' mt-1' : ''?>" data-checkout-notices>

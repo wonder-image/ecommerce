@@ -509,7 +509,11 @@ class Checkout {
                 input.value = code;
             }
 
-            form.querySelector('[data-checkout-coupon-remove]')?.toggleAttribute('hidden', code === '');
+            // Col codice applicato l'input lascia il posto al riquadro col risparmio.
+            form.querySelector('[data-checkout-coupon-entry]')?.toggleAttribute('hidden', code !== '');
+            form.querySelector('[data-checkout-coupon-applied]')?.toggleAttribute('hidden', code === '');
+            form.querySelectorAll('[data-checkout-coupon-code]').forEach((node) => { node.textContent = code; });
+            form.querySelectorAll('[data-checkout-coupon-saved]').forEach((node) => { node.textContent = payload.display?.discount_saved || ''; });
         });
     }
 

@@ -13,7 +13,7 @@ main {
     --input-label-font-size: 14px;
     --input-label-line-height: 20px;
     --input-label-focus-font-size: 12px;
-    --input-label-focus-line-height: 12px;
+    --input-label-focus-line-height: 16px;
     --text-xsmall-font-size: 12px;
     --text-xsmall-line-height: 16px;
 }
@@ -42,8 +42,8 @@ main .wi-input-container .wi-label {
     margin-right: 12px;
 }
 main .wi-input-container.compiled .wi-label {
-    margin-top: 7px;
-    margin-bottom: 7px;
+    margin-top: 5px;
+    margin-bottom: 5px;
     margin-left: 12px;
     margin-right: 12px;
 }
@@ -214,4 +214,11 @@ main .wi-cart__foot .wi-cart__remove {
     main [data-checkout-cart] > .col-2 {
         grid-column: auto;
     }
+}
+/* Coupon: .d-flex batte [hidden], qui torna a nascondere; il riquadro applicato ha il bordo verde. */
+[data-checkout-coupon] [hidden] {
+    display: none !important;
+}
+[data-checkout-coupon-applied] {
+    border-color: var(--success-color);
 }
