@@ -345,11 +345,11 @@ check('accesso, account, checkout e carrello caricano le misure dei testi del ne
         && str_contains($layout, '<main>') && str_contains($layout, '</main>');
 });
 
-check('store.css: sottotitoli 20, testi, bottoni e valori 14, label 14 che sale a 12, input più bassi', function (): bool {
+check('store.css: sottotitoli 20, testi e bottoni 14, valori degli input dal tema del sito (niente zoom su iOS), label 14 che sale a 12, input più bassi', function (): bool {
     $css = (string) file_get_contents(dirname(__DIR__).'/resources/assets/css/store.css');
     $vars = [
         '--font-size: 14px;', '--subtitle-font-size: 20px;', '--text-font-size: 14px;', '--text-small-font-size: 14px;',
-        '--button-font-size: 14px;', '--input-font-size: 14px;', '--input-line-height: 20px;',
+        '--button-font-size: 14px;', '--input-line-height: 20px;',
         '--input-label-font-size: 14px;', '--input-label-focus-font-size: 12px;',
     ];
     foreach ($vars as $var) {
@@ -358,7 +358,8 @@ check('store.css: sottotitoli 20, testi, bottoni e valori 14, label 14 che sale 
         }
     }
 
-    return str_contains($css, 'main {') && str_contains($css, 'font-size: var(--font-size);') && str_contains($css, 'main .wi-input-container .wi-input {')
+    return !str_contains($css, '--input-font-size:')
+        && str_contains($css, 'main {') && str_contains($css, 'font-size: var(--font-size);') && str_contains($css, 'main .wi-input-container .wi-input {')
         && str_contains($css, 'main .wi-input-container.compiled .wi-label {')
         && str_contains($css, 'min-height: calc(var(--input-line-height) + 28px')
         && str_contains($css, 'top: calc(48px + var(--input-border-top));');
