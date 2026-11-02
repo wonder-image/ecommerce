@@ -42,3 +42,16 @@
     pointer-events: none;
     opacity: 0.5;
 }
+
+/* La riga di Google sta già nella frase delle condizioni: quella del riquadro reCAPTCHA non serve,
+   e senza casella a vista il riquadro esce dal flusso (le utility della cella sono !important). */
+.wi-express .wi-recaptcha-terms {
+    display: none;
+}
+.wi-express .wi-recaptcha-cell:has(.g-recaptcha:empty) {
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}

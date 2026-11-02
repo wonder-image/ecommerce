@@ -1,5 +1,6 @@
 <?php
 
+use Wonder\App\Credentials;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\View\View;
 
@@ -13,6 +14,12 @@ $privacyJoin = (string) __t('ecommerce.checkout.express_privacy_join');
 $privacyLink = (string) __t('ecommerce.checkout.express_privacy_link');
 // «e l'informativa» si scrive attaccato, «and the privacy policy» no.
 $privacyGap = preg_match("/['’]$/u", $privacyJoin) === 1 ? '' : ' ';
+// Con il badge v3 nascosto Google chiede la sua riga: qui chiude la frase delle condizioni invece di starne sopra.
+$api = Credentials::api();
+$googleTerms = !empty($captcha)
+    && trim((string) ($api->g_recaptcha_score_site_key ?? '')) !== ''
+    && strtolower(trim((string) ($api->g_recaptcha_badge ?? 'true'))) === 'false';
+$googleLink = static fn (string $href, string $key): string => '<a href="'.$href.'" target="_blank" rel="noopener">'.e(__t($key)).'</a>';
 // Carrello e checkout aspettano i bottoni sotto lo spinner, col testo di cosa preparano; il prodotto no.
 $wait = $source === 'product' ? '' : (string) __t($source === 'cart' ? 'ecommerce.checkout.express_wait_cart' : 'ecommerce.checkout.express_wait_checkout');
 // La connessione a Stripe si apre mentre la pagina carica ancora.
@@ -25,7 +32,10 @@ if (($style = module_asset('ecommerce', 'css/express.css')) !== '') {
     <?php // Nel carrello i bottoni stanno nel riepilogo, sopra «Vai al checkout»: si spiegano da soli, niente titolo. ?>
     <?php if ($source !== 'cart'): ?><h2 class="text-small a-c mb-3"><?=e($title)?></h2><?php endif; ?>
     <div class="w-100" data-express-element></div><?php if (!empty($captcha)): ?><div class="wi-recaptcha-cell w-100 mt-3" data-wi-recaptcha-standalone><?=FormField::key('recaptcha')->recaptcha('ecommerce_express')?></div><?php endif; ?>
-    <p class="text-xsmall a-c mt-3"><?=e($termsText)?> <?php if ($terms !== ''): ?><a href="<?=e($terms)?>" target="_blank" rel="noopener"><?=e($termsLink)?></a><?php else: ?><?=e($termsLink)?><?php endif; ?> <?=e($privacyJoin.$privacyGap)?><?php if ($privacy !== ''): ?><a href="<?=e($privacy)?>" target="_blank" rel="noopener"><?=e($privacyLink)?></a><?php else: ?><?=e($privacyLink)?><?php endif; ?>.</p>
+    <p class="text-xsmall a-c mt-3"><?=e($termsText)?> <?php if ($terms !== ''): ?><a href="<?=e($terms)?>" target="_blank" rel="noopener"><?=e($termsLink)?></a><?php else: ?><?=e($termsLink)?><?php endif; ?> <?=e($privacyJoin.$privacyGap)?><?php if ($privacy !== ''): ?><a href="<?=e($privacy)?>" target="_blank" rel="noopener"><?=e($privacyLink)?></a><?php else: ?><?=e($privacyLink)?><?php endif; ?><?php if ($googleTerms): ?><?=strtr(e(__t('ecommerce.checkout.express_recaptcha')), [
+        '{{privacy}}' => $googleLink('https://policies.google.com/privacy', 'ecommerce.checkout.express_google_privacy'),
+        '{{terms}}' => $googleLink('https://policies.google.com/terms', 'ecommerce.checkout.express_google_terms'),
+    ])?><?php endif; ?>.</p>
     <p class="text-small a-c mt-2" data-express-message role="status" hidden></p>
     <?php if ($withOr): ?><p class="wi-express__or mt-5"><?=e(__t('ecommerce.checkout.or'))?></p><?php endif; ?>
 </div>
