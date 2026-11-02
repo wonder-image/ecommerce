@@ -38,7 +38,7 @@ return [
                 'tablet' => 4,
                 'phone' => 3,
             ],
-            // Colore delle frecce, una variante dei bottoni della lib:
+            // Colore delle frecce degli slider e della galleria prodotto, una variante dei bottoni della lib:
             // black, white, primary, secondary, gray, light, dark e le versioni `-o` (solo bordo).
             'button' => 'black',
         ],

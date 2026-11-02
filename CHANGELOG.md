@@ -14,6 +14,9 @@ versionamento semantico.
   degli input di accesso, account, carrello e checkout a 14px: vale quello del sito
   (Dev → Stile → Input, 16px di default), perché sotto i 16px Safari iOS ingrandisce
   la pagina al focus. Label, testi e bottoni restano a 14px.
+- **Card del catalogo accessibili.** Il link della foto non ha più un nome
+  vuoto per gli screen reader: è `aria-hidden` e fuori dal tab, il link
+  accessibile è quello del nome. Il badge sta fuori dal link della foto.
 - **Bottone variante col nome del modello.** Con «Una pagina per ogni valore»
   spento l'unica variante è lo scheletro: il bottone ora dice il valore
   dell'opzione (es. «150ml») se l'opzione è una sola, e sparisce se sono più
@@ -87,7 +90,8 @@ versionamento semantico.
 - **Riepilogo ordine su mobile.** Il pannello del checkout si chiama «Riepilogo
   ordine» e ha uno chevron che gira all'apertura.
 - **Colore delle frecce degli slider da config.** `catalog.swiper.button` accetta
-  una variante dei bottoni della lib (default `black`).
+  una variante dei bottoni della lib (default `black`). Vale anche per le frecce
+  della galleria nella scheda prodotto, che prendono il colore della variante.
 - **Spazio fra le card configurabile.** `catalog.gap` per la griglia e
   `catalog.swiper.gap` per gli slider, per desktop, tablet e phone, in passi
   della lib da 0 a 12 (4px l'uno). `ProductList::gap()` accetta anche tablet
