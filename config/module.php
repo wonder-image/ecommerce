@@ -15,6 +15,12 @@ return [
             'tablet' => 3,
             'phone' => 2,
         ],
+        // Spazio fra le card della griglia, in passi della lib da 0 a 12 (4px l'uno, come `gap-N`).
+        'gap' => [
+            'desktop' => 5,
+            'tablet' => 5,
+            'phone' => 5,
+        ],
         // Slider di prodotti (simili, visti di recente, potrebbero piacerti):
         // compaiono da `min` prodotti in su e ne mostrano al massimo `max`.
         // `columns` sono le card per riga, anche decimali per far vedere la successiva.
@@ -25,6 +31,12 @@ return [
                 'desktop' => 4,
                 'tablet' => 2,
                 'phone' => 1.2,
+            ],
+            // Spazio fra le card, negli stessi passi della griglia.
+            'gap' => [
+                'desktop' => 6,
+                'tablet' => 4,
+                'phone' => 3,
             ],
         ],
         // `model`: una card per articolo; `variant`: una card per variante.

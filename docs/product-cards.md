@@ -74,17 +74,21 @@ restano attivi nei link generati da `pagination()` di `wonder-image/app`.
 Formati prezzo accettati: `20-100`, `50+`, `-80` oppure un prezzo esatto.
 Gli ordinamenti sono `recenti`, `prezzo_asc`, `prezzo_desc`, `nome_asc` e
 `nome_desc`.
-Card per riga e limiti vengono dalla configurazione del sito; `columns()` e
-`swiperLimits()` di `ProductList` li superano per una singola lista:
+Card per riga, spaziature e limiti vengono dalla configurazione del sito;
+`columns()`, `gap()`, `swiper()` e `swiperLimits()` di `ProductList` li
+superano per una singola lista. Il `gap` è in passi della lib da 0 a 12 (4px
+l'uno, come le classi `gap-N`); nello swiper diventa `spaceBetween` in pixel:
 
 ```php
 'catalog' => [
     'per_page' => 12,                                          // prodotti per pagina
     'columns' => ['desktop' => 4, 'tablet' => 3, 'phone' => 2], // griglia, 1-12
+    'gap' => ['desktop' => 5, 'tablet' => 5, 'phone' => 5],     // griglia, 0-12
     'swiper' => [
         'min' => 1,   // sotto questo numero lo slider non compare
         'max' => 12,  // card al massimo
         'columns' => ['desktop' => 4, 'tablet' => 2, 'phone' => 1.2],
+        'gap' => ['desktop' => 6, 'tablet' => 4, 'phone' => 3],   // 24, 16, 12px
     ],
 ],
 ```

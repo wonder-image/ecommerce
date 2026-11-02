@@ -77,6 +77,10 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Spazio fra le card configurabile.** `catalog.gap` per la griglia e
+  `catalog.swiper.gap` per gli slider, per desktop, tablet e phone, in passi
+  della lib da 0 a 12 (4px l'uno). `ProductList::gap()` accetta anche tablet
+  e phone. I valori predefiniti lasciano gli spazi di prima.
 - **Formato delle foto e descrizione breve nel config.** `catalog.card.image_format`
   (di serie `1:1`) per la card in griglia ed elenco, `product.image_format`
   (`4:5`) e `product.thumbs_format` (`1:1`) per la galleria della scheda e le

@@ -11,6 +11,8 @@ use Wonder\View\View;
  */
 final class ProductList
 {
+    private const SPACER = 4;
+
     /** @var list<ProductCard> */
     private array $cards = [];
     private string $view = 'grid';
@@ -23,7 +25,9 @@ final class ProductList
     private int $desktopColumns = 4;
     private int $tabletColumns = 3;
     private int $phoneColumns = 2;
-    private int $gap = 5;
+    private int $desktopGap = 5;
+    private int $tabletGap = 5;
+    private int $phoneGap = 5;
 
     /** @var array<int, array<string, int|float>> */
     private array $swiperBreakpoints = [
@@ -129,13 +133,21 @@ final class ProductList
         return $this;
     }
 
-    public function gap(int $gap): static
+    /** Passi della lib (`gap-N`, 4px l'uno): senza tablet o phone vale il breakpoint sopra. */
+    public function gap(int $desktop, ?int $tablet = null, ?int $phone = null): static
     {
-        if ($gap < 0 || $gap > 12) {
-            throw new InvalidArgumentException('La spaziatura deve essere compresa tra 0 e 12.');
+        $tablet ??= $desktop;
+        $phone ??= $tablet;
+
+        foreach ([$desktop, $tablet, $phone] as $gap) {
+            if ($gap < 0 || $gap > 12) {
+                throw new InvalidArgumentException('La spaziatura deve essere compresa tra 0 e 12.');
+            }
         }
 
-        $this->gap = $gap;
+        $this->desktopGap = $desktop;
+        $this->tabletGap = $tablet;
+        $this->phoneGap = $phone;
 
         return $this;
     }
@@ -165,8 +177,8 @@ final class ProductList
     }
 
     /**
-     * Card per riga e limiti degli slider dalla configurazione del sito
-     * (`catalog.columns`, `catalog.swiper`). `columns()` e `swiper()` la superano.
+     * Card per riga, spaziature e limiti degli slider dalla configurazione del sito
+     * (`catalog.columns`, `catalog.gap`, `catalog.swiper`). `columns()`, `gap()` e `swiper()` la superano.
      */
     private function configure(): void
     {
@@ -174,6 +186,11 @@ final class ProductList
         $this->desktopColumns = self::columnCount($grid['desktop'] ?? null, $this->desktopColumns);
         $this->tabletColumns = self::columnCount($grid['tablet'] ?? null, $this->tabletColumns);
         $this->phoneColumns = self::columnCount($grid['phone'] ?? null, $this->phoneColumns);
+
+        $gap = (array) Ecommerce::config('catalog.gap', []);
+        $this->desktopGap = self::gapStep($gap['desktop'] ?? null, $this->desktopGap);
+        $this->tabletGap = self::gapStep($gap['tablet'] ?? null, $this->tabletGap);
+        $this->phoneGap = self::gapStep($gap['phone'] ?? null, $this->phoneGap);
 
         $swiper = (array) Ecommerce::config('catalog.swiper', []);
         $this->swiperMin = max(1, (int) ($swiper['min'] ?? $this->swiperMin));
@@ -186,6 +203,17 @@ final class ProductList
         $this->swiperSlidesPerView = $phone;
         $this->swiperBreakpoints[640]['slidesPerView'] = $tablet;
         $this->swiperBreakpoints[1024]['slidesPerView'] = $desktop;
+
+        // Lo swiper vuole pixel: i passi della lib valgono 4px (`--spacer`).
+        $space = (array) ($swiper['gap'] ?? []);
+        $this->swiperSpaceBetween = self::gapStep($space['phone'] ?? null, 3) * self::SPACER;
+        $this->swiperBreakpoints[640]['spaceBetween'] = self::gapStep($space['tablet'] ?? null, 4) * self::SPACER;
+        $this->swiperBreakpoints[1024]['spaceBetween'] = self::gapStep($space['desktop'] ?? null, 6) * self::SPACER;
+    }
+
+    private static function gapStep(mixed $value, int $default): int
+    {
+        return is_numeric($value) && (int) $value >= 0 && (int) $value <= 12 ? (int) $value : $default;
     }
 
     private static function columnCount(mixed $value, int $default): int
@@ -293,11 +321,11 @@ final class ProductList
         return [
             'cards' => $cards,
             'grid_class' => sprintf(
-                'd-grid col-%d col-t-%d col-p-%d gap-%d',
+                'd-grid col-%d col-t-%d col-p-%d %s',
                 $this->desktopColumns,
                 $this->tabletColumns,
                 $this->phoneColumns,
-                $this->gap
+                $this->gapClass()
             ),
             'swiper' => [
                 'slides_per_view' => $this->swiperSlidesPerView,
@@ -307,6 +335,16 @@ final class ProductList
                 'pagination' => $this->swiperPagination,
             ],
         ];
+    }
+
+    /** Le media query della lib sono `max-width`: il phone eredita il tablet, il tablet il desktop. */
+    private function gapClass(): string
+    {
+        $class = 'gap-'.$this->desktopGap;
+        $class .= $this->tabletGap !== $this->desktopGap ? ' gap-t-'.$this->tabletGap : '';
+        $class .= $this->phoneGap !== $this->tabletGap ? ' gap-p-'.$this->phoneGap : '';
+
+        return $class;
     }
 
     /** @param array<int|string, array<string, int|float>> $breakpoints */

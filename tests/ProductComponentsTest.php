@@ -313,6 +313,33 @@ check('formato delle foto e descrizione breve della card vengono dal config', fu
         && ImageFormat::normalize('16/9') === '16-9';
 });
 
+check('lo spazio fra le card di griglia e swiper viene dal config', function () use ($products) {
+    $defaults = ProductList::make($products);
+    $defaultGrid = $defaults->renderGrid();
+    $defaultSwiper = ProductList::make($products)->renderSwiper();
+
+    Ecommerce::forgetConfig();
+    $config = Ecommerce::config();
+    $config['catalog']['gap'] = ['desktop' => 6, 'tablet' => 6, 'phone' => 2];
+    $config['catalog']['swiper']['gap'] = ['desktop' => 8, 'tablet' => 5, 'phone' => 99];
+    (new ReflectionProperty(Ecommerce::class, 'config'))->setValue(null, $config);
+    $grid = ProductList::make($products)->renderGrid();
+    $swiper = ProductList::make($products)->renderSwiper();
+    $override = ProductList::make($products)->gap(1, 2)->renderGrid();
+    Ecommerce::forgetConfig();
+
+    return str_contains($defaultGrid, 'col-p-2 gap-5"')
+        && str_contains($defaultSwiper, 'spaceBetween: 12,')
+        && str_contains($defaultSwiper, '"spaceBetween":16')
+        && str_contains($defaultSwiper, '"spaceBetween":24')
+        && str_contains($grid, 'col-p-2 gap-6 gap-p-2"')
+        && str_contains($swiper, '"spaceBetween":20')
+        && str_contains($swiper, '"spaceBetween":32')
+        // Un passo fuori da 0-12 ricade sul default (3, cioè 12px).
+        && str_contains($swiper, 'spaceBetween: 12,')
+        && str_contains($override, 'gap-1 gap-t-2"');
+});
+
 check('il fit della card vale per la card e per la foto delle righe', function () use ($products) {
     $thumb = static function (string $image): string {
         ob_start();
