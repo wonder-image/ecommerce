@@ -38,7 +38,8 @@ $savedText = str_replace('{{amount}}', '<span data-checkout-coupon-saved>'.e($sa
                 <i class="bi bi-ticket-perforated" aria-hidden="true"></i>
                 <strong data-checkout-coupon-code><?=e($code)?></strong>
             </span>
-            <?=Button::make((string) __t('ecommerce.checkout.coupon_remove'))->icon('bi bi-trash3', 'start')->type('submit')->variant('black-o')->size('sm')->attr('style', 'flex-shrink: 0')->attr('name', 'action')->attr('value', 'remove')->attr('data-checkout-coupon-remove', '')?>
+            <?php // «Rimuovi» come quello delle righe del carrello: cestino e testo sottolineato. ?>
+            <button class="wi-cart__remove text-small" type="submit" name="action" value="remove" style="flex-shrink: 0" data-checkout-coupon-remove><i class="bi bi-trash3" aria-hidden="true"></i> <?=e(__t('ecommerce.checkout.coupon_remove'))?></button>
         </div>
     </div>
 
