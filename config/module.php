@@ -42,6 +42,11 @@ return [
             // black, white, primary, secondary, gray, light, dark e le versioni `-o` (solo bordo).
             'button' => 'black',
         ],
+        // Bottone accanto al titolo di un elenco di prodotti (il link di una selezione):
+        // `button` è una variante dei bottoni della lib, come per le frecce.
+        'action' => [
+            'button' => 'black',
+        ],
         // `model`: una card per articolo; `variant`: una card per variante.
         // Decimali dei prezzi mostrati, da 0 a 4: `product` nella scheda,
         // `card` nelle card, `totals` in carrello, checkout e ordini.

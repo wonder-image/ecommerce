@@ -83,6 +83,9 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Colore del bottone degli elenchi.** `catalog.action.button` sceglie la variante
+  del bottone accanto al titolo di un elenco di prodotti (il link di una selezione),
+  come `catalog.swiper.button` per le frecce. Di serie `black`, come prima.
 - **Coupon applicato in un riquadro.** In carrello e checkout, col codice valido
   l'input lascia il posto a un box verde: «Codice applicato!», quanto si è
   risparmiato, il codice e «Rimuovi», che riporta l'input. Il JS lo aggiorna a ogni
@@ -194,6 +197,9 @@ versionamento semantico.
 
 ### Modificato
 
+- Nell'intestazione degli elenchi di prodotti le frecce dello slider vengono prima
+  del bottone; da telefono, con tutti e due, frecce a sinistra e bottone a destra.
+  Quando le card stanno tutte, si nascondono solo le frecce: il bottone resta.
 - Articoli in evidenza e foto di contesto di categorie e tag valgono solo con
   `show_placements = 1` nel gestionale («Mostra articoli in evidenza», di
   serie no; colonna assente vale 0). **Da ricontrollare nei siti**: i tag e le
