@@ -127,6 +127,10 @@ check('carrello: in HTTPS il cookie è __Host- e il nome semplice non si legge',
     && !str_contains(corpo($session, 'token'), '$_COOKIE[self::COOKIE]')
     && str_contains(corpo($session, 'cookieName'), 'self::secureCookie()'));
 
+check('carrello: HTTPS dietro proxy solo da proxy fidato (Cookie::isSecure)', fn () =>
+    str_contains(corpo($session, 'secureCookie'), 'Cookie::isSecure()')
+    && !str_contains($session, 'HTTP_X_FORWARDED_PROTO'));
+
 foreach (['it', 'en'] as $lingua) {
     $testi = json_decode((string) file_get_contents($root.'/lang/'.$lingua.'/ecommerce.json'), true);
     check("lang/{$lingua}: ci sono i due messaggi dei limiti", fn () =>

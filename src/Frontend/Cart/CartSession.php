@@ -2,6 +2,7 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
+use Wonder\Http\Cookie;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
@@ -189,8 +190,7 @@ final class CartSession
 
     private static function secureCookie(): bool
     {
-        return (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-            || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+        return Cookie::isSecure();
     }
 
     /** @return array{order: array<string, mixed>, items: list<array<string, mixed>>, removed: list<string>} */

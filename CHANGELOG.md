@@ -7,6 +7,10 @@ versionamento semantico.
 
 ### Corretto
 
+- **Cookie del carrello e dei prodotti visti: `Secure` dietro proxy solo se il
+  proxy è fidato.** `X-Forwarded-Proto` si leggeva sempre, anche senza proxy
+  davanti, dove lo sceglie il client. Ora decide `Cookie::isSecure()` del core,
+  che lo considera solo con `APP_TRUSTED_PROXIES` o `APP_TRUST_PROXY`.
 - **Label degli input non più tagliate.** Su accesso, account, carrello e checkout
   la label rimpicciolita aveva l'interlinea uguale al corpo e perdeva le discendenti
   (la «g» di «Cognome»): ora è 12/16px, centrata come prima.

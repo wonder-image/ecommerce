@@ -2,6 +2,8 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
+use Wonder\Http\Cookie;
+
 final class ProductHistory
 {
     public const COOKIE = 'ecommerce_recent_products';
@@ -22,7 +24,7 @@ final class ProductHistory
         setcookie(self::COOKIE, json_encode($ids) ?: '[]', [
             'expires' => time() + 60 * 60 * 24 * 30,
             'path' => '/',
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => Cookie::isSecure(),
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
