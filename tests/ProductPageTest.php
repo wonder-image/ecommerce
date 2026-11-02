@@ -336,4 +336,17 @@ check('i prezzi mostrati usano i decimali richiesti, i totali di default 2', fun
         && CartPresenter::money(5, 'USD') === '5,00 USD';
 });
 
+check('frecce e bullet della galleria prendono i colori da product.arrows e product.bullets', function () {
+    $root = dirname(__DIR__);
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+    $config = require $root.'/config/module.php';
+
+    return str_contains($view, "\$galleryColor('product.arrows', 'black')")
+        && str_contains($view, "\$galleryColor('product.bullets', 'primary')")
+        && str_contains($view, '--swiper-pagination-color: var(--<?=$bullets?>-color)')
+        && !str_contains($view, 'catalog.swiper.button')
+        && $config['product']['arrows'] === 'black'
+        && $config['product']['bullets'] === 'primary';
+});
+
 summary();

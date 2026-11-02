@@ -90,8 +90,10 @@ versionamento semantico.
 - **Riepilogo ordine su mobile.** Il pannello del checkout si chiama «Riepilogo
   ordine» e ha uno chevron che gira all'apertura.
 - **Colore delle frecce degli slider da config.** `catalog.swiper.button` accetta
-  una variante dei bottoni della lib (default `black`). Vale anche per le frecce
-  della galleria nella scheda prodotto, che prendono il colore della variante.
+  una variante dei bottoni della lib (default `black`).
+- **Colori della galleria prodotto da config.** `product.arrows` (default `black`)
+  e `product.bullets` (default `primary`) accettano un colore della lib: black,
+  white, primary, secondary, gray, light, dark.
 - **Spazio fra le card configurabile.** `catalog.gap` per la griglia e
   `catalog.swiper.gap` per gli slider, per desktop, tablet e phone, in passi
   della lib da 0 a 12 (4px l'uno). `ProductList::gap()` accetta anche tablet

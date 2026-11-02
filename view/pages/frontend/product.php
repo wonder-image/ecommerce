@@ -134,9 +134,13 @@ if ($bundleFields !== '') $bundleFields = '<div class="w-100 d-grid col-1 gap-4 
 Dependencies::swiper();
 Dependencies::fancyapps();
 
-// Frecce della galleria col colore della variante scelta per gli slider (`-o` toglie solo il fondo).
-$arrows = preg_replace('/-o$/', '', (string) Ecommerce::config('catalog.swiper.button', 'black'));
-$arrows = in_array($arrows, ['black', 'white', 'primary', 'secondary', 'gray', 'light', 'dark'], true) ? $arrows : 'black';
+// Colori di frecce e bullet della galleria, fra quelli della lib.
+$galleryColor = static function (string $key, string $default): string {
+    $color = (string) Ecommerce::config($key, $default);
+    return in_array($color, ['black', 'white', 'primary', 'secondary', 'gray', 'light', 'dark'], true) ? $color : $default;
+};
+$arrows = $galleryColor('product.arrows', 'black');
+$bullets = $galleryColor('product.bullets', 'primary');
 View::head(DataLayer::script([
     'type' => 'product',
     'language' => __l(),
@@ -149,7 +153,7 @@ Ecommerce::layout('shop');
 <?=Breadcrumb::make($data['breadcrumbs'])->class('mb-5')?>
 
 <article class="d-grid col-2 col-p-1 gap-8">
-    <div class="o-hidden" style="--swiper-navigation-color: var(--<?=$arrows?>-color)">
+    <div class="o-hidden" style="--swiper-navigation-color: var(--<?=$arrows?>-color); --swiper-pagination-color: var(--<?=$bullets?>-color); --swiper-pagination-bullet-inactive-color: var(--<?=$bullets?>-color)">
         <?php if ($images !== []): ?>
             <?=__swiper($images)
                 ->id('ecommerce-product-gallery')

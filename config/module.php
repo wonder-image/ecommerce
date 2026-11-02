@@ -38,7 +38,7 @@ return [
                 'tablet' => 4,
                 'phone' => 3,
             ],
-            // Colore delle frecce degli slider e della galleria prodotto, una variante dei bottoni della lib:
+            // Colore delle frecce degli slider di prodotti, una variante dei bottoni della lib:
             // black, white, primary, secondary, gray, light, dark e le versioni `-o` (solo bordo).
             'button' => 'black',
         ],
@@ -86,6 +86,10 @@ return [
         'thumbs_format' => '1:1',
         // `contain` o `cover`, per la galleria e le sue miniature.
         'image_fit' => 'contain',
+        // Colori di frecce e bullet della galleria, fra quelli della lib:
+        // black, white, primary, secondary, gray, light, dark.
+        'arrows' => 'black',
+        'bullets' => 'primary',
         // `auto`: bottoni per opzioni visuali o fino a 4 valori, select oltre.
         // `group`: btn-group a scelta singola, il default degli attributi di
         // tipo «Bottone» del gestionale.
