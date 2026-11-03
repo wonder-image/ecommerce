@@ -87,6 +87,14 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Una tantum degli abbonamenti (#21).** Con `one_time_price` del gestionale la
+  pagina dei piani mostra «+ X € una tantum» accanto al canone e il JSON-LD
+  aggiunge all'`Offer` una `PriceSpecification` non ricorrente. Il riepilogo ha
+  l'una tantum per servizio e il primo addebito la comprende (in prova è la sola
+  una tantum, e si vede quanto si paga a fine prova). `begin_checkout` e
+  `purchase` hanno come `value` quanto si paga subito: in prova l'una tantum,
+  non più zero. Aggiungi e Cambia dell'area cliente non la fanno pagare.
+  Richiede il gestionale con lo `one_time_price` (PR #128).
 - **Colore del bottone degli elenchi.** `catalog.action.button` sceglie la variante
   del bottone accanto al titolo di un elenco di prodotti (il link di una selezione),
   come `catalog.swiper.button` per le frecce. Di serie `black`, come prima.

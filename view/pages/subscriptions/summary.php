@@ -2,7 +2,7 @@
 
 /**
  * Il riepilogo prima di Stripe: i servizi scelti (togliere una madre toglie
- * anche le sue righe), il totale del primo addebito col coupon, i dati di
+ * anche le sue righe), il primo addebito col coupon e l'una tantum, i dati di
  * fatturazione e il codice sconto. Pagina privata (`NOINDEX,NOFOLLOW`, niente
  * dati strutturati, `$SEO->breadcrumb = []`); il percorso visibile resta.
  * dataLayer: gli eventi rimasti dal POST (`add_to_cart`, `remove_from_cart`),
@@ -10,6 +10,7 @@
  *
  * @var list<array<string, mixed>> $rows
  * @var array<string, mixed>|null $amounts
+ * @var int $trial
  * @var bool $include_tax
  * @var string $coupon_error
  * @var string $blocked
@@ -38,6 +39,9 @@ View::head(DataLayer::script([
     'language' => __l(),
     'currency' => $currency,
 ], $events !== [] ? $events : null, (int) ($_SESSION['user_id'] ?? 0)));
+
+$oneTime = $amounts !== null ? SubscriptionView::oneTimeLines($amounts) : [];
+$charge = $amounts !== null ? SubscriptionView::firstCharge($amounts, $trial) : null;
 
 Ecommerce::layout('checkout');
 ?>
@@ -69,6 +73,9 @@ Ecommerce::layout('checkout');
                         <?=e(SubscriptionView::every($row['price']['unit'], $row['price']['count']))?>
                     </p>
                 <?php endif; ?>
+                <?php if (($oneTime[$row['index']] ?? 0) > 0): ?>
+                    <p class="text-small"><?=e(__t('ecommerce.subscriptions.summary.one_time_line', ['price' => CartPresenter::money($oneTime[$row['index']], $currency)]))?></p>
+                <?php endif; ?>
                 <?php foreach ($row['customization'] as $line): ?>
                     <p class="text-small"><?=e($line)?></p>
                 <?php endforeach; ?>
@@ -97,15 +104,23 @@ Ecommerce::layout('checkout');
         <section class="wi-box p-6" role="alert">
             <p class="text"><?=e($blocked)?></p>
         </section>
-    <?php elseif ($amounts !== null): ?>
+    <?php elseif ($charge !== null): ?>
         <section class="wi-box p-6 d-flex d-column gap-2" aria-label="<?=e(__t('ecommerce.subscriptions.summary.first_charge'))?>">
             <h2 class="subtitle"><?=e(__t('ecommerce.subscriptions.summary.first_charge'))?></h2>
-            <div class="w-100 d-flex gap-4"><p class="text"><?=e(__t('ecommerce.subscriptions.summary.subtotal'))?></p><p class="text ml-auto a-r"><?=e(CartPresenter::money((float) $amounts['subtotal'], $currency))?></p></div>
-            <?php if ((float) $amounts['discount_total'] > 0): ?>
-                <div class="w-100 d-flex gap-4"><p class="text"><?=e(__t('ecommerce.subscriptions.summary.discount'))?></p><p class="text ml-auto a-r">− <?=e(CartPresenter::money((float) $amounts['discount_total'], $currency))?></p></div>
+            <?php if ($charge['subtotal'] !== null): ?>
+                <div class="w-100 d-flex gap-4"><p class="text"><?=e(__t('ecommerce.subscriptions.summary.subtotal'))?></p><p class="text ml-auto a-r"><?=e(CartPresenter::money($charge['subtotal'], $currency))?></p></div>
             <?php endif; ?>
-            <div class="w-100 d-flex gap-4"><p class="text-small tx-secondary"><?=e(__t($include_tax ? 'ecommerce.subscriptions.summary.tax_included' : 'ecommerce.subscriptions.summary.tax'))?></p><p class="text-small tx-secondary ml-auto a-r"><?=e(CartPresenter::money((float) $amounts['tax_total'], $currency))?></p></div>
-            <div class="w-100 d-flex gap-4"><p class="text"><strong><?=e(__t('ecommerce.subscriptions.summary.total'))?></strong></p><p class="text ml-auto a-r"><strong><?=e(CartPresenter::money((float) $amounts['total'], $currency))?></strong></p></div>
+            <?php if ($charge['discount'] > 0): ?>
+                <div class="w-100 d-flex gap-4"><p class="text"><?=e(__t('ecommerce.subscriptions.summary.discount'))?></p><p class="text ml-auto a-r">− <?=e(CartPresenter::money($charge['discount'], $currency))?></p></div>
+            <?php endif; ?>
+            <?php if ($charge['one_time'] > 0): ?>
+                <div class="w-100 d-flex gap-4"><p class="text"><?=e(__t('ecommerce.subscriptions.summary.one_time'))?></p><p class="text ml-auto a-r"><?=e(CartPresenter::money($charge['one_time'], $currency))?></p></div>
+            <?php endif; ?>
+            <div class="w-100 d-flex gap-4"><p class="text-small tx-secondary"><?=e(__t($include_tax ? 'ecommerce.subscriptions.summary.tax_included' : 'ecommerce.subscriptions.summary.tax'))?></p><p class="text-small tx-secondary ml-auto a-r"><?=e(CartPresenter::money($charge['tax'], $currency))?></p></div>
+            <div class="w-100 d-flex gap-4"><p class="text"><strong><?=e(__t('ecommerce.subscriptions.summary.total'))?></strong></p><p class="text ml-auto a-r"><strong><?=e(CartPresenter::money($charge['total'], $currency))?></strong></p></div>
+            <?php if ($charge['after_trial'] !== null): ?>
+                <p class="text-small tx-secondary"><?=e(__t('ecommerce.subscriptions.summary.after_trial', ['price' => CartPresenter::money($charge['after_trial'], $currency)]))?></p>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 

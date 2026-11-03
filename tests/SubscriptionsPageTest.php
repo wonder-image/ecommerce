@@ -15,7 +15,7 @@ $piani = PlanCatalog::present([
         'plan' => ['code' => 'pln_pro1234', 'name' => 'Pro &amp; Team', 'description' => '<p>Per chi lavora tutti i giorni</p>'],
         'prices' => [
             ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '24.90', 'sale_price' => '19.90', 'billing_interval' => 'month', 'term_months' => 1, 'trial_days' => 14, 'commitment_months' => 0],
-            ['code' => 'ppr_anno123', 'name' => 'Annuale', 'price' => '249.00', 'sale_price' => '0.00', 'billing_interval' => 'year', 'term_months' => 12, 'trial_days' => 0, 'commitment_months' => 12],
+            ['code' => 'ppr_anno123', 'name' => 'Annuale', 'price' => '249.00', 'sale_price' => '0.00', 'billing_interval' => 'year', 'term_months' => 12, 'trial_days' => 0, 'commitment_months' => 12, 'one_time_price' => '49.90'],
         ],
         'features' => [['feature_key' => 'max_progetti', 'feature_value' => '20']],
     ],
@@ -37,7 +37,7 @@ check('i piani pronti per la vista: prezzo mostrato, barrato, frequenza e indiri
         && $mese['amount'] === 19.9 && $mese['regular'] === 24.9 && $mese['unit'] === 'month' && $mese['count'] === 1
         && $mese['trial_days'] === 14 && $mese['url'] === '/abbonamenti/ppr_mese123/'
         && $anno['amount'] === 249.0 && $anno['regular'] === null && $anno['unit'] === 'year' && $anno['count'] === 1
-        && $anno['commitment_months'] === 12
+        && $anno['commitment_months'] === 12 && $anno['one_time'] === 49.9 && $mese['one_time'] === 0.0
         && $tri['unit'] === 'month' && $tri['count'] === 3
         && $piani[0]['features'] === [['key' => 'max_progetti', 'value' => '20']];
 });
@@ -58,8 +58,26 @@ check('il JSON-LD è un ItemList di Product con gli stessi importi visibili e va
         && $mese['priceSpecification'][0]['unitCode'] === 'MON' && $mese['priceSpecification'][0]['billingDuration'] === 1
         && $mese['priceSpecification'][1]['priceType'] === 'https://schema.org/StrikethroughPrice'
         && $mese['priceSpecification'][1]['price'] === 24.9
-        && $anno['priceSpecification'][0]['unitCode'] === 'ANN' && count($anno['priceSpecification']) === 1
+        && $anno['priceSpecification'][0]['unitCode'] === 'ANN' && $anno['price'] == 249
+        && count($mese['priceSpecification']) === 2
         && !isset($decoded['itemListElement'][1]['item']['description']);
+});
+
+check('l\'una tantum nel JSON-LD: una PriceSpecification senza unità né durata', function () use ($piani) {
+    $anno = PlanCatalog::schemaOrg($piani, 'https://shop.test/abbonamenti/', 'Abbonamenti')['itemListElement'][0]['item']['offers'][1];
+    $una = $anno['priceSpecification'][1] ?? [];
+
+    return count($anno['priceSpecification']) === 2
+        && $una['@type'] === 'PriceSpecification' && $una['price'] === 49.9 && $una['priceCurrency'] === 'EUR'
+        && $una['name'] !== '' && !isset($una['unitCode'], $una['billingDuration'], $una['billingIncrement']);
+});
+
+check('la pagina dei piani e la configurazione mostrano l\'una tantum solo quando c\'è', function () use ($root) {
+    $piani = (string) file_get_contents($root.'/view/pages/subscriptions/plans.php');
+    $configura = (string) file_get_contents($root.'/view/pages/subscriptions/configure.php');
+
+    return str_contains($piani, "if (\$price['one_time'] > 0)") && str_contains($piani, "'ecommerce.subscriptions.one_time'")
+        && str_contains($configura, "if (\$price['one_time'] > 0)") && str_contains($configura, "'ecommerce.subscriptions.one_time_first'");
 });
 
 check('view_item_list: un item per prezzo, con il codice del prezzo come item_id e il prezzo numerico', function () use ($piani) {
@@ -119,6 +137,23 @@ check('purchase: transaction_id è il codice dell\'abbonamento, valore zero in p
         && $prova['ecommerce']['value'] === 0.0 && !isset($prova['ecommerce']['coupon']);
 });
 
+check('purchase con l\'una tantum: si somma al canone, in prova è tutto il valore', function () {
+    $righe = [
+        ['item' => ['quantity' => '2', 'customization' => '', 'tax_rate' => '22.00'], 'price' => ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '10.00', 'sale_price' => '0', 'one_time_price' => '30.50'], 'plan' => ['name' => 'Pro']],
+        ['item' => ['quantity' => '1', 'customization' => '', 'tax_rate' => '22.00'], 'price' => ['code' => 'ppr_extra12', 'name' => 'Extra', 'price' => '5.00', 'sale_price' => '0'], 'plan' => ['name' => 'Spazio']],
+    ];
+    $base = ['total' => '25.00', 'tax_total' => '4.51', 'currency' => 'EUR', 'prices_include_tax' => 'true'];
+    $attivo = SubscriptionTracking::purchaseFrom(['code' => 'sub_abc1234', 'status' => 'active'] + $base, $righe)['ecommerce'];
+    $prova = SubscriptionTracking::purchaseFrom(['code' => 'sub_def1234', 'status' => 'trialing'] + $base, $righe)['ecommerce'];
+    $netti = SubscriptionTracking::purchaseFrom(['code' => 'sub_ghi1234', 'status' => 'trialing', 'prices_include_tax' => 'false'] + $base, $righe)['ecommerce'];
+
+    // 2 × 30,50 = 61,00 IVA inclusa (11,00 di IVA); senza IVA 61,00 + 13,42.
+    return $attivo['value'] === 86.0 && $attivo['tax'] === 15.51
+        && $prova['value'] === 61.0 && $prova['tax'] === 11.0
+        && $netti['value'] === 74.42 && $netti['tax'] === 13.42
+        && $attivo['items'][0]['price'] === 10.0;
+});
+
 check('le pagine: piani indicizzati con breadcrumb, servizio, riepilogo e conferma private', function () use ($root) {
     $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
 
@@ -163,6 +198,8 @@ check('le traduzioni degli abbonamenti ci sono in tutte le lingue, con la descri
         if (!isset($testi['subscriptions']['plans']['title'], $testi['account']['subscriptions']['title'])
             || mb_strlen((string) $testi['subscriptions']['plans']['seo']) > 140
             || !isset($testi['subscriptions']['add'], $testi['subscriptions']['summary']['submit'], $testi['subscriptions']['configure']['parent'])
+            || !isset($testi['subscriptions']['one_time'], $testi['subscriptions']['one_time_label'], $testi['subscriptions']['one_time_first'])
+            || !isset($testi['subscriptions']['summary']['one_time'], $testi['subscriptions']['summary']['one_time_line'], $testi['subscriptions']['summary']['after_trial'])
             || mb_strlen((string) $testi['subscriptions']['configure']['seo']) > 140
             || mb_strlen((string) $testi['subscriptions']['summary']['seo']) > 140) {
             return false;

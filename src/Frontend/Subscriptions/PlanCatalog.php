@@ -96,6 +96,7 @@ final class PlanCatalog
                     'count' => $count,
                     'trial_days' => max(0, (int) ($price['trial_days'] ?? 0)),
                     'commitment_months' => max(0, (int) ($price['commitment_months'] ?? 0)),
+                    'one_time' => max(0.0, round((float) ($price['one_time_price'] ?? 0), 2)),
                     'url' => $subscribeUrl((string) ($price['code'] ?? '')),
                 ];
             }
@@ -119,7 +120,7 @@ final class PlanCatalog
     /**
      * L'`ItemList` della pagina: un `Product` per piano, un `Offer` per
      * prezzo con la sua `UnitPriceSpecification` (e il prezzo pieno barrato,
-     * se in pagina si vede). Gli importi sono quelli di `present()`.
+     * se in pagina si vede) e una `PriceSpecification` per l'una tantum. Gli importi sono quelli di `present()`.
      *
      * @param list<array<string, mixed>> $presented
      * @return array<string, mixed>
@@ -146,6 +147,16 @@ final class PlanCatalog
                         '@type' => 'UnitPriceSpecification',
                         'priceType' => 'https://schema.org/StrikethroughPrice',
                         'price' => $price['regular'],
+                        'priceCurrency' => $currency,
+                    ];
+                }
+
+                // L'una tantum: si paga una volta, quindi senza unità di fatturazione.
+                if ($price['one_time'] > 0.0) {
+                    $specification[] = [
+                        '@type' => 'PriceSpecification',
+                        'name' => SubscriptionView::oneTimeLabel(),
+                        'price' => $price['one_time'],
                         'priceCurrency' => $currency,
                     ];
                 }
