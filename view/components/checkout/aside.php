@@ -29,7 +29,7 @@ $afterShipping = $cartShipping !== null ? Slots::render('cart.after_shipping', c
         <?php foreach ($notices as $message): ?><p class="text-small" role="status"><?=e($message)?></p><?php endforeach; ?>
     </div>
 
-    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'cartShipping' => $cartShipping, 'afterShipping' => $afterShipping, 'spacing' => $withLines ? 'mt-5 pt-4' : ''])?>
+    <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => $step !== 'cart' && Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'cartShipping' => $cartShipping, 'afterShipping' => $afterShipping, 'spacing' => $withLines ? 'mt-5 pt-4' : '', 'services' => $services ?? null])?>
 
     <?php if ($step === 'cart'): ?><?=Slots::render('cart.after_totals', compact('order', 'items', 'currency'))?><?php endif; ?>
 

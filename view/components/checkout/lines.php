@@ -19,6 +19,8 @@ $line = static function (array $item) use ($currency): string {
             static fn (string $part): string => '<li>'.e($part).'</li>',
             $parts
         )).'</ul>'
+        // I servizi si tolgono da qui: il riepilogo degli abbonamenti non c'è più.
+        .'<span class="d-block mt-2" data-line-remove'.(($item['remove_html'] ?? '') === '' ? ' hidden' : '').'>'.($item['remove_html'] ?? '').'</span>'
         .'</span>'
         .'<span class="a-r" data-line-total>'.e($item['line_total_display'] ?? CartPresenter::money($item['line_total'] ?? 0, $currency)).'</span>'
         .'</div>';

@@ -179,6 +179,9 @@
         "consents": "Consents",
         "coupon_applied": "Coupon applied.",
         "coupon_removed": "Coupon removed.",
+        "details": "Your details",
+        "today_total": "Total due today",
+        "subscriptions_first_charge": "First charge for services",
         "errors": {
             "empty": "Your cart is empty.",
             "payment_method": "Choose an available payment method.",
@@ -395,7 +398,7 @@
         "summary": {
             "title": "Subscription summary",
             "seo": "Check the services you chose and your billing details, then complete the subscription.",
-            "added": "{{name}} is in your summary.",
+            "added": "{{name}} is in your checkout.",
             "add_more": "Add another service",
             "services": "Services",
             "unit": "{{price}} each",
@@ -420,6 +423,7 @@
         },
         "confirm": {
             "title": "Subscription",
+            "order": "Order no. {{number}}: you can find it in your orders.",
             "waiting_title": "We are confirming your payment",
             "waiting_text": "It takes a few seconds: this page refreshes by itself.",
             "confirmed_title": "Subscription active",
@@ -427,7 +431,7 @@
             "slow_title": "This is taking longer than expected",
             "slow_text": "Your payment is being checked: look again shortly in the Subscriptions section of your account. If it does not appear, contact us.",
             "failed_title": "Subscription not activated",
-            "failed_text": "The payment was not completed. You can try again from the plans page.",
+            "failed_text": "The payment was not completed. You can try again from the checkout.",
             "account": "Go to your subscriptions",
             "plans": "Back to plans"
         }

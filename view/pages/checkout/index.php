@@ -18,7 +18,9 @@ use Wonder\Http\Csrf;
 $order = (array) ($cart['order'] ?? []);
 $items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
 $currency = (string) ($order['currency'] ?? 'EUR');
-$shipping = Gestionale::feature('shipping');
+$products = (bool) ($products ?? true);
+// Solo servizi: niente da consegnare, la spedizione sparisce dal modulo.
+$shipping = Gestionale::feature('shipping') && $products;
 $coupons = Gestionale::feature('coupons');
 $summary = is_array($summary ?? null) ? $summary : null;
 $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
@@ -49,13 +51,19 @@ $business = !$invoice || ($values['billing_type'] ?? 'business') === 'business';
 $shippingNotice = $shippingOptions !== [] ? '' : ($addressComplete ? 'no_shipping' : 'shipping_methods_pending');
 
 $order = ($summary['order'] ?? null) !== null ? $summary['order'] + ['fulfillment_type' => $fulfillment] : $order;
+// Con i servizi i totali dicono il primo addebito e quanto si paga oggi.
+$services = !empty($subscriptions) && isset($summary['subscriptions']) ? (array) $summary['subscriptions'] + [
+    'products' => $products,
+    'then' => (string) ($summary['display']['subscriptions_then'] ?? ''),
+] : null;
 $aside = [
     'step' => 'checkout', 'items' => (array) ($summary['items'] ?? $items), 'order' => $order, 'currency' => $currency,
     'coupons' => $coupons, 'couponCode' => $couponCode, 'notices' => (array) ($summary['notices'] ?? []),
+    'services' => $services,
 ];
 
 $labels = [];
-foreach (['free', 'no_shipping', 'shipping_pending', 'shipping_methods_pending', 'shipping_total', 'fees_total', 'coupon_remove', 'submit_manual', 'submit_online', 'updating', 'summary_error', 'field_required'] as $key) {
+foreach (['free', 'no_shipping', 'shipping_pending', 'shipping_methods_pending', 'shipping_total', 'fees_total', 'coupon_remove', 'submit_manual', 'submit_online', 'updating', 'summary_error', 'field_required', 'today_total', 'subscriptions_first_charge'] as $key) {
     $labels[$key] = (string) __t('ecommerce.checkout.'.$key);
 }
 foreach (['products_total', 'discount', 'total'] as $key) {
@@ -72,6 +80,12 @@ $gaItems = array_map(static fn (array $item): array => [
     'price' => round((float) ($item['line_total'] ?? 0) / max((float) ($item['quantity'] ?? 1), 1), 2),
     'quantity' => (float) ($item['quantity'] ?? 1),
 ], array_values(array_filter($items, static fn (array $item): bool => (string) ($item['type'] ?? 'product') === 'product')));
+// I servizi entrano con l'item GA4 dei piani, come nel `purchase` della conferma.
+foreach ((array) ($summary['items'] ?? []) as $item) {
+    if ((string) ($item['type'] ?? '') === 'subscription' && is_array($item['tracking'] ?? null)) {
+        $gaItems[] = $item['tracking'];
+    }
+}
 
 $payment = static fn (array $p): Choice => Choice::make('payment_method_id', (string) $p['key'])
     ->type('radio')->title((string) $p['name'])->aside((string) ($p['fee_display'] ?? ''))
@@ -85,7 +99,7 @@ View::head(DataLayer::script([
     'currency' => $currency,
 ], [
     'event' => 'begin_checkout',
-    'ecommerce' => ['currency' => $currency, 'value' => (float) ($order['total'] ?? 0), 'items' => $gaItems],
+    'ecommerce' => ['currency' => $currency, 'value' => (float) ($services !== null ? $services['today_total'] : ($order['total'] ?? 0)), 'items' => $gaItems],
 ], (int) ($_SESSION['user_id'] ?? 0)));
 ?>
 <h1 class="wi-checkout__sr"><?=e(__t('ecommerce.checkout.title'))?></h1>
@@ -125,7 +139,7 @@ View::head(DataLayer::script([
             <?php endif; ?>
         </div>
         <div id="consegna" class="w-100">
-            <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.delivery'))?></h2>
+            <h2 class="subtitle mb-3"><?=e(__t($products ? 'ecommerce.checkout.delivery' : 'ecommerce.checkout.details'))?></h2>
             <?php if ($shipping): ?>
                 <div class="w-100 mb-4" data-checkout-fulfillment<?=$canPickup ? '' : ' hidden'?>>
                     <?=ChoiceGroup::make()->variant('segmented')->choices(
@@ -138,11 +152,13 @@ View::head(DataLayer::script([
                 <div class="w-100 <?=CheckoutFields::cols('shipping_name')?>"><?=FormField::key('shipping_name')->text()->label((string) __t('ecommerce.auth.fields.name'))->required()->value($values['shipping_name'] ?? '')?></div>
                 <div class="w-100 <?=CheckoutFields::cols('shipping_surname')?>"><?=FormField::key('shipping_surname')->text()->label((string) __t('ecommerce.auth.fields.surname'))->required()->value($values['shipping_surname'] ?? '')?></div>
             </div>
-            <div class="w-100 mt-4 mt-p-3" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
-                <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3">
-                    <?php foreach ($shipping_fields as $key => $field): ?><?php if (CheckoutFields::hidden($key)): ?><?=$field?><?php else: ?><div class="w-100 <?=CheckoutFields::cols($key)?>"><?=$field?></div><?php endif; ?><?php endforeach; ?>
+            <?php if ($products): ?>
+                <div class="w-100 mt-4 mt-p-3" data-checkout-shipping<?=$pickup ? ' hidden' : ''?>>
+                    <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3">
+                        <?php foreach ($shipping_fields as $key => $field): ?><?php if (CheckoutFields::hidden($key)): ?><?=$field?><?php else: ?><div class="w-100 <?=CheckoutFields::cols($key)?>"><?=$field?></div><?php endif; ?><?php endforeach; ?>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
             <div class="w-100 d-grid col-4 col-p-5 gap-4 gap-p-3 mt-4 mt-p-3">
                 <div class="w-100 <?=CheckoutFields::cols('shipping_phone_prefix')?>"><?=FormField::key('shipping_phone_prefix')->phonePrefix()->label((string) __t('auth.fields.prefix'))->required()->value($values['shipping_phone_prefix'] ?? AuthValidator::defaultPrefix())?></div>
                 <div class="w-100 <?=CheckoutFields::cols('shipping_phone')?>"><?=FormField::key('shipping_phone')->phone()->label((string) __t('ecommerce.auth.fields.mobile'))->required()->value($values['shipping_phone'] ?? '')?></div>
@@ -191,6 +207,7 @@ View::head(DataLayer::script([
 
         <div id="fatturazione" class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.billing'))?></h2>
+            <?php if (!$products): ?><?=FormField::key('same_as_shipping')->hidden()->value('0')?><?php endif; ?>
             <?php if ($shipping): ?>
                 <div class="w-100 mb-4" data-checkout-toggle="fulfillment_type:shipping"<?=$pickup ? ' hidden' : ''?>>
                     <?=ChoiceGroup::make()->variant('list')->choices(

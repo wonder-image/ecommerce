@@ -197,6 +197,9 @@
         "consents": "Consensi",
         "coupon_applied": "Coupon applicato.",
         "coupon_removed": "Coupon tolto.",
+        "details": "I tuoi dati",
+        "today_total": "Totale di oggi",
+        "subscriptions_first_charge": "Primo addebito dei servizi",
         "errors": {
             "empty": "Il carrello è vuoto.",
             "payment_method": "Scegli un metodo di pagamento disponibile.",
@@ -453,7 +456,7 @@
         "summary": {
             "title": "Riepilogo abbonamento",
             "seo": "Controlla i servizi scelti e i dati di fatturazione, poi completa l'abbonamento.",
-            "added": "{{name}} è nel riepilogo.",
+            "added": "{{name}} è nel checkout.",
             "add_more": "Aggiungi un altro servizio",
             "services": "Servizi",
             "unit": "{{price}} cad.",
@@ -478,6 +481,7 @@
         },
         "confirm": {
             "title": "Abbonamento",
+            "order": "Ordine n. {{number}}: lo trovi nei tuoi ordini.",
             "waiting_title": "Stiamo confermando il pagamento",
             "waiting_text": "Ci vuole qualche secondo: la pagina si aggiorna da sola.",
             "confirmed_title": "Abbonamento attivo",
@@ -485,7 +489,7 @@
             "slow_title": "Ci sta mettendo più del previsto",
             "slow_text": "Il pagamento è in verifica: controlla tra poco nella sezione Abbonamenti del tuo account. Se non compare, scrivici.",
             "failed_title": "Abbonamento non attivato",
-            "failed_text": "Il pagamento non è stato completato. Puoi riprovare dalla pagina dei piani.",
+            "failed_text": "Il pagamento non è stato completato. Puoi riprovare dal checkout.",
             "account": "Vai ai tuoi abbonamenti",
             "plans": "Torna ai piani"
         }

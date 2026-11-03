@@ -257,6 +257,14 @@ class Checkout {
         this.text(node, '[data-line-name]', item.name);
         this.text(node, '[data-line-total]', item.line_total_display);
 
+        // Il «Togli» di un servizio, già pronto dal server come la foto.
+        const remove = node.querySelector('[data-line-remove]');
+
+        if (remove) {
+            remove.hidden = !item.remove_html;
+            remove.innerHTML = item.remove_html || '';
+        }
+
         // I pezzi di un multiprodotto, già scritti dal server («1 × Pane»).
         const parts = node.querySelector('[data-line-parts]');
 
@@ -285,14 +293,17 @@ class Checkout {
 
     totals(payload) {
         const d = payload.display;
-        const rows = [[this.labels.products_total, d.products_total]];
+        const services = this.form ? payload.subscriptions || null : null;
+        // Solo servizi: niente prodotti né spedizione, si legge il primo addebito.
+        const products = !services || (payload.items || []).some((item) => (item.type ?? 'product') === 'product');
+        const rows = products ? [[this.labels.products_total, d.products_total]] : [];
 
         if (parseFloat(payload.order.discount_total) !== 0) {
             rows.push([this.labels.discount, d.discount_total]);
         }
 
         // Nel checkout, senza indirizzo, si chiede di inserirlo.
-        if (this.form && this.root.dataset.shipping !== 'off' && payload.fulfillment.type === 'shipping') {
+        if (products && this.form && this.root.dataset.shipping !== 'off' && payload.fulfillment.type === 'shipping') {
             rows.push([this.labels.shipping_total, d.shipping_pending ? this.labels.shipping_pending : d.shipping_total]);
         }
 
@@ -312,9 +323,18 @@ class Checkout {
             rows.push([this.labels.fees_total, d.fees_total]);
         }
 
-        const total = cart ? cart.total_display : d.total;
+        if (services) {
+            rows.push([this.labels.subscriptions_first_charge, d.subscriptions_first_charge]);
+        }
 
-        rows.push([this.labels.total, total, true]);
+        const total = cart ? cart.total_display : (services ? d.today_total : d.total);
+
+        rows.push([services ? this.labels.today_total : this.labels.total, total, true]);
+
+        // In prova: quanto si paga dopo, sotto il totale.
+        if (services && d.subscriptions_then) {
+            rows.push([d.subscriptions_then, '']);
+        }
         document.querySelectorAll('[data-checkout-totals]').forEach((box) => {
             box.replaceChildren(...rows.map((row) => row instanceof Element ? row.cloneNode(true) : this.row(...row)));
         });
@@ -658,7 +678,9 @@ class Checkout {
         const keys = payload?.stripe;
         const stripeChoices = (payload?.payment_methods?.options || []).filter((o) => o.provider === 'stripe');
         const chosen = this.chosenPayment(payload);
-        const on = Boolean(box && stripeChoices.length && keys?.publishable_key && keys.amount > 0 && chosen?.provider === 'stripe');
+        // Con i servizi la carta si chiede anche a zero: la prova la salva per i rinnovi.
+        const subscription = keys?.mode === 'subscription';
+        const on = Boolean(box && stripeChoices.length && keys?.publishable_key && (keys.amount > 0 || subscription) && chosen?.provider === 'stripe');
         // I wallet fra le scelte si provano anche se è spuntato un pagamento manuale: per mostrarli serve Stripe.js.
         const probe = Boolean(stripeChoices.some((o) => isWallet(o) && !this.dropped.has(o.key)) && keys?.publishable_key && keys.amount > 0);
 
@@ -670,7 +692,7 @@ class Checkout {
             return;
         }
 
-        this.stripeOptions = { mode: 'payment', amount: keys.amount, currency: keys.currency };
+        this.stripeOptions = { mode: subscription ? 'subscription' : 'payment', amount: keys.amount, currency: keys.currency };
 
         if (!this.stripeReady) {
             this.stripeReady = loadStripe().then(() => {
@@ -965,7 +987,9 @@ class Checkout {
                 this.freeze();
             }
 
-            const { error } = await this.stripe.confirmPayment({
+            // Un abbonamento in prova non incassa: la carta si salva con il SetupIntent.
+            const confirm = this.placed.intent === 'setup' ? 'confirmSetup' : 'confirmPayment';
+            const { error } = await this.stripe[confirm]({
                 elements,
                 clientSecret: this.placed.client_secret,
                 confirmParams: {
@@ -981,7 +1005,11 @@ class Checkout {
                 payAlert(error.message || this.labels.pay_failed);
                 this.say([]);
                 this.thaw();
-                reportDeclined(this.root.dataset.declinedUrl, csrfToken(), error);
+
+                // Con i servizi il rifiuto lo scrive la fattura dell'abbonamento, non l'intento dell'ordine.
+                if (!this.placed.intent) {
+                    reportDeclined(this.root.dataset.declinedUrl, csrfToken(), error);
+                }
             }
         } catch (error) {
             this.say([this.labels.stripe_error]);
@@ -998,7 +1026,10 @@ class Checkout {
     async place() {
         const response = await fetch(this.form.action, {
             method: 'POST',
-            body: this.body({ expected_total: String(this.latest?.order?.total ?? '') }),
+            body: this.body({
+                expected_total: String(this.latest?.order?.total ?? ''),
+                ...(this.latest?.subscriptions ? { expected_subscription: String(this.latest.subscriptions.first_charge ?? '') } : {}),
+            }),
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json', 'X-WI-CSRF': csrfToken() },
         });
@@ -1364,6 +1395,7 @@ class Checkout {
 
         const event = name === 'payment_method_id' ? 'add_payment_info' : 'add_shipping_info';
         const order = this.latest.order;
+        const services = this.latest.subscriptions || null;
 
         window.dataLayer = window.dataLayer || [];
         window.dataLayer.push({ ecommerce: null });
@@ -1371,13 +1403,14 @@ class Checkout {
             event,
             ecommerce: {
                 currency: order.currency,
-                value: parseFloat(order.total),
-                items: this.latest.items.map((item) => ({
+                // Con i servizi si paga oggi anche il primo addebito: come nel `begin_checkout`.
+                value: parseFloat(services ? services.today_total : order.total),
+                items: this.latest.items.map((item) => item.type === 'subscription' ? item.tracking : ({
                     item_id: String(item.sku || item.product_id || ''),
                     item_name: item.name,
                     price: parseFloat(item.line_total) / (parseFloat(item.quantity) || 1),
                     quantity: parseFloat(item.quantity),
-                })),
+                })).filter(Boolean),
             },
         });
     }
