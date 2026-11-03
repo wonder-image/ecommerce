@@ -82,11 +82,11 @@ function manuale(): int
     ])->insert_id ?? 0);
 }
 
-function coupon(): string
+function coupon(bool $cumulabile = false): string
 {
-    $codice = 'T'.strtoupper(substr(uniqid(), -8));
+    $codice = 'T'.strtoupper(substr(uniqid(), -8)).random_int(10, 99);
     Coupon::create(['code' => $codice, 'name' => 'Prova '.$codice, 'discount_type' => 'percent', 'discount_value' => '10.00',
-        'applies_to_all' => 'true', 'applies_online' => 'true', 'active' => 'true']);
+        'applies_to_all' => 'true', 'applies_online' => 'true', 'active' => 'true', 'stackable' => $cumulabile ? 'true' : 'false']);
 
     return $codice;
 }
@@ -158,6 +158,21 @@ check('il coupon si applica e si toglie; uno sconosciuto dà il messaggio del ge
     return $su['error'] === '' && $su['coupon']['code'] === $codice && (float) $su['order']['discount_total'] > 0
         && $giu['error'] === '' && $giu['coupon']['code'] === ''
         && $no['error'] !== '' && $no['coupon']['code'] === '';
+}));
+
+check('due coupon cumulabili stanno insieme e «Rimuovi» ne toglie uno solo', fn () => prova(static function (): bool {
+    standard();
+    [$primo, $secondo] = [coupon(true), coupon(true)];
+    $cart = carrello([[articolo(2.0, 10.0), 1]]);
+
+    CheckoutSummary::coupon($cart, 'apply', $primo, modulo());
+    $due = CheckoutSummary::coupon($cart, 'apply', $secondo, modulo());
+    $uno = CheckoutSummary::coupon($cart, 'remove', $primo, modulo());
+    $zero = CheckoutSummary::coupon($cart, 'remove', '', modulo());
+
+    return $due['error'] === '' && $due['coupon']['codes'] === [$primo, $secondo]
+        && $uno['error'] === '' && $uno['coupon']['codes'] === [$secondo]
+        && $zero['coupon']['codes'] === [];
 }));
 
 check('lo sconto mostrato ha il meno, come nel riepilogo della pagina', fn () => prova(static function (): bool {

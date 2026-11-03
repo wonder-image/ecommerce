@@ -4,6 +4,7 @@ use Wonder\Elements\Components\Accordion;
 use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\View\View;
@@ -121,7 +122,7 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
         <div class="w-100 d-flex d-column gap-5">
             <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), [
                 'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency,
-                'coupons' => false, 'couponCode' => '', 'notices' => [],
+                'coupons' => false, 'couponCodes' => [], 'notices' => [],
                 // I bottoni rapidi stanno sopra «Procedi».
                 'express' => Ecommerce::config('cart.express', true) ? ExpressCheckout::render('cart', $order) : '',
                 'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 a-c mt-5'),
@@ -131,14 +132,14 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
             } ?>
             <?php if ($coupons): ?>
                 <?php
-                $couponCode = (string) ($order['coupon_code'] ?? '');
+                $couponCodes = CheckoutSummary::couponCodes((int) ($order['id'] ?? 0));
                 // Il tema Wonder non rende `Text`: all'accordion basta un oggetto con render().
-                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => '', 'order' => $order, 'currency' => $currency])) {
+                $coupon = new class ((string) View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['codes' => $couponCodes, 'return' => 'cart', 'id' => 'checkout-coupon', 'spacing' => '', 'order' => $order, 'currency' => $currency])) {
                     public function __construct(private string $html) {}
                     public function render(): string { return $this->html; }
                 };
                 ?>
-                <?=Accordion::make((string) __t('ecommerce.checkout.coupon_title'))->icon('chevron')->expanded($couponCode !== '')->class('wi-box h-auto p-5')->components([
+                <?=Accordion::make((string) __t('ecommerce.checkout.coupon_title'))->icon('chevron')->expanded($couponCodes !== [])->class('wi-box h-auto p-5')->components([
                     $coupon,
                 ])?>
             <?php endif; ?>

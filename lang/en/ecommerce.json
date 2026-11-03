@@ -135,6 +135,8 @@
         "coupon_apply": "Apply",
         "coupon_remove": "Remove",
         "coupon_applied_title": "Code applied!",
+        "coupons_applied_title": "Codes applied!",
+        "coupon_remove_code": "Remove {{code}}",
         "coupon_saved": "You saved {{amount}}",
         "order_summary": "Order summary",
         "submit_manual": "Place order",
