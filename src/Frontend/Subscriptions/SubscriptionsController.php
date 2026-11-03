@@ -10,6 +10,7 @@ use Wonder\Http\Csrf;
 use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
@@ -111,7 +112,7 @@ final class SubscriptionsController
 
         $planId = (int) $found['plan']['id'];
         $state = self::pullConfigureState($code);
-        $catalog = self::catalog();
+        $catalog = CheckoutSubscriptions::catalog();
         $mothers = self::mothersOf($planId);
         $parents = self::eligibleParents($mothers, $catalog);
         $missing = [];
@@ -187,7 +188,7 @@ final class SubscriptionsController
         $added = SubscriptionSelection::items()[$index] ?? null;
 
         if (is_array($added)) {
-            self::pushEvent(SubscriptionTracking::addToCart(self::trackingItem($found, $added)));
+            self::pushEvent(SubscriptionTracking::addToCart(CheckoutSubscriptions::trackingItem($found, $added)));
         }
 
         FlashMessage::success((string) __t('ecommerce.subscriptions.summary.added', ['name' => $found['price']['full_name']]));
@@ -212,7 +213,7 @@ final class SubscriptionsController
 
         $contact = Contact::findById(CartSession::customerId());
         $contact = is_array($contact) ? $contact : [];
-        $values = self::pullFormState() + self::contactValues($contact);
+        $values = self::pullFormState() + CheckoutSubscriptions::contactValues($contact);
         $billing = array_filter($values, static fn (string $key): bool => str_starts_with($key, 'billing_'), ARRAY_FILTER_USE_KEY);
         $coupon = trim((string) ($values['coupon'] ?? ''));
         $couponError = '';
@@ -238,8 +239,8 @@ final class SubscriptionsController
             $blocked = (string) __t('ecommerce.subscriptions.error');
         }
 
-        $catalog = self::catalog();
-        $rows = self::summaryRows($items, $catalog, $preview['lines'] ?? []);
+        $catalog = CheckoutSubscriptions::catalog();
+        $rows = CheckoutSubscriptions::summaryRows($items, $catalog, $preview['lines'] ?? []);
         $events = self::pullEvents();
 
         if ($preview !== null) {
@@ -264,7 +265,7 @@ final class SubscriptionsController
             'coupon_error' => $couponError,
             'blocked' => $blocked,
             'values' => $values,
-            'billing_fields' => self::billingFields($values),
+            'billing_fields' => CheckoutSubscriptions::billingFields($values),
             'events' => $events,
             'currency' => PlanCatalog::CURRENCY,
             'plans_url' => self::route('ecommerce.subscriptions.plans'),
@@ -357,14 +358,14 @@ final class SubscriptionsController
         }
 
         $children = SubscriptionSelection::children($index);
-        $catalog = self::catalog();
+        $catalog = CheckoutSubscriptions::catalog();
         $tracking = [];
 
         foreach ([$index, ...$children] as $gone) {
             $found = $catalog[$items[$gone]['price_code']] ?? null;
 
             if ($found !== null) {
-                $tracking[] = self::trackingItem($found, $items[$gone]);
+                $tracking[] = CheckoutSubscriptions::trackingItem($found, $items[$gone]);
             }
         }
 
@@ -551,81 +552,7 @@ final class SubscriptionsController
         return $parents;
     }
 
-    /**
-     * Le righe del riepilogo: dalla selezione, coi prezzi del gestionale
-     * quando il riepilogo è riuscito.
-     *
-     * @param list<array{price_code: string, quantity: int, customization: array<int, string>, parent: int}> $items
-     * @param array<string, array{plan: array<string, mixed>, price: array<string, mixed>}> $catalog
-     * @param list<array<string, mixed>> $lines
-     * @return list<array<string, mixed>>
-     */
-    private static function summaryRows(array $items, array $catalog, array $lines): array
-    {
-        $rows = [];
-
-        foreach ($items as $index => $item) {
-            $entry = $catalog[$item['price_code']] ?? null;
-            $line = $lines[$index] ?? null;
-            $unit = is_array($line) ? round((float) $line['unit_price'], 2) : null;
-            $parent = $item['parent'] >= 0 ? ($items[$item['parent']] ?? null) : null;
-            $parentEntry = $parent !== null ? ($catalog[$parent['price_code']] ?? null) : null;
-
-            $rows[] = [
-                'index' => $index,
-                'name' => $entry !== null ? (string) $entry['price']['full_name'] : $item['price_code'],
-                'price' => $entry['price'] ?? null,
-                'quantity' => $item['quantity'],
-                'customization' => is_array($line) ? Customizations::lines($line) : [],
-                'unit_price' => $unit,
-                'line_total' => $unit !== null ? round($unit * $item['quantity'], 2) : null,
-                'parent' => $parentEntry !== null ? (string) $parentEntry['price']['full_name'] : '',
-                'children' => count(array_filter($items, static fn (array $other): bool => $other['parent'] === $index)),
-                'tracking' => $entry !== null && $unit !== null
-                    ? SubscriptionTracking::item($entry['price'], (string) $entry['plan']['name'], $unit, $item['quantity'], $index)
-                    : null,
-            ];
-        }
-
-        return $rows;
-    }
-
-    /**
-     * L'item GA4 di una riga: prezzo mostrato più i sovrapprezzi delle
-     * personalizzazioni scelte.
-     *
-     * @param array{plan: array<string, mixed>, price: array<string, mixed>} $found
-     * @param array{price_code: string, quantity: int, customization: array<int, string>, parent: int} $item
-     * @return array<string, mixed>
-     */
-    private static function trackingItem(array $found, array $item): array
-    {
-        $surcharge = 0.0;
-
-        try {
-            $surcharge = (float) Customizations::resolvePlan((int) $found['plan']['id'], $item['customization'])['surcharge'];
-        } catch (Throwable) {
-            $surcharge = 0.0;
-        }
-
-        return SubscriptionTracking::item($found['price'], (string) $found['plan']['name'], (float) $found['price']['amount'] + $surcharge, $item['quantity']);
-    }
-
-    /** @return array<string, array{plan: array<string, mixed>, price: array<string, mixed>}> codice del prezzo ⇒ piano e prezzo */
-    private static function catalog(): array
-    {
-        $catalog = [];
-
-        foreach (PlanCatalog::present(PlanCatalog::load(), self::configureUrl(...)) as $plan) {
-            foreach ($plan['prices'] as $price) {
-                $catalog[(string) $price['code']] = ['plan' => $plan, 'price' => $price];
-            }
-        }
-
-        return $catalog;
-    }
-
-    private static function configureUrl(string $code): string
+    public static function configureUrl(string $code): string
     {
         return self::route('ecommerce.subscriptions.configure', ['price' => $code]);
     }
@@ -748,52 +675,7 @@ final class SubscriptionsController
         self::redirect($back);
     }
 
-    /**
-     * I campi di fatturazione del modulo, come nel checkout: lo schema del
-     * gestionale con i valori della scheda del cliente.
-     *
-     * @param array<string, string> $values
-     * @return array<string, mixed>
-     */
-    private static function billingFields(array $values): array
-    {
-        $schema = Subscription::billingAddress()->formSchema($values['billing_country'] ?? null);
-        $labels = Subscription::billingAddress()->labels();
-        $fields = [];
 
-        foreach ($schema as $key => $field) {
-            if (!is_object($field) || in_array($key, ['billing_phone_prefix', 'billing_phone'], true)) {
-                continue;
-            }
-
-            if (isset($labels[$key]) && method_exists($field, 'label')) {
-                $field->label((string) $labels[$key]);
-            }
-
-            if (method_exists($field, 'value') && array_key_exists($key, $values)) {
-                $field->value((string) $values[$key]);
-            }
-
-            $fields[$key] = $field;
-        }
-
-        return $fields;
-    }
-
-    /** @param array<string, mixed> $contact @return array<string, string> */
-    private static function contactValues(array $contact): array
-    {
-        $values = [];
-
-        foreach (Subscription::billingAddress()->tableSchema() as $column) {
-            $name = (string) $column->name;
-            $values[$name] = trim((string) ($contact[substr($name, strlen('billing_'))] ?? ''));
-        }
-
-        $values['billing_country'] = $values['billing_country'] !== '' ? $values['billing_country'] : 'IT';
-
-        return $values;
-    }
 
     /** @param array<string, string> $values */
     private static function rememberFormState(array $values): void
