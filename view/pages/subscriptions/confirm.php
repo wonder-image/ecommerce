@@ -11,6 +11,7 @@
  * @var array<string, mixed>|null $purchase
  * @var string $account_url
  * @var string $plans_url
+ * @var string $order_number l'ordine dei prodotti pagato nella stessa fattura, se c'era
  */
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
@@ -32,6 +33,9 @@ Ecommerce::layout('checkout');
 <div class="w-100 wi-box p-6 a-c" aria-live="polite">
     <h1 class="title"><?=e(__t('ecommerce.subscriptions.confirm.'.$state.'_title'))?></h1>
     <p class="text mt-4"><?=e(__t('ecommerce.subscriptions.confirm.'.$state.'_text'))?></p>
+    <?php if (($order_number ?? '') !== ''): ?>
+        <p class="text mt-2"><?=e(__t('ecommerce.subscriptions.confirm.order', ['number' => $order_number]))?></p>
+    <?php endif; ?>
     <?php if ($state === 'confirmed' || $state === 'slow'): ?>
         <a class="btn btn-primary mt-6 c-w" href="<?=e($account_url)?>"><?=e(__t('ecommerce.subscriptions.confirm.account'))?></a>
     <?php elseif ($state === 'failed'): ?>

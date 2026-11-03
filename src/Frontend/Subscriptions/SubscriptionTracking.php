@@ -142,6 +142,26 @@ final class SubscriptionTracking
         return self::purchaseFrom($subscription, $lines);
     }
 
+    /**
+     * Il `purchase` di un checkout misto: i prodotti dell'ordine, pagati nella
+     * stessa prima fattura, entrano negli item e nel `value`.
+     *
+     * @param array<string, mixed> $purchase di `purchase()`
+     * @param array{value?: float, items?: list<array<string, mixed>>} $order quanto il checkout ha ricordato dell'ordine
+     * @return array<string, mixed>
+     */
+    public static function withOrder(array $purchase, array $order): array
+    {
+        if ($order === []) {
+            return $purchase;
+        }
+
+        $purchase['ecommerce']['value'] = round((float) $purchase['ecommerce']['value'] + (float) ($order['value'] ?? 0), 2);
+        $purchase['ecommerce']['items'] = [...(array) ($order['items'] ?? []), ...$purchase['ecommerce']['items']];
+
+        return $purchase;
+    }
+
     /** @param list<array<string, mixed>> $items @return array<string, mixed> */
     private static function event(string $name, array $items, string $currency): array
     {

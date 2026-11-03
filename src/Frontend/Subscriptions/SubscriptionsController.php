@@ -10,7 +10,10 @@ use Wonder\Http\Csrf;
 use Wonder\Http\Exceptions\NotFoundHttpException;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptionStart;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
+use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
@@ -139,7 +142,7 @@ final class SubscriptionsController
             'include_tax' => PlanCatalog::pricesIncludeTax(),
             'currency' => PlanCatalog::CURRENCY,
             'plans_url' => self::route('ecommerce.subscriptions.plans'),
-            'summary_url' => self::route('ecommerce.subscriptions.summary'),
+            'summary_url' => self::route('ecommerce.checkout.index'),
             'action' => self::route('ecommerce.subscriptions.add', ['price' => $code]),
         ])->render();
     }
@@ -192,161 +195,31 @@ final class SubscriptionsController
         }
 
         FlashMessage::success((string) __t('ecommerce.subscriptions.summary.added', ['name' => $found['price']['full_name']]));
-        self::redirect(self::route('ecommerce.subscriptions.summary'));
+        self::redirect(self::route('ecommerce.checkout.index'));
     }
 
     /**
-     * Il riepilogo della selezione: righe, totale del primo addebito col
-     * coupon, fatturazione e il passaggio a Stripe. Un coupon che non vale
-     * resta sul suo campo e il totale si mostra senza; un altro errore della
-     * selezione spegne il pagamento finché la riga non si toglie.
+     * Il vecchio riepilogo e il suo POST: i servizi si pagano nel checkout,
+     * insieme ai prodotti. Il link salvato resta buono (301), un modulo
+     * rimasto aperto torna al checkout (303).
      */
-    private static function summary(): void
+    private static function summary(): never
     {
-        $url = self::route('ecommerce.subscriptions.summary');
-        self::requireLogin($url);
-        $items = SubscriptionSelection::items();
-
-        if ($items === []) {
-            self::redirect(self::route('ecommerce.subscriptions.plans'));
-        }
-
-        $contact = Contact::findById(CartSession::customerId());
-        $contact = is_array($contact) ? $contact : [];
-        $values = self::pullFormState() + CheckoutSubscriptions::contactValues($contact);
-        $billing = array_filter($values, static fn (string $key): bool => str_starts_with($key, 'billing_'), ARRAY_FILTER_USE_KEY);
-        $coupon = trim((string) ($values['coupon'] ?? ''));
-        $couponError = '';
-        $blocked = '';
-        $preview = null;
-
-        try {
-            try {
-                $preview = OnlineSubscriptions::preview($contact, $items, $billing, $coupon);
-            } catch (UserError $error) {
-                if ($coupon === '' || !str_starts_with($error->key(), 'coupon.')) {
-                    throw $error;
-                }
-
-                $couponError = $error->getMessage();
-                $coupon = '';
-                $preview = OnlineSubscriptions::preview($contact, $items, $billing, '');
-            }
-        } catch (UserError $error) {
-            $blocked = $error->getMessage();
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.subscriptions.summary');
-            $blocked = (string) __t('ecommerce.subscriptions.error');
-        }
-
-        $catalog = CheckoutSubscriptions::catalog();
-        $rows = CheckoutSubscriptions::summaryRows($items, $catalog, $preview['lines'] ?? []);
-        $events = self::pullEvents();
-
-        if ($preview !== null) {
-            $tracking = [];
-
-            foreach ($rows as $row) {
-                if ($row['tracking'] !== null) {
-                    $tracking[] = $row['tracking'];
-                }
-            }
-
-            $events[] = SubscriptionTracking::beginCheckout($tracking, (float) $preview['amounts']['first_charge_total'], PlanCatalog::CURRENCY, $coupon);
-        }
-
-        self::seo((string) __t('ecommerce.subscriptions.summary.title'), (string) __t('ecommerce.subscriptions.summary.seo'), self::absolute($url), 'NOINDEX,NOFOLLOW', []);
-
-        View::make(Ecommerce::viewPath('pages/subscriptions/summary.php'), [
-            'rows' => $rows,
-            'amounts' => $preview['amounts'] ?? null,
-            'trial' => (int) ($preview['trial'] ?? 0),
-            'include_tax' => $preview['include_tax'] ?? PlanCatalog::pricesIncludeTax(),
-            'coupon_error' => $couponError,
-            'blocked' => $blocked,
-            'values' => $values,
-            'billing_fields' => CheckoutSubscriptions::billingFields($values),
-            'events' => $events,
-            'currency' => PlanCatalog::CURRENCY,
-            'plans_url' => self::route('ecommerce.subscriptions.plans'),
-            'action' => $url,
-            'remove_url' => self::route('ecommerce.subscriptions.remove'),
-        ])->render();
+        header('Location: '.self::route('ecommerce.checkout.index'), true, 301);
+        exit;
     }
 
-    /**
-     * Il POST del riepilogo. «Applica» ricorda fatturazione e coupon e torna
-     * al riepilogo; il pagamento crea l'abbonamento in attesa con tutti i
-     * servizi e manda il cliente sulla pagina di Stripe. La selezione resta
-     * fino alla conferma, così un annullo su Stripe la ritrova intera.
-     */
     private static function start(): never
     {
-        self::requirePost();
-        $back = self::route('ecommerce.subscriptions.summary');
-        $billing = array_filter(
-            (array) $_POST,
-            static fn ($value, $key): bool => is_string($key) && str_starts_with($key, 'billing_') && is_scalar($value),
-            ARRAY_FILTER_USE_BOTH
-        );
-
-        $billing = array_map(static fn ($value): string => trim((string) $value), $billing);
-        $coupon = trim((string) ($_POST['coupon'] ?? ''));
-        $state = $billing + ['coupon' => $coupon];
-        self::verifyCsrf($back, static fn () => self::rememberFormState($state));
-        self::requireLogin($back);
-
-        if ((string) ($_POST['intent'] ?? '') === 'apply') {
-            self::rememberFormState($state);
-            self::redirect($back);
-        }
-
-        $items = SubscriptionSelection::items();
-
-        if ($items === []) {
-            self::redirect(self::route('ecommerce.subscriptions.plans'));
-        }
-
-        if (!SubscriptionBilling::complete($billing)) {
-            self::rememberFormState($state);
-            FlashMessage::error((string) __t('ecommerce.checkout.errors.billing'), (string) __t('ecommerce.subscriptions.error_title'));
-            self::redirect($back);
-        }
-
-        try {
-            $started = OnlineSubscriptions::start(
-                CartSession::customerId(),
-                $items,
-                $billing,
-                $coupon,
-                [
-                    'success' => self::absolute(self::route('ecommerce.subscriptions.confirm')).'?abbonamento={SUBSCRIPTION}',
-                    'cancel' => self::absolute($back),
-                ]
-            );
-        } catch (UserError $error) {
-            if ($error->key() === 'subscription.limit_reached') {
-                self::toAccount($error->getMessage(), (string) ($items[0]['price_code'] ?? ''));
-            }
-
-            self::rememberFormState($state);
-            FlashMessage::error($error->getMessage(), (string) __t('ecommerce.subscriptions.error_title'));
-            self::redirect($back);
-        } catch (Throwable $error) {
-            Errors::internal($error, 'ecommerce.subscriptions.start');
-            self::rememberFormState($state);
-            FlashMessage::error((string) __t('ecommerce.subscriptions.error'), (string) __t('ecommerce.subscriptions.error_title'));
-            self::redirect($back);
-        }
-
-        self::redirect($started['url']);
+        header('Location: '.self::route('ecommerce.checkout.index'), true, 303);
+        exit;
     }
 
-    /** Toglie una riga dal riepilogo, con le righe che si appoggiano a lei. */
+    /** Toglie un servizio dal checkout, con le righe che si appoggiano a lei. */
     private static function remove(): never
     {
         self::requirePost();
-        $back = self::route('ecommerce.subscriptions.summary');
+        $back = self::route('ecommerce.checkout.index');
         self::verifyCsrf($back);
         self::requireLogin($back);
         $raw = (string) ($_POST['index'] ?? '');
@@ -379,7 +252,8 @@ final class SubscriptionsController
             FlashMessage::info((string) __t('ecommerce.subscriptions.summary.removed_children', ['count' => (string) count($children)]));
         }
 
-        self::redirect(SubscriptionSelection::items() === [] ? self::route('ecommerce.subscriptions.plans') : $back);
+        // Senza servizi né prodotti il checkout rimanda al carrello: meglio i piani.
+        self::redirect(SubscriptionSelection::items() === [] && CartSession::peek()['items'] === [] ? self::route('ecommerce.subscriptions.plans') : $back);
     }
 
     /**
@@ -399,6 +273,12 @@ final class SubscriptionsController
             self::notFound();
         }
 
+        // Un metodo con redirect rifiutato torna qui: si riprova dal checkout, con la selezione intatta.
+        if ((string) ($_GET['redirect_status'] ?? '') === 'failed') {
+            FlashMessage::error((string) __t('ecommerce.checkout.pay.failed'), (string) __t('ecommerce.checkout.error_title'));
+            self::redirect(self::route('ecommerce.checkout.index'));
+        }
+
         $status = (string) $row['status'];
         $state = in_array($status, Subscription::LIVE, true) ? 'confirmed' : ($status === 'pending' ? 'waiting' : 'failed');
 
@@ -407,8 +287,18 @@ final class SubscriptionsController
             $state = 'slow';
         }
 
+        // L'ordine partito con l'abbonamento: pagato nella stessa fattura, non è più in sospeso.
+        $started = CheckoutSubscriptionStart::started($code);
+        $orderNumber = '';
+
         if ($state !== 'failed') {
             SubscriptionSelection::clear();
+
+            if ((int) ($started['order_id'] ?? 0) > 0) {
+                OnlinePayment::forget();
+                unset($_SESSION[OnlinePayment::RECEIPT]);
+                $orderNumber = (string) (Order::findById((int) $started['order_id'])['order_number'] ?? '');
+            }
         }
 
         $tracked = (array) ($_SESSION[self::TRACKED] ?? []);
@@ -416,6 +306,10 @@ final class SubscriptionsController
 
         if ($purchase) {
             $_SESSION[self::TRACKED] = array_slice([...$tracked, $code], -20);
+        }
+
+        if ($state === 'confirmed') {
+            CheckoutSubscriptionStart::forget();
         }
 
         self::seo(
@@ -429,7 +323,8 @@ final class SubscriptionsController
         View::make(Ecommerce::viewPath('pages/subscriptions/confirm.php'), [
             'subscription' => $row,
             'state' => $state,
-            'purchase' => $purchase ? SubscriptionTracking::purchase($row) : null,
+            'purchase' => $purchase ? SubscriptionTracking::withOrder(SubscriptionTracking::purchase($row), (array) ($started['tracking'] ?? [])) : null,
+            'order_number' => $orderNumber,
             'account_url' => self::route('account.subscriptions'),
             'plans_url' => self::route('ecommerce.subscriptions.plans'),
         ])->render();
