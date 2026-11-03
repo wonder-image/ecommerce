@@ -280,7 +280,7 @@ check('il radio del pagamento vale la chiave della scelta; post la spezza in id 
     && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('891') === [891, '']
     && \Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules::splitPayment('x:y') === [0, '']);
 
-check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirmPayment; durante il pagamento la scelta non cambia', function () use ($js): bool {
+check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino alla conferma; durante il pagamento la scelta non cambia', function () use ($js): bool {
     $from = (int) strpos($js, '    async payOnline() {');
     $pay = substr($js, $from, (int) strpos($js, '    async place() {') - $from);
     $drop = substr($js, (int) strpos($js, '    dropChoice(key) {'), 160);
@@ -288,7 +288,9 @@ check('«Paga» fissa il gruppo all\'inizio e usa quell\'elements fino a confirm
 
     return str_contains($pay, 'const { elements } = group;')
         && str_contains($pay, 'await elements.submit()')
-        && (bool) preg_match('/confirmPayment\(\{\s*elements,/', $pay)
+        // Con i servizi in prova Stripe chiede di salvare la carta: confirmSetup, stesso elements.
+        && str_contains($pay, "const confirm = this.placed.intent === 'setup' ? 'confirmSetup' : 'confirmPayment';")
+        && (bool) preg_match('/this\.stripe\[confirm\]\(\{\s*elements,/', $pay)
         && !str_contains($pay, 'this.elements')
         && !str_contains($pay, 'this.paymentElement')
         && str_contains($pay, 'this.payKey = ')

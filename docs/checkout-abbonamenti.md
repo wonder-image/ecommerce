@@ -1,6 +1,6 @@
 # Checkout unico: prodotti e abbonamenti
 
-Disegno, non ancora codice. Decisioni dell'utente (2026-11-03):
+Fatto (2026-11-03). Decisioni dell'utente:
 
 - prodotti e abbonamenti stanno nello stesso acquisto, con **un solo pagamento**;
 - la carta si inserisce **dentro la pagina** (Payment Element), come per i prodotti.
@@ -68,7 +68,7 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
   (le righe ordine non sanno di prova, ricorrenza e righe figlie: `OrderItem::TYPES`
   non ha un tipo abbonamento). Il carrello e il checkout mostrano le due liste
   insieme; il mini-carrello conta anche gli abbonamenti. `/abbonamenti/{price}/`
-  aggiunge e manda al carrello; `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
+  aggiunge e manda al checkout; `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
 - **CheckoutController::index**: con abbonamenti nel carrello login
   obbligatorio (niente ospite, niente express checkout); senza prodotti la
   sezione Consegna sparisce (restano nome e telefono dentro Fatturazione);
@@ -82,8 +82,9 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
   nessuna parte.
 - **place()**: valida come oggi, piazza l'ordine (se ci sono prodotti),
   chiama `startInPage()` e risponde a checkout.js con il client secret.
-  Il ritorno è `/checkout/completato/`, unico per i due casi; la selezione si
-  svuota alla conferma, come oggi.
+  Il ritorno è la conferma dell'abbonamento (`/abbonamenti/conferma/`), che
+  con l'ordine dice anche il suo numero; la selezione si svuota alla conferma.
+  Il vecchio POST del riepilogo fa 303 al checkout.
 
 ## I quattro punti (AGENTS.md)
 
@@ -94,8 +95,9 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
 4. **dataLayer**: `begin_checkout`, `add_payment_info` e `purchase` con
    **tutti** gli item: prodotti (`item_id` = sku) e servizi (`item_id` = codice
    prezzo, come `SubscriptionTracking`); `value` = quanto si paga oggi;
-   `purchase` una volta sola, `transaction_id` = codice ordine o, senza
-   prodotti, codice abbonamento. `ecommerce: null` prima di ogni evento;
+   `purchase` una volta sola, alla conferma dell'abbonamento, con
+   `transaction_id` = codice abbonamento: con l'ordine il `value` e gli item
+   comprendono i prodotti (`SubscriptionTracking::withOrder`). `ecommerce: null` prima di ogni evento;
    `user.id` lo manda il core.
 
 ## Ordine dei lavori

@@ -154,17 +154,18 @@ check('purchase con l\'una tantum: si somma al canone, in prova è tutto il valo
         && $attivo['items'][0]['price'] === 10.0;
 });
 
-check('le pagine: piani indicizzati con breadcrumb, servizio, riepilogo e conferma private', function () use ($root) {
+check('le pagine: piani indicizzati con breadcrumb, servizio e conferma private, il riepilogo va al checkout', function () use ($root) {
     $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
 
     return substr_count($controller, "'INDEX,FOLLOW'") >= 1
-        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 3
+        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 2
+        && str_contains($controller, "header('Location: '.self::route('ecommerce.checkout.index'), true, 301);")
         && str_contains($controller, "\$SEO->breadcrumb = [];")
         && str_contains($controller, 'self::TRACKED');
 });
 
 check('le viste: un solo h1, dataLayer dal punto condiviso, JSON-LD solo sui piani', function () use ($root) {
-    foreach (['plans', 'configure', 'summary', 'confirm'] as $vista) {
+    foreach (['plans', 'configure', 'confirm'] as $vista) {
         $source = (string) file_get_contents($root.'/view/pages/subscriptions/'.$vista.'.php');
 
         if (substr_count($source, '<h1') !== 1 || !str_contains($source, 'DataLayer::script(')) {

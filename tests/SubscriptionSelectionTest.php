@@ -173,13 +173,14 @@ check('riepilogo: il primo addebito somma canone e una tantum, in prova solo l\'
         && $senza['total'] === 10.0 && $senza['one_time'] === 0.0;
 });
 
-check('riepilogo: begin_checkout vale quanto il primo addebito, una tantum compresa', function () {
-    $controller = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Subscriptions/SubscriptionsController.php');
-    $vista = (string) file_get_contents(dirname(__DIR__).'/view/pages/subscriptions/summary.php');
+check('checkout: begin_checkout vale il totale di oggi, servizi compresi', function () {
+    $vista = (string) file_get_contents(dirname(__DIR__).'/view/pages/checkout/index.php');
+    $servizi = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutSubscriptions.php');
 
-    return str_contains($controller, "SubscriptionTracking::beginCheckout(\$tracking, (float) \$preview['amounts']['first_charge_total']")
-        && str_contains($vista, 'SubscriptionView::firstCharge($amounts, $trial)')
-        && str_contains($vista, "'ecommerce.subscriptions.summary.one_time_line'");
+    return str_contains($vista, "\$services !== null ? \$services['today_total']")
+        && str_contains($vista, "\$gaItems[] = \$item['tracking'];")
+        && str_contains($servizi, 'SubscriptionView::firstCharge($amounts, $trial)')
+        && str_contains($servizi, "'ecommerce.subscriptions.summary.one_time_line'");
 });
 
 summary();

@@ -260,9 +260,11 @@ class Checkout {
         // Il «Togli» di un servizio, già pronto dal server come la foto.
         const remove = node.querySelector('[data-line-remove]');
 
-        if (remove) {
-            remove.hidden = !item.remove_html;
-            remove.innerHTML = item.remove_html || '';
+        if (remove && item.remove_html) {
+            remove.insertAdjacentHTML('beforeend', item.remove_html);
+            remove.hidden = false;
+        } else {
+            remove?.remove();
         }
 
         // I pezzi di un multiprodotto, già scritti dal server («1 × Pane»).

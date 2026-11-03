@@ -195,21 +195,18 @@ check('abbonamenti add: 302 alla configurazione con l\'avviso 929 e la scelta ri
     && ($scelta['parent'] ?? '') === '2'
     && ($scelta['message'] ?? 'x') === ''
     && $aggiungiPiano['token_kept']);
-$riepilogo = percorso((string) __r('ecommerce.subscriptions.summary'));
+$riepilogo = percorso((string) __r('ecommerce.checkout.index'));
 $avvia = scaduto(['controller' => 'subscriptions', 'action' => 'start', 'post' => $sbagliato + [
     'billing_name' => 'Mario',
     'billing_email' => 'cliente@example.com',
     'coupon' => 'SCONTO',
     'password' => 'segreta',
 ]]);
-$fatturazione = (array) ($avvia['session']['ecommerce_subscription_form'] ?? []);
-check('abbonamenti start: 302 al riepilogo con l\'avviso 929 e la fatturazione ricordata', fn () =>
-    $avvia['status'] === 302 && percorso($avvia['location']) === $riepilogo && avviso929($avvia)
-    && ($fatturazione['billing_name'] ?? '') === 'Mario'
-    && ($fatturazione['coupon'] ?? '') === 'SCONTO'
-    && !isset($fatturazione['password'], $fatturazione[Csrf::FIELD]));
+check('abbonamenti start: il vecchio modulo torna al checkout (303), niente salvato', fn () =>
+    $avvia['status'] === 303 && percorso($avvia['location']) === $riepilogo
+    && !isset($avvia['session']['ecommerce_subscription_form']));
 $togli = scaduto(['controller' => 'subscriptions', 'action' => 'remove', 'post' => $sbagliato + ['index' => '0']]);
-check('abbonamenti remove: 302 al riepilogo con l\'avviso 929', fn () =>
+check('abbonamenti remove: 302 al checkout con l\'avviso 929', fn () =>
     $togli['status'] === 302 && percorso($togli['location']) === $riepilogo && avviso929($togli) && $togli['token_kept']);
 
 // Impersonazione dal backend: si torna alla conferma con l'avviso 929, nessun token emesso.

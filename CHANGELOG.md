@@ -87,6 +87,14 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Abbonamenti nel checkout dei prodotti.** I servizi scelti finiscono nel
+  checkout, accanto ai prodotti, e si pagano con un solo pagamento e la carta
+  dentro la pagina (Payment Element): l'ordine entra nella prima fattura
+  dell'abbonamento. Senza prodotti la consegna sparisce. Il riepilogo mostra
+  il primo addebito dei servizi, il totale di oggi e quanto si paga dopo; il
+  coupon vale dove è valido. `/abbonamenti/riepilogo/` fa 301 al checkout e la
+  sua vista non c'è più. Richiede `OnlineSubscriptions::startInPage` del
+  gestionale.
 - **Una tantum degli abbonamenti (#21).** Con `one_time_price` del gestionale la
   pagina dei piani mostra «+ X € una tantum» accanto al canone e il JSON-LD
   aggiunge all'`Offer` una `PriceSpecification` non ricorrente. Il riepilogo ha

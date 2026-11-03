@@ -15,10 +15,10 @@ voce del menu dell'account non c'è.
 |---|---|---|
 | `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | piani visibili e attivi, con i prezzi attivi |
 | `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | account obbligatorio; quantità, personalizzazioni e servizio a cui si collega |
-| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al riepilogo |
-| `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | servizi scelti, fatturazione, codice sconto e totale del primo addebito (una tantum compresa) |
-| `POST /abbonamenti/riepilogo/` | `ecommerce.subscriptions.start` | crea l'abbonamento in attesa con tutti i servizi e manda a Stripe |
-| `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui |
+| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al checkout |
+| `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | 301 a `/checkout/`: i servizi si pagano lì, insieme ai prodotti (vedi `checkout-abbonamenti.md`) |
+| `POST /abbonamenti/riepilogo/` | `ecommerce.subscriptions.start` | 303 a `/checkout/`: il vecchio modulo rimasto aperto |
+| `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui, poi torna al checkout |
 | `GET /abbonamenti/conferma/?abbonamento=sub_…` | `ecommerce.subscriptions.confirm` | aspetta la notifica di Stripe e poi conferma |
 | `GET /account/abbonamenti/` | `account.subscriptions` | sezione dell'area cliente |
 | `GET /account/abbonamenti/{sub_…}/aggiungi/` | `account.subscriptions.add` | Aggiungi servizio: scelta del prezzo e configurazione (`?price=ppr_…`) |
@@ -36,8 +36,9 @@ voce del menu dell'account non c'è.
 - Un servizio che si appoggia a un altro (piano *figlio*) chiede di scegliere la
   riga madre fra quelle della selezione; senza una madre adatta la pagina dice
   quali piani aggiungere prima. Togliere una madre toglie anche le figlie.
-- Il codice sconto si prova con «Applica»: se non vale, il riepilogo lo dice sul
-  campo e mostra i totali senza sconto.
+- Il codice sconto è quello del checkout: si prova sull'ordine e
+  sull'abbonamento, vale dove è valido e l'errore esce solo se non vale da
+  nessuna parte.
 - Chi ha già il numero massimo di abbonamenti va nell'area cliente, dove può
   aggiungere servizi a quello che ha.
 - La selezione si svuota alla conferma, non quando parte Stripe: chi torna
@@ -71,7 +72,7 @@ riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone
 |---|---|---|---|---|
 | Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per piano); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
 | Servizio | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › servizio | pagina `subscription_configure` |
-| Riepilogo | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › riepilogo | pagina `subscription_checkout`; `begin_checkout` con un item per servizio e `value` = totale del primo addebito (`first_charge_total`: canone più una tantum, in prova solo l'una tantum) |
+| Checkout | `NOINDEX,NOFOLLOW` (quello dei prodotti) | nessuno | `[]` | `begin_checkout`, `add_shipping_info` e `add_payment_info` con prodotti e servizi; `value` = totale di oggi (ordine più primo addebito: canone più una tantum, in prova solo l'una tantum) |
 | Conferma | `NOINDEX,NOFOLLOW` | nessuno | `[]` | pagina `subscription_confirmation`; `purchase` una volta sola per abbonamento (la sessione ricorda i codici), con `transaction_id` = codice `sub_`, `value` = canone del primo periodo più una tantum (in prova solo l'una tantum, zero se non c'è) |
 | Area cliente | del pannello | nessuno | del pannello | del pannello |
 
@@ -84,10 +85,10 @@ Gli identificativi sono gli stessi ovunque:
   `quantity` la quantità del servizio.
 
 `add_to_cart` e `remove_from_cart` si mettono da parte in sessione e partono
-alla pagina successiva (piani o riepilogo), ognuno preceduto da
+alla pagina successiva (piani o checkout), ognuno preceduto da
 `{ecommerce: null}`.
 
-I form hanno `id` semantici: `subscription_configure`, `subscription_checkout`, `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
+I form hanno `id` semantici: `subscription_configure`, `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
 
 ## Limiti nei testi
 
