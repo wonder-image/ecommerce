@@ -74,8 +74,15 @@ sedi di ritiro, i metodi di pagamento e il coupon arrivano dal gestionale
 
 - `POST /checkout/summary/` ricalcola il riepilogo con quello che il cliente ha
   compilato fin lì; gli importi tornano già formattati dal server.
-- `POST /checkout/coupon/` con `action=apply|remove` e `code`; risponde come
-  `summary` e aggiunge `error` se il codice non vale.
+- `POST /checkout/coupon/` con `action=apply|remove` e `code`, oppure
+  `remove=<codice>` per togliere un solo codice; risponde come `summary` e
+  aggiunge `error` se il codice non vale.
+
+I coupon si cumulano (gestionale#113): un codice cumulabile si aggiunge agli
+altri, uno che non lo è li sostituisce. Il riquadro elenca i codici applicati
+(`coupon.codes`, nell'ordine in cui sono entrati) ciascuno col suo «Rimuovi»;
+l'input resta sempre visibile per il codice successivo. `coupon.code` resta lo
+specchio «A, B» dell'ordine. `action=remove` senza codice li toglie tutti.
 
 `checkout.js` chiede il riepilogo dopo circa 300 ms dall'ultima modifica,
 scarta le risposte arrivate in ritardo e scrive solo con `textContent`. La

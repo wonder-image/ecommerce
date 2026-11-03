@@ -7,6 +7,13 @@ versionamento semantico.
 
 ### Corretto
 
+- **Più coupon nel carrello e nel checkout.** Il riquadro del coupon nascondeva
+  l'input dopo il primo codice, quindi non se ne poteva aggiungere un secondo
+  anche se cumulabile. Ora l'input resta, il riquadro elenca i codici applicati
+  (`coupon.codes` nel riepilogo, `CheckoutSummary::couponCodes()`) e ogni codice
+  ha il suo «Rimuovi» (`remove=<codice>`), che toglie solo quello.
+  Il componente `checkout/coupon` prende `codes` (lista) al posto di `code`.
+
 - **Cookie del carrello e dei prodotti visti: `Secure` dietro proxy solo se il
   proxy è fidato.** `X-Forwarded-Proto` si leggeva sempre, anche senza proxy
   davanti, dove lo sceglie il client. Ora decide `Cookie::isSecure()` del core,

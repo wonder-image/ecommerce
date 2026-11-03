@@ -47,6 +47,8 @@ final class CheckoutSummary
             $importo = $chiave === 'discount_total' ? -abs((float) $preview['order'][$chiave]) : $preview['order'][$chiave];
             $preview['display'][$chiave] = CartPresenter::money($importo, $valuta);
         }
+        // Il box del coupon elenca i codici uno per uno: lo specchio «A, B» dell'ordine resta in `code`.
+        $preview['coupon']['codes'] = self::couponCodes($cartId);
         // Il box del coupon dice quanto si risparmia: qui senza meno.
         $preview['display']['discount_saved'] = CartPresenter::money(abs((float) $preview['order']['discount_total']), $valuta);
 
@@ -145,8 +147,21 @@ final class CheckoutSummary
     }
 
     /**
-     * Applica o toglie il coupon, poi ridà l'anteprima. Un codice rifiutato
-     * non è un errore della pagina: il messaggio del gestionale va in `error`.
+     * I codici applicati al carrello, nell'ordine in cui sono entrati.
+     *
+     * @return list<string>
+     */
+    public static function couponCodes(int $cartId): array
+    {
+        $codes = array_map(static fn (array $row): string => (string) $row['code'], Coupons::applied($cartId));
+
+        return array_values(array_filter($codes, static fn (string $code): bool => $code !== ''));
+    }
+
+    /**
+     * Applica o toglie un coupon, poi ridà l'anteprima. `remove` toglie quel
+     * codice e lascia gli altri; senza codice li toglie tutti. Un codice
+     * rifiutato non è un errore della pagina: il messaggio del gestionale va in `error`.
      *
      * @param array<string, mixed> $post
      * @return array<string, mixed>
@@ -156,7 +171,7 @@ final class CheckoutSummary
         $errore = '';
 
         try {
-            $action === 'remove' ? Coupons::remove($cartId) : Coupons::apply($cartId, trim($code));
+            $action === 'remove' ? Coupons::remove($cartId, trim($code) === '' ? null : trim($code)) : Coupons::apply($cartId, trim($code));
         } catch (UserError $e) {
             $errore = $e->getMessage();
         }

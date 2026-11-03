@@ -282,7 +282,10 @@ final class CheckoutController
         // Il coupon si prova già dal carrello, prima del login.
         $back = $return === 'cart' ? self::route('ecommerce.cart.index') : self::route('ecommerce.checkout.index');
         $cartId = $json ? self::guardJson($return !== 'cart') : self::guardPage($return !== 'cart', $back);
-        $action = (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+        // «Rimuovi» di una riga porta il suo codice in `remove`: si toglie quello, gli altri restano.
+        $remove = trim((string) ($_POST['remove'] ?? ''));
+        $action = $remove !== '' || (string) ($_POST['action'] ?? 'apply') === 'remove' ? 'remove' : 'apply';
+        $code = $remove !== '' ? $remove : (string) ($_POST['code'] ?? '');
         CheckoutSnapshot::forget();
 
         $status = 200;
@@ -295,7 +298,7 @@ final class CheckoutController
                     + ['error' => (string) __t('ecommerce.checkout.errors.too_many_coupons')];
             } else {
                 // Senza JavaScript il form del coupon non porta il resto del modulo: valgono le scelte del carrello.
-                $payload = CheckoutSummary::coupon($cartId, $action, (string) ($_POST['code'] ?? ''), $_POST, CartSession::user(), !$json);
+                $payload = CheckoutSummary::coupon($cartId, $action, $code, $_POST, CartSession::user(), !$json);
                 if ($action === 'apply' && $payload['error'] !== '') {
                     self::couponFailed($cartId);
                 }
