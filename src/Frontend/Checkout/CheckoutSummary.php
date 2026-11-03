@@ -89,6 +89,8 @@ final class CheckoutSummary
             && (string) ($preview['fulfillment']['type'] ?? 'shipping') === 'shipping'
             && (int) ($preview['shipping_methods']['selected'] ?? 0) === 0;
 
+        CheckoutSubscriptions::extend($preview, $post, $valuta);
+
         return $preview;
     }
 
@@ -147,6 +149,8 @@ final class CheckoutSummary
     /**
      * Applica o toglie il coupon, poi ridà l'anteprima. Un codice rifiutato
      * non è un errore della pagina: il messaggio del gestionale va in `error`.
+     * Con servizi nel carrello il codice si prova anche sull'abbonamento:
+     * vale dove è valido, l'errore esce solo se non vale da nessuna parte.
      *
      * @param array<string, mixed> $post
      * @return array<string, mixed>
@@ -154,11 +158,26 @@ final class CheckoutSummary
     public static function coupon(int $cartId, string $action, string $code, array $post, ?object $user = null, bool $keepCart = false): array
     {
         $errore = '';
+        $servizi = CheckoutSubscriptions::items() !== [];
+        $ordine = $servizi ? CheckoutSubscriptions::hasProducts($cartId) : true;
 
-        try {
-            $action === 'remove' ? Coupons::remove($cartId) : Coupons::apply($cartId, trim($code));
-        } catch (UserError $e) {
-            $errore = $e->getMessage();
+        if ($action === 'remove') {
+            Coupons::remove($cartId);
+            CheckoutSubscriptions::forgetCoupon();
+        } else {
+            try {
+                if ($ordine) {
+                    Coupons::apply($cartId, trim($code));
+                }
+            } catch (UserError $e) {
+                $errore = $e->getMessage();
+            }
+
+            if ($servizi) {
+                // Basta che valga da una parte: l'errore esce solo se non vale da nessuna parte.
+                $abbonamento = CheckoutSubscriptions::applyCoupon($code);
+                $errore = !$ordine ? $abbonamento : ($errore !== '' && $abbonamento !== '' ? $errore : '');
+            }
         }
 
         return self::payload($cartId, $post, $user, $keepCart) + ['error' => $errore];

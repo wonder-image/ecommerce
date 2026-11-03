@@ -4,14 +4,20 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Throwable;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionSelection;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
+use Wonder\Plugin\Gestionale\Support\Orders\Cart;
+use Wonder\Plugin\Gestionale\Support\Errors\Errors;
+use Wonder\Plugin\Gestionale\Support\Errors\UserError;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 
 /**
  * Gli abbonamenti dentro il checkout dei prodotti: la selezione in sessione
@@ -21,6 +27,12 @@ use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
  */
 final class CheckoutSubscriptions
 {
+    /** Il coupon degli abbonamenti: si salva solo quando il gestionale lo accetta. */
+    public const COUPON = 'ecommerce.checkout_subscription_coupon';
+
+    /** I metodi dell'abbonamento in pagina (`OnlineSubscriptions::startInPage`): il Payment Element deve averli uguali. */
+    public const METHODS = ['card', 'link'];
+
     /**
      * I servizi da pagare nel checkout: solo con `online_subscriptions` e un
      * cliente col suo account (l'abbonamento non va all'ospite).
@@ -169,5 +181,225 @@ final class CheckoutSubscriptions
         $contact = Contact::findById(CartSession::customerId());
 
         return is_array($contact) ? $contact : [];
+    }
+
+    /**
+     * Aggiunge all'anteprima del checkout i servizi della selezione: le righe
+     * (tipo `subscription`, come gli articoli per `lines.php` e il JS), il
+     * primo addebito, il totale di oggi e Stripe in modo `subscription`.
+     * Pagano solo le scelte Stripe che non sono wallet, con carta e Link come
+     * l'abbonamento. Un errore del riepilogo va in `subscriptions.error` e
+     * spegne il pagamento.
+     *
+     * @param array<string, mixed> $preview
+     * @param array<string, mixed> $post
+     */
+    public static function extend(array &$preview, array $post, string $currency): void
+    {
+        $items = self::items();
+        $preview['subscriptions'] = null;
+
+        if ($items === []) {
+            return;
+        }
+
+        $contact = self::contact();
+        $billing = self::billing($post, $contact);
+        $coupon = self::coupon();
+        $error = '';
+        $result = null;
+
+        try {
+            try {
+                $result = OnlineSubscriptions::preview($contact, $items, $billing, $coupon);
+            } catch (UserError $e) {
+                if ($coupon === '' || !str_starts_with($e->key(), 'coupon.')) {
+                    throw $e;
+                }
+
+                // Il codice non vale più (scaduto, esaurito): si toglie e si ricalcola.
+                self::forgetCoupon();
+                $coupon = '';
+                $result = OnlineSubscriptions::preview($contact, $items, $billing, '');
+            }
+        } catch (UserError $e) {
+            $error = $e->getMessage();
+        } catch (Throwable $e) {
+            Errors::internal($e, 'ecommerce.checkout.subscriptions');
+            $error = (string) __t('ecommerce.subscriptions.error');
+        }
+
+        $amounts = (array) ($result['amounts'] ?? []);
+        $trial = (int) ($result['trial'] ?? 0);
+        $charge = $result !== null ? SubscriptionView::firstCharge($amounts, $trial) : null;
+        $oneTime = $result !== null ? SubscriptionView::oneTimeLines($amounts) : [];
+
+        foreach (self::summaryRows($items, self::catalog(), (array) ($result['lines'] ?? [])) as $row) {
+            $total = (float) ($row['line_total'] ?? 0);
+            $preview['items'][] = [
+                'type' => 'subscription',
+                'index' => $row['index'],
+                'name' => $row['name'],
+                'quantity' => $row['quantity'],
+                'quantity_display' => CartPresenter::quantity($row['quantity']),
+                'line_total' => $total,
+                'line_total_display' => $row['line_total'] !== null ? CartPresenter::money($total, $currency) : '',
+                'parts' => self::parts($row, (float) ($oneTime[$row['index']] ?? 0), $currency),
+                'image' => '',
+                'image_html' => '',
+                'tracking' => $row['tracking'],
+            ];
+        }
+
+        $first = $charge !== null ? (float) $charge['total'] : 0.0;
+        $today = round((float) ($preview['order']['total'] ?? 0) + $first, 2);
+        $discount = $charge !== null ? (float) $charge['discount'] : 0.0;
+
+        $preview['subscriptions'] = [
+            'first_charge' => $first,
+            'today_total' => $today,
+            'discount' => $discount,
+            'trial' => $trial,
+            'coupon' => $coupon,
+            'error' => $error,
+        ];
+        $preview['display']['subscriptions_first_charge'] = CartPresenter::money($first, $currency);
+        $preview['display']['today_total'] = CartPresenter::money($today, $currency);
+        $preview['display']['subscriptions_then'] = $charge !== null && $charge['after_trial'] !== null
+            ? (string) __t('ecommerce.subscriptions.summary.after_trial', ['price' => CartPresenter::money($charge['after_trial'], $currency)])
+            : '';
+        $preview['display']['discount_saved'] = CartPresenter::money(abs((float) ($preview['order']['discount_total'] ?? 0)) + $discount, $currency);
+
+        if ($coupon !== '' && (string) ($preview['coupon']['code'] ?? '') === '') {
+            $preview['coupon'] = ['code' => $coupon];
+        }
+
+        // L'abbonamento si paga solo con la carta dentro la pagina: niente wallet, niente manuali.
+        $options = [];
+
+        foreach ((array) ($preview['payment_methods']['options'] ?? []) as $option) {
+            if (($option['provider'] ?? '') === 'stripe' && !CheckoutRules::wallet((array) $option)) {
+                $options[] = ['payment_method_types' => self::METHODS] + (array) $option;
+            }
+        }
+
+        $preview['payment_methods']['options'] = $options;
+
+        if ($options !== [] && !in_array((string) ($preview['payment_methods']['selected'] ?? ''), array_map(static fn (array $o): string => (string) ($o['id'] ?? ''), $options), true)) {
+            $preview['payment_methods']['selected'] = $options[0]['id'] ?? 0;
+        }
+        $preview['express'] = [];
+        $preview['stripe'] = $options !== []
+            ? ['mode' => 'subscription', 'amount' => (int) round($today * 100), 'currency' => strtolower($currency)] + OnlinePayment::browserKeys()
+            : null;
+
+        if ($options === [] && $error === '') {
+            $preview['subscriptions']['error'] = (string) __t('ecommerce.subscriptions.error');
+        }
+    }
+
+    /**
+     * Le righe sotto il nome di un servizio: prezzo e ricorrenza, una
+     * tantum, personalizzazioni, servizio a cui è legato, prova e vincolo.
+     *
+     * @param array<string, mixed> $row
+     * @return list<string>
+     */
+    public static function parts(array $row, float $oneTime, string $currency): array
+    {
+        $price = is_array($row['price'] ?? null) ? $row['price'] : null;
+        $parts = [];
+
+        if ($row['unit_price'] !== null && $price !== null) {
+            $parts[] = __t('ecommerce.subscriptions.summary.unit', ['price' => CartPresenter::money($row['unit_price'], $currency)])
+                .' '.SubscriptionView::every($price['unit'], $price['count']);
+        }
+
+        if ($oneTime > 0) {
+            $parts[] = (string) __t('ecommerce.subscriptions.summary.one_time_line', ['price' => CartPresenter::money($oneTime, $currency)]);
+        }
+
+        foreach ((array) $row['customization'] as $line) {
+            $parts[] = (string) $line;
+        }
+
+        if ($row['parent'] !== '') {
+            $parts[] = (string) __t('ecommerce.subscriptions.summary.parent', ['name' => $row['parent']]);
+        }
+
+        if ($price !== null && (int) $price['trial_days'] > 0) {
+            $parts[] = (string) __t('ecommerce.subscriptions.trial_once', ['days' => $price['trial_days']]);
+        }
+
+        if ($price !== null && (int) $price['commitment_months'] > 0) {
+            $parts[] = (string) __t('ecommerce.subscriptions.commitment', ['months' => $price['commitment_months']]);
+        }
+
+        return array_values(array_map('strval', $parts));
+    }
+
+    /**
+     * La fatturazione dell'abbonamento: quella del modulo, se c'è, sopra la
+     * scheda del cliente.
+     *
+     * @param array<string, mixed> $post
+     * @param array<string, mixed> $contact
+     * @return array<string, string>
+     */
+    public static function billing(array $post, array $contact): array
+    {
+        $billing = self::contactValues($contact);
+
+        foreach ($billing as $key => $value) {
+            if (is_scalar($post[$key] ?? null) && trim((string) $post[$key]) !== '') {
+                $billing[$key] = trim((string) $post[$key]);
+            }
+        }
+
+        return $billing;
+    }
+
+    /**
+     * Prova il codice sull'abbonamento: se vale si ricorda, altrimenti si
+     * toglie. Restituisce l'errore del gestionale, vuoto se il codice vale.
+     */
+    public static function applyCoupon(string $code): string
+    {
+        self::forgetCoupon();
+        $code = trim($code);
+
+        if ($code === '' || self::items() === []) {
+            return '';
+        }
+
+        try {
+            OnlineSubscriptions::couponFor($code, CartSession::customerId());
+        } catch (UserError $e) {
+            return $e->getMessage();
+        }
+
+        if (isset($_SESSION)) {
+            $_SESSION[self::COUPON] = $code;
+        }
+
+        return '';
+    }
+
+    /** Il carrello ha articoli: senza, l'ordine non nasce e paga solo l'abbonamento. */
+    public static function hasProducts(int $cartId): bool
+    {
+        return $cartId > 0 && Cart::contents($cartId)['items'] !== [];
+    }
+
+    public static function coupon(): string
+    {
+        return isset($_SESSION) && is_string($_SESSION[self::COUPON] ?? null) ? $_SESSION[self::COUPON] : '';
+    }
+
+    public static function forgetCoupon(): void
+    {
+        if (isset($_SESSION)) {
+            unset($_SESSION[self::COUPON]);
+        }
     }
 }
