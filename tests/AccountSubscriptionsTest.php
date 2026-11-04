@@ -177,4 +177,26 @@ check('lingua: chiavi nuove in it ed en, la nota del cambio non parla più di «
     return true;
 });
 
+check('area cliente: Aggiungi e Cambia non mostrano né fanno pagare l\'una tantum', function () use ($root) {
+    $sources = [
+        $root.'/src/Frontend/Account/EcommerceAccountController.php',
+        $root.'/src/Frontend/Account/AccountSubscriptions.php',
+        $root.'/view/pages/account/subscription-add.php',
+        $root.'/view/pages/account/subscriptions.php',
+    ];
+
+    foreach ($sources as $file) {
+        $source = (string) file_get_contents($file);
+
+        if (str_contains($source, 'one_time') || str_contains($source, 'first_charge_total') || str_contains($source, 'OnlineSubscriptions::preview(')) {
+            echo "  una tantum in {$file}\n";
+
+            return false;
+        }
+    }
+
+    // Il conguaglio di Aggiungi e Cambia viene da quote(), che non conta l'una tantum.
+    return str_contains((string) file_get_contents($sources[0]), 'OnlineSubscriptions::quote(');
+});
+
 summary();

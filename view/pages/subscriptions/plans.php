@@ -91,6 +91,9 @@ Ecommerce::layout('shop');
                                 <?=e(CartPresenter::money($price['amount'], $currency))?>
                                 <span class="text-small"><?=e(SubscriptionView::every($price['unit'], $price['count']))?></span>
                             </span>
+                            <?php if ($price['one_time'] > 0): ?>
+                                <span class="text-small"><?=e(__t('ecommerce.subscriptions.one_time', ['price' => CartPresenter::money($price['one_time'], $currency)]))?></span>
+                            <?php endif; ?>
                             <span class="text-small tx-secondary"><?=e(__t($include_tax ? 'ecommerce.subscriptions.tax_included' : 'ecommerce.subscriptions.tax_excluded'))?></span>
                             <?php if ($price['trial_days'] > 0): ?>
                                 <span class="text-small"><?=e(__t('ecommerce.subscriptions.trial', ['days' => $price['trial_days']]))?></span>

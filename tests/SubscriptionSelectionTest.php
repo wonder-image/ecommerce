@@ -6,6 +6,7 @@ require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionSelection;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 
 $_SESSION = [];
@@ -145,6 +146,40 @@ check('dati in sessione rovinati non entrano: righe senza codice scartate', func
     $items = SubscriptionSelection::items();
 
     return $items === [['price_code' => 'ppr_a', 'quantity' => 3, 'customization' => [], 'parent' => -1]];
+});
+
+// Gli importi come li dà OnlineSubscriptions::preview(): la riga 1 non ha una tantum.
+$importi = [
+    'subtotal' => '30.00', 'discount_total' => '6.00', 'tax_total' => '4.33', 'total' => '24.00',
+    'one_time' => ['subtotal' => '61.00', 'tax_total' => '11.00', 'total' => '61.00', 'lines' => [
+        ['index' => 0, 'unit_price' => '30.50', 'line_total' => '61.00', 'tax_rate' => 22.0],
+        ['index' => 2, 'unit_price' => '9.99', 'line_total' => '9.99', 'tax_rate' => 22.0],
+    ]],
+    'first_charge_total' => '85.00',
+];
+
+check('riepilogo: l\'una tantum di ogni servizio per indice della selezione', function () use ($importi) {
+    return SubscriptionView::oneTimeLines($importi) === [0 => 61.0, 2 => 9.99]
+        && SubscriptionView::oneTimeLines(['total' => '10.00']) === [];
+});
+
+check('riepilogo: il primo addebito somma canone e una tantum, in prova solo l\'una tantum', function () use ($importi) {
+    $subito = SubscriptionView::firstCharge($importi, 0);
+    $prova = SubscriptionView::firstCharge(['first_charge_total' => '61.00'] + $importi, 14);
+    $senza = SubscriptionView::firstCharge(['subtotal' => '10.00', 'discount_total' => '0.00', 'tax_total' => '1.80', 'total' => '10.00'], 0);
+
+    return $subito === ['subtotal' => 30.0, 'discount' => 6.0, 'one_time' => 61.0, 'tax' => 15.33, 'total' => 85.0, 'after_trial' => null]
+        && $prova === ['subtotal' => null, 'discount' => 0.0, 'one_time' => 61.0, 'tax' => 11.0, 'total' => 61.0, 'after_trial' => 24.0]
+        && $senza['total'] === 10.0 && $senza['one_time'] === 0.0;
+});
+
+check('riepilogo: begin_checkout vale quanto il primo addebito, una tantum compresa', function () {
+    $controller = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Subscriptions/SubscriptionsController.php');
+    $vista = (string) file_get_contents(dirname(__DIR__).'/view/pages/subscriptions/summary.php');
+
+    return str_contains($controller, "SubscriptionTracking::beginCheckout(\$tracking, (float) \$preview['amounts']['first_charge_total']")
+        && str_contains($vista, 'SubscriptionView::firstCharge($amounts, $trial)')
+        && str_contains($vista, "'ecommerce.subscriptions.summary.one_time_line'");
 });
 
 summary();

@@ -63,6 +63,9 @@ $blocked = $needs_parent && $fields['parent'] === null;
             <?=e(SubscriptionView::every($price['unit'], $price['count']))?>
             · <?=e(__t($include_tax ? 'ecommerce.subscriptions.tax_included' : 'ecommerce.subscriptions.tax_excluded'))?>
         </p>
+        <?php if ($price['one_time'] > 0): ?>
+            <p class="text-small"><?=e(__t('ecommerce.subscriptions.one_time_first', ['price' => CartPresenter::money($price['one_time'], $currency)]))?></p>
+        <?php endif; ?>
         <?php if ($price['trial_days'] > 0): ?>
             <p class="text-small"><?=e(__t('ecommerce.subscriptions.trial_once', ['days' => $price['trial_days']]))?></p>
         <?php endif; ?>

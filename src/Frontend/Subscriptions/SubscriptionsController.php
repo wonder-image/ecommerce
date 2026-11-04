@@ -251,7 +251,7 @@ final class SubscriptionsController
                 }
             }
 
-            $events[] = SubscriptionTracking::beginCheckout($tracking, (float) $preview['amounts']['total'], PlanCatalog::CURRENCY, $coupon);
+            $events[] = SubscriptionTracking::beginCheckout($tracking, (float) $preview['amounts']['first_charge_total'], PlanCatalog::CURRENCY, $coupon);
         }
 
         self::seo((string) __t('ecommerce.subscriptions.summary.title'), (string) __t('ecommerce.subscriptions.summary.seo'), self::absolute($url), 'NOINDEX,NOFOLLOW', []);
@@ -259,6 +259,7 @@ final class SubscriptionsController
         View::make(Ecommerce::viewPath('pages/subscriptions/summary.php'), [
             'rows' => $rows,
             'amounts' => $preview['amounts'] ?? null,
+            'trial' => (int) ($preview['trial'] ?? 0),
             'include_tax' => $preview['include_tax'] ?? PlanCatalog::pricesIncludeTax(),
             'coupon_error' => $couponError,
             'blocked' => $blocked,

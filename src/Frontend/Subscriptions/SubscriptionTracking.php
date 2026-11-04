@@ -6,6 +6,7 @@ use Throwable;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Plan;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionAmounts;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionItems;
 
 /**
@@ -48,7 +49,8 @@ final class SubscriptionTracking
 
     /**
      * Il riepilogo prima di Stripe: un item per servizio, `value` è il totale
-     * del primo addebito (coupon compreso, come in pagina).
+     * del primo addebito come in pagina (`first_charge_total`: canone col
+     * coupon più una tantum, in prova solo l'una tantum).
      *
      * @param list<array<string, mixed>> $items di `item()`
      * @return array<string, mixed>
@@ -67,8 +69,9 @@ final class SubscriptionTracking
 
     /**
      * `purchase` di un abbonamento confermato: il codice dell'abbonamento
-     * come `transaction_id`, il totale del primo periodo come `value` (zero
-     * in prova), un item per servizio.
+     * come `transaction_id`, quanto pagato subito come `value` (canone del
+     * primo periodo più una tantum, in prova solo l'una tantum), un item per
+     * servizio.
      *
      * @param array<string, mixed> $subscription riga di `gst_subscriptions`
      * @param list<array{item: array<string, mixed>, price: array<string, mixed>, plan: array<string, mixed>}> $lines i servizi con prezzo e piano
@@ -98,11 +101,17 @@ final class SubscriptionTracking
             ], $planName, $shown + $surcharge, (int) round((float) ($line['item']['quantity'] ?? 1)));
         }
 
+        $oneTime = SubscriptionAmounts::oneTime(array_map(static fn (array $line): array => [
+            'price' => $line['price'],
+            'quantity' => (int) round((float) ($line['item']['quantity'] ?? 1)),
+            'tax_rate' => $line['item']['tax_rate'] ?? 0,
+        ], $lines), (string) ($subscription['prices_include_tax'] ?? 'true') !== 'false');
+
         $ecommerce = [
             'transaction_id' => (string) ($subscription['code'] ?? ''),
             'currency' => strtoupper((string) (($subscription['currency'] ?? '') ?: PlanCatalog::CURRENCY)),
-            'value' => $trial ? 0.0 : round((float) ($subscription['total'] ?? 0), 2),
-            'tax' => $trial ? 0.0 : round((float) ($subscription['tax_total'] ?? 0), 2),
+            'value' => round(($trial ? 0.0 : (float) ($subscription['total'] ?? 0)) + (float) $oneTime['total'], 2),
+            'tax' => round(($trial ? 0.0 : (float) ($subscription['tax_total'] ?? 0)) + (float) $oneTime['tax_total'], 2),
             'items' => $items,
         ];
 
