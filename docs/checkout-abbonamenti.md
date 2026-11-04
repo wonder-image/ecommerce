@@ -66,8 +66,10 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
 
 - **Carrello**: la selezione degli abbonamenti resta `SubscriptionSelection`
   (le righe ordine non sanno di prova, ricorrenza e righe figlie: `OrderItem::TYPES`
-  non ha un tipo abbonamento). Il carrello e il checkout mostrano le due liste
-  insieme; il mini-carrello conta anche gli abbonamenti. `/abbonamenti/{price}/`
+  non ha un tipo abbonamento). Il checkout mostra le due liste insieme; la
+  pagina `/carrello/` mostra solo i prodotti e oggi non c'è un pulsante per
+  togliere un servizio (la rotta `POST /abbonamenti/riepilogo/togli/` resta,
+  senza interfaccia). Anche il mini-carrello conta solo i prodotti. `/abbonamenti/{price}/`
   aggiunge e manda al checkout; `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
 - **CheckoutController::index**: con abbonamenti nel carrello login
   obbligatorio (niente ospite, niente express checkout); senza prodotti la
