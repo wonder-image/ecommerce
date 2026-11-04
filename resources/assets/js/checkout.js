@@ -257,16 +257,6 @@ class Checkout {
         this.text(node, '[data-line-name]', item.name);
         this.text(node, '[data-line-total]', item.line_total_display);
 
-        // Il «Togli» di un servizio, già pronto dal server come la foto.
-        const remove = node.querySelector('[data-line-remove]');
-
-        if (remove && item.remove_html) {
-            remove.insertAdjacentHTML('beforeend', item.remove_html);
-            remove.hidden = false;
-        } else {
-            remove?.remove();
-        }
-
         // I pezzi di un multiprodotto, già scritti dal server («1 × Pane»).
         const parts = node.querySelector('[data-line-parts]');
 

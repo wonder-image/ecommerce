@@ -3,8 +3,6 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Checkout;
 
 use Throwable;
-use Wonder\Elements\Components\Button;
-use Wonder\Http\Csrf;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
@@ -93,22 +91,6 @@ final class CheckoutSubscriptions
         }
 
         return $rows;
-    }
-
-    /**
-     * «Togli» di un servizio, già pronto: il JS lo rimette nelle righe come la foto.
-     * È un modulo suo, fuori da quello del checkout.
-     *
-     * @param array<string, mixed> $row di `summaryRows()`
-     */
-    public static function removeButton(array $row): string
-    {
-        return (string) Button::post((string) __r('ecommerce.subscriptions.remove'), (string) __t('ecommerce.subscriptions.summary.remove'))
-            ->hidden([Csrf::FIELD => Csrf::token(), 'index' => (string) $row['index']])
-            ->variant('danger')
-            ->outline()
-            ->size('sm')
-            ->confirm((string) __t((int) $row['children'] > 0 ? 'ecommerce.subscriptions.summary.remove_with_children' : 'ecommerce.subscriptions.summary.remove_confirm', ['count' => (string) $row['children']]));
     }
 
     /**
@@ -265,7 +247,6 @@ final class CheckoutSubscriptions
                 'parts' => self::parts($row, (float) ($oneTime[$row['index']] ?? 0), $currency),
                 'image' => '',
                 'image_html' => '',
-                'remove_html' => self::removeButton($row),
                 'tracking' => $row['tracking'],
             ];
         }

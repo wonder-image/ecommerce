@@ -102,4 +102,11 @@ check('purchase misto: value e item sommano ordine e servizi, senza ordine resta
         && SubscriptionTracking::withOrder($servizi, []) === $servizi;
 });
 
+check('le righe dei servizi nel checkout non hanno il «Togli»', function () use ($root): bool {
+    $sorgenti = file_get_contents($root.'/view/components/checkout/lines.php').file_get_contents($root.'/resources/assets/js/checkout.js')
+        .file_get_contents($root.'/src/Frontend/Checkout/CheckoutSubscriptions.php');
+
+    return !str_contains($sorgenti, 'data-line-remove') && !str_contains($sorgenti, 'remove_html');
+});
+
 summary();
