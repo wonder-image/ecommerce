@@ -14,7 +14,6 @@ use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptionStart;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
-use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
@@ -30,7 +29,7 @@ use Wonder\View\View;
  * ordini), il riepilogo con fatturazione e codice sconto, la pagina di Stripe
  * e il ritorno, che aspetta la notifica di Stripe.
  *
- * Senza `online_subscriptions` nessuna di queste pagine esiste (404).
+ * Senza `OnlineSubscriptions::enabled()` nessuna di queste pagine esiste (404).
  *
  * Le quattro domande del frontend:
  * - **piani**: `INDEX,FOLLOW`, canonical assoluto senza parametri, `ItemList`
@@ -59,7 +58,7 @@ final class SubscriptionsController
 
     public static function handle(string $action, array $parameters = []): void
     {
-        if (!Gestionale::feature('online_subscriptions')) {
+        if (!OnlineSubscriptions::enabled()) {
             self::notFound();
         }
 

@@ -12,7 +12,6 @@ use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionSelection;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
-use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
@@ -36,14 +35,14 @@ final class CheckoutSubscriptions
     public const METHODS = ['card', 'link'];
 
     /**
-     * I servizi da pagare nel checkout: solo con `online_subscriptions` e un
+     * I servizi da pagare nel checkout: solo con `OnlineSubscriptions::enabled()` e un
      * cliente col suo account (l'abbonamento non va all'ospite).
      *
      * @return list<array{price_code: string, quantity: int, customization: array<int, string>, parent: int}>
      */
     public static function items(): array
     {
-        if (!Gestionale::feature('online_subscriptions') || !CartSession::authenticated()) {
+        if (!OnlineSubscriptions::enabled() || !CartSession::authenticated()) {
             return [];
         }
 
@@ -53,7 +52,7 @@ final class CheckoutSubscriptions
     /** Il cliente ha servizi nella selezione, anche se non può ancora pagarli (ospite). */
     public static function selected(): bool
     {
-        return Gestionale::feature('online_subscriptions') && SubscriptionSelection::items() !== [];
+        return OnlineSubscriptions::enabled() && SubscriptionSelection::items() !== [];
     }
 
     /**

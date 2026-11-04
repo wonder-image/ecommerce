@@ -28,7 +28,7 @@ use Wonder\Http\Route;
 use Wonder\Plugin\CustomerAccount\Account\CustomerAccountExtension;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountController;
 use Wonder\Plugin\Ecommerce\Frontend\Account\EcommerceAccountExtension;
-use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 
 final class UscitaScaduta extends RuntimeException {}
 
@@ -71,7 +71,7 @@ function senzaCsrf(mixed $value): bool
     return !preg_match('/csrf|token/i', (json_encode($value, JSON_UNESCAPED_UNICODE) ?: '').($GLOBALS['CORPO'] ?? ''));
 }
 
-if (!Gestionale::feature('online_subscriptions')) {
+if (!OnlineSubscriptions::enabled()) {
     echo "  - abbonamenti online spenti nel DB del sito: test saltato\n";
     exit(0);
 }
