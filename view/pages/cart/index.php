@@ -143,11 +143,12 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
                 <?php if ($items !== [] || $position > 0): ?><hr class="wi-cart__line"><?php endif; ?>
                 <?php // Un servizio si compra una volta: niente quantità, solo «Rimuovi». ?>
                 <article class="w-100 wi-cart__item">
-                    <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => '', 'url' => ''])?>
+                    <?php $serviceUrl = (string) ($service['url'] ?? ''); ?>
+                    <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => $service['image'] ?? '', 'url' => $serviceUrl])?>
                     <div class="w-100 wi-cart__body">
                         <div class="w-100 wi-cart__head">
                             <div class="w-100">
-                                <h2 class="text fw-600"><?=e($name)?></h2>
+                                <h2 class="text fw-600"><?php if ($serviceUrl !== ''): ?><a class="tx-black tx-none" href="<?=e($serviceUrl)?>"><?=e($name)?></a><?php else: ?><?=e($name)?><?php endif; ?></h2>
                                 <?php if (($parts = (array) ($service['parts'] ?? [])) !== []): ?>
                                     <ul class="wi-cart__parts wi-cart__meta">
                                         <?php foreach ($parts as $part): ?><li><?=e($part)?></li><?php endforeach; ?>

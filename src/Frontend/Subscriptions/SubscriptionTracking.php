@@ -3,7 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Subscriptions;
 
 use Throwable;
-use Wonder\Plugin\Gestionale\Models\Subscriptions\Plan;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionAmounts;
@@ -132,7 +132,7 @@ final class SubscriptionTracking
         try {
             foreach (SubscriptionItems::forSubscription((int) ($subscription['id'] ?? 0)) as $item) {
                 $price = PlanPrice::findById((int) ($item['plan_price_id'] ?? 0));
-                $plan = is_array($price) ? Plan::findById((int) ($price['plan_id'] ?? 0)) : null;
+                $plan = SubscriptionModels::ofPrice(is_array($price) ? $price : null);
                 $lines[] = ['item' => $item, 'price' => is_array($price) ? $price : [], 'plan' => is_array($plan) ? $plan : []];
             }
         } catch (Throwable) {

@@ -5,6 +5,13 @@ sezione dell'area cliente. Le regole e lo stato stanno nel gestionale
 (`OnlineSubscriptions`, `SubscriptionEvents`). Il modulo mostra, raccoglie i dati
 e manda il cliente su Stripe.
 
+Un abbonamento è un **prodotto del catalogo** di tipo `subscription`
+(`gst_product_models.type`, vedi `SubscriptionModels` del gestionale): la
+tabella dei piani non c'è più. Prezzi ricorrenti (`PlanPrice`), limiti
+(`PlanFeature`) e legami (`PlanLink`) puntano al modello con `product_model_id`.
+Come gli altri prodotti ha foto, tag, categorie, ricerca, scheda
+(`/prodotto/{slug}/`) e SEO; non ha magazzino, varianti né spedizione.
+
 Tutto si accende con la funzionalità **`online_subscriptions`** del gestionale
 (richiede *Vendita online* e *Abbonamenti*). Spenta, le rotte rispondono 404 e la
 voce del menu dell'account non c'è.
@@ -13,7 +20,8 @@ voce del menu dell'account non c'è.
 
 | Rotta | Nome | Cosa fa |
 |---|---|---|
-| `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | piani visibili e attivi, con i prezzi attivi |
+| `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | prodotti abbonamento visibili (anche online), con i prezzi attivi; foto e nome portano alla scheda |
+| `GET /prodotto/{slug}/` | `ecommerce.catalog.product` | la scheda del prodotto abbonamento: foto, descrizione, limiti e i prezzi ricorrenti con «Aggiungi» al posto di quantità e «Aggiungi al carrello» |
 | `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | account obbligatorio; quantità, personalizzazioni e servizio a cui si collega |
 | `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al checkout |
 | `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | 301 a `/checkout/`: i servizi si pagano lì, insieme ai prodotti (vedi `checkout-abbonamenti.md`) |
@@ -29,9 +37,25 @@ voce del menu dell'account non c'è.
 | `POST /account/abbonamenti/{sub_…}/disdici/` | `account.subscriptions.cancel` | disdetta |
 | `POST /account/abbonamenti/{sub_…}/carta/` | `account.subscriptions.card` | portale di Stripe |
 
+- «Aggiungi» (pagina degli abbonamenti e scheda, componente
+  `components/subscriptions/prices.php`) manda subito il `POST` quando il
+  servizio non ha personalizzazioni né madre
+  (`SubscriptionsController::addsDirectly()`); altrimenti porta alla
+  configurazione.
+- Nel catalogo (elenchi, ricerca, categorie, tag) la card di un abbonamento
+  mostra il prezzo più basso, senza il periodo, e porta alla scheda: non si
+  aggiunge dalla card. L'elenco per varianti, i filtri e l'ordinamento per
+  prezzo leggono le righe di magazzino (`gst_products`), che un abbonamento
+  non ha: lì non compare.
+- Le varianti di un abbonamento (se l'URL ne nomina una) rimandano con un 301
+  alla scheda del modello. Nessun altro indirizzo è cambiato: i piani non
+  avevano una scheda.
+- In carrello, mini carrello e checkout la riga di un servizio ha la foto del
+  prodotto (formato e fit della card, `catalog.card.image_*`) e il nome porta
+  alla scheda.
 - I servizi scelti stanno in sessione (`SubscriptionSelection`), non nel carrello
   degli ordini, e appartengono al cliente che li ha scelti. Ogni aggiunta passa
-  dal controllo del gestionale sulla selezione intera: piano visibile,
+  dal controllo del gestionale sulla selezione intera: abbonamento visibile,
   personalizzazioni, servizio madre, stessi intervalli di addebito.
 - Un servizio che si appoggia a un altro (piano *figlio*) chiede di scegliere la
   riga madre fra quelle della selezione; senza una madre adatta la pagina dice
@@ -70,7 +94,9 @@ riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone
 
 | Pagina | SEO | schema.org | Breadcrumb | dataLayer |
 |---|---|---|---|---|
-| Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per piano); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
+| Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per abbonamento, con `url` e `image` della scheda); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
+| Scheda dell'abbonamento | quella dei prodotti: `INDEX,FOLLOW`, canonical, un `<h1>`, `$SEO->image` | `Product` con `productID` = codice del modello e un `Offer` per prezzo, uguale a quello della pagina degli abbonamenti (`PlanCatalog::offers()`), `url` = la scheda | Home › categoria › prodotto, come gli altri | pagina `product`; `view_product` con un item per prezzo (`ppr_…`), `select_item` al clic su «Aggiungi» |
+| Card del catalogo | — | `ItemList` dell'elenco | — | `item_id` = codice `ppr_` del prezzo mostrato (il più basso) |
 | Servizio | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › servizio | pagina `subscription_configure` |
 | Checkout | `NOINDEX,NOFOLLOW` (quello dei prodotti) | nessuno | `[]` | `begin_checkout`, `add_shipping_info` e `add_payment_info` con prodotti e servizi; `value` = totale di oggi (ordine più primo addebito: canone più una tantum, in prova solo l'una tantum) |
 | Conferma | `NOINDEX,NOFOLLOW` | nessuno | `[]` | pagina `subscription_confirmation`; `purchase` una volta sola per abbonamento (la sessione ricorda i codici), con `transaction_id` = codice `sub_`, `value` = canone del primo periodo più una tantum (in prova solo l'una tantum, zero se non c'è) |

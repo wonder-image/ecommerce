@@ -165,6 +165,23 @@ check('dataLayer: remove_from_cart dal mini carrello, eventi in attesa su carrel
         && str_contains($checkout, "'events' => SubscriptionsController::pullEvents(),");
 });
 
+check('servizi in carrello, mini carrello e checkout: la foto e la scheda del prodotto abbonamento', function () use ($root): bool {
+    $righe = CheckoutSubscriptions::summaryRows(
+        [['price_code' => 'ppr_mese123', 'quantity' => 1, 'parent' => -1]],
+        ['ppr_mese123' => ['plan' => ['name' => 'Pro', 'image' => 'pro.jpg', 'url' => '/prodotto/pro/'], 'price' => ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '10.00']]],
+        [],
+    );
+    $classe = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutSubscriptions.php');
+    $pagina = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $mini = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+    $thumb = "['image' => \$service['image'] ?? '', 'url' => \$serviceUrl]";
+
+    return $righe[0]['image'] === 'pro.jpg' && $righe[0]['url'] === '/prodotto/pro/'
+        && str_contains($classe, "'image_html' => \$row['image'] !== '' ? (string) ImageFormat::fit(Product::image(\$row['image'], Product::IMAGE_THUMB)")
+        && str_contains($classe, "'catalog.card.image_fit')")
+        && str_contains($pagina, $thumb) && str_contains($mini, $thumb);
+});
+
 check('carrello senza servizi: nessun riepilogo dei servizi', function (): bool {
     $_SESSION = [];
 

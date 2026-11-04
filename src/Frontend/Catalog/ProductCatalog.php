@@ -3,6 +3,8 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Attribute;
@@ -26,6 +28,7 @@ use Wonder\Plugin\Gestionale\Support\Promotions\Campaigns;
 use Wonder\Plugin\Gestionale\Support\Stock\Levels;
 use Wonder\Plugin\Gestionale\Support\Stock\Locations;
 use Wonder\Plugin\Gestionale\Support\Stock\Stock;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 
 /** Legge una scheda pubblica dalle tabelle catalogo del gestionale. */
 final class ProductCatalog
@@ -59,6 +62,15 @@ final class ProductCatalog
 
         if (!is_array($model) || (int) ($model['id'] ?? 0) <= 0) {
             return $none;
+        }
+
+        // Un abbonamento non ha varianti: un secondo segmento torna al modello.
+        if ((string) ($model['type'] ?? '') === SubscriptionModels::TYPE) {
+            if ($variantSlug !== '') {
+                return ['detail' => null, 'redirect' => ProductUrl::make($modelSlug)];
+            }
+
+            return ['detail' => self::buildSubscription($model), 'redirect' => null];
         }
 
         $variants = self::rows(ProductVariant::find(
@@ -228,24 +240,7 @@ final class ProductCatalog
         }
         $variantCards = self::skeletonCards($variantCards, $variantId, $optionGroups, $offers);
 
-        $breadcrumbs = [[
-            'url' => self::absolute('/'),
-            'name' => (string) __t('ecommerce.catalog.breadcrumb_home'),
-        ], [
-            'url' => self::absolute((string) Ecommerce::config('catalog.index_url', '/prodotti/')),
-            'name' => (string) __t('ecommerce.catalog.breadcrumb_products'),
-        ]];
-
-        $categoryPath = [];
-        foreach ($categories as $category) {
-            $categoryPath[] = (string) ($category['slug'] ?? '');
-            $breadcrumbs[] = [
-                'url' => self::absolute(self::categoryUrl($categoryPath)),
-                'name' => self::breadcrumbName((string) ($category['name'] ?? '')),
-            ];
-        }
-
-        $breadcrumbs[] = ['url' => $url, 'name' => self::breadcrumbName($name)];
+        [$breadcrumbs, $categoryPath] = self::breadcrumbs($categories, $url, $name);
 
         return ProductDetail::make([
             'id' => $modelId,
@@ -274,6 +269,95 @@ final class ProductCatalog
             'details' => self::details($model),
             'attributes' => self::technicalSheet($modelId),
         ]);
+    }
+
+    /**
+     * La scheda di un prodotto abbonamento: foto, categorie e breadcrumb come
+     * gli altri prodotti; al posto delle opzioni i prezzi ricorrenti di
+     * {@see PlanCatalog}. Senza prezzi attivi non si vende: 404.
+     *
+     * @param array<string, mixed> $model
+     */
+    private static function buildSubscription(array $model): ?ProductDetail
+    {
+        $entry = PlanCatalog::loadModel($model);
+
+        if ($entry === null) {
+            return null;
+        }
+
+        $modelId = (int) $model['id'];
+        $plan = PlanCatalog::present([$entry], [SubscriptionsController::class, 'configureUrl'])[0];
+        $images = [];
+
+        foreach ($entry['images'] as $image) {
+            $url = ProductImages::url($image);
+            if ($url !== '') {
+                $images[] = [
+                    'url' => self::absolute($url),
+                    'preview' => self::absolute(self::previewUrl($image)),
+                    'alt' => trim((string) ($image['alt'] ?? '')),
+                ];
+            }
+        }
+
+        $brand = (int) ($model['brand_id'] ?? 0) > 0
+            ? Brand::find(['id' => (int) $model['brand_id'], 'visible' => 'true'], 1)
+            : null;
+        $categories = self::categories($modelId);
+        $mainCategory = $categories !== [] ? $categories[array_key_last($categories)] : [];
+        $name = trim((string) ($model['name'] ?? ''));
+        $url = self::absolute(ProductUrl::make((string) ($model['slug'] ?? '')));
+        [$breadcrumbs, $categoryPath] = self::breadcrumbs($categories, $url, $name);
+
+        return ProductDetail::make([
+            'id' => $modelId,
+            'name' => $name,
+            'slug' => (string) ($model['slug'] ?? ''),
+            'url' => $url,
+            'short_description' => (string) ($model['short_description'] ?? ''),
+            'description_html' => (string) ($model['description'] ?? ''),
+            'brand' => is_array($brand) ? (string) ($brand['name'] ?? '') : '',
+            'category' => (string) ($mainCategory['name'] ?? ''),
+            'category_url' => $categoryPath !== [] ? self::categoryUrl($categoryPath) : '',
+            'breadcrumbs' => $breadcrumbs,
+            'images' => $images,
+            'currency' => (string) Ecommerce::config('catalog.currency', 'EUR'),
+            'details' => self::details($model),
+            'attributes' => self::technicalSheet($modelId),
+            'subscription' => $plan,
+            'prices_include_tax' => PlanCatalog::pricesIncludeTax(),
+        ]);
+    }
+
+    /**
+     * Home → prodotti → categorie → scheda.
+     *
+     * @param list<array<string, mixed>> $categories
+     * @return array{0: list<array{url: string, name: string}>, 1: list<string>}
+     */
+    private static function breadcrumbs(array $categories, string $url, string $name): array
+    {
+        $breadcrumbs = [[
+            'url' => self::absolute('/'),
+            'name' => (string) __t('ecommerce.catalog.breadcrumb_home'),
+        ], [
+            'url' => self::absolute((string) Ecommerce::config('catalog.index_url', '/prodotti/')),
+            'name' => (string) __t('ecommerce.catalog.breadcrumb_products'),
+        ]];
+
+        $categoryPath = [];
+        foreach ($categories as $category) {
+            $categoryPath[] = (string) ($category['slug'] ?? '');
+            $breadcrumbs[] = [
+                'url' => self::absolute(self::categoryUrl($categoryPath)),
+                'name' => self::breadcrumbName((string) ($category['name'] ?? '')),
+            ];
+        }
+
+        $breadcrumbs[] = ['url' => $url, 'name' => self::breadcrumbName($name)];
+
+        return [$breadcrumbs, $categoryPath];
     }
 
     /**

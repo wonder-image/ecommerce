@@ -93,7 +93,7 @@ final class AccountSubscriptionItems
      * I prezzi che si possono aggiungere: fuori quelli che vogliono una madre
      * che nell'abbonamento non c'è.
      *
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates
      * @param list<array<string, mixed>> $items
      * @param array<int, int> $planOf
      * @param Closure(int): list<int> $parentsOf
@@ -104,7 +104,7 @@ final class AccountSubscriptionItems
         $options = [];
 
         foreach ($candidates as $candidate) {
-            $mothers = $parentsOf((int) $candidate['plan_id']);
+            $mothers = $parentsOf((int) $candidate['product_model_id']);
 
             if ($mothers !== [] && self::parents($items, $mothers, $planOf) === []) {
                 continue;
@@ -124,7 +124,7 @@ final class AccountSubscriptionItems
      *
      * @param array<string, mixed> $item
      * @param list<array<string, mixed>> $items
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates
      * @param array<int, int> $planOf
      * @param Closure(int): list<int> $parentsOf
      * @return array<string, string> codice del prezzo ⇒ etichetta
@@ -141,7 +141,7 @@ final class AccountSubscriptionItems
         $options = [];
 
         foreach ($candidates as $candidate) {
-            $planId = (int) $candidate['plan_id'];
+            $planId = (int) $candidate['product_model_id'];
 
             if ((int) $candidate['price_id'] === (int) ($item['plan_price_id'] ?? 0)) {
                 continue;

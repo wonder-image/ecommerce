@@ -5,6 +5,25 @@ versionamento semantico.
 
 ## 0.2.0-beta.1 — non rilasciata
 
+### Cambiato
+
+- **L'abbonamento è un prodotto del catalogo** (`type = subscription`, richiede il
+  gestionale senza `gst_plans`). Le colonne dei prezzi, dei limiti e dei
+  legami sono `product_model_id`; nel codice del modulo non resta `plan_id`
+  né `Plan::` (`SubscriptionModels` del gestionale al loro posto).
+  - Ha foto, tag, categorie, ricerca e scheda `/prodotto/{slug}/` come gli altri.
+    Sulla scheda, al posto di quantità e «Aggiungi al carrello», i prezzi
+    ricorrenti con «Aggiungi» (componente `components/subscriptions/prices.php`,
+    lo stesso della pagina `/abbonamenti/`).
+  - JSON-LD della scheda: `Product` con un `Offer` per prezzo e
+    `UnitPriceSpecification`; `view_product` con un item per prezzo.
+  - `/abbonamenti/` elenca i prodotti abbonamento, con foto e link alla scheda.
+  - Card del catalogo: il prezzo più basso; `item_id` è il suo codice `ppr_`.
+  - Carrello, mini carrello e checkout: le righe dei servizi hanno la foto
+    del prodotto (formato del config) e il link alla scheda.
+  - Restano fuori dall'elenco per varianti, dai filtri e dall'ordinamento per
+    prezzo, che leggono le righe di magazzino.
+
 ### Corretto
 
 - Carrello e mini carrello, prodotti: togliere una riga o calarne la

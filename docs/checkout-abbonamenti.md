@@ -81,7 +81,10 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
   `CheckoutSubscriptions::paymentOptions()`. Klarna, PayPal, Satispay, i
   wallet e i metodi manuali spariscono perché non fanno addebiti ricorrenti.
 - **Riepilogo laterale** (`components/checkout/aside.php`, `lines.php`,
-  `totals.php`): la riga abbonamento ha il nome del piano (senza il
+  `totals.php`): la riga abbonamento ha la foto del prodotto abbonamento
+  (formato e fit della card, `catalog.card.image_*`, come le righe dei
+  prodotti; anche in carrello e mini carrello, con il nome che porta alla
+  scheda), il suo nome (senza il
   periodo) e sotto il prezzo col periodo, «9,90 €/Mese»
   (`SubscriptionView::per()`), poi prova, vincolo e una tantum. Badge della
   quantità e «cad.» solo con quantità maggiore di 1. Totale «Totale di oggi»

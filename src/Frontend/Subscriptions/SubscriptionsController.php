@@ -437,6 +437,26 @@ final class SubscriptionsController
         return self::route('ecommerce.subscriptions.configure', ['price' => $code]);
     }
 
+    /** Dove va il POST di «Aggiungi». */
+    public static function addUrl(string $code): string
+    {
+        return self::route('ecommerce.subscriptions.add', ['price' => $code]);
+    }
+
+    /**
+     * Il servizio entra nella selezione con un clic: niente personalizzazioni
+     * e nessuna riga madre da scegliere. Se no «Aggiungi» porta alla pagina
+     * di configurazione.
+     */
+    public static function addsDirectly(int $planId): bool
+    {
+        try {
+            return $planId > 0 && Customizations::forPlan($planId) === [] && self::mothersOf($planId) === [];
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     /** Chi ha già il massimo di abbonamenti aggiunge servizi dall'area cliente. */
     private static function requireRoom(string $priceCode): void
     {

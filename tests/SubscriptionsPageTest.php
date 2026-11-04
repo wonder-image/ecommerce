@@ -12,7 +12,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 $root = dirname(__DIR__);
 $piani = PlanCatalog::present([
     [
-        'plan' => ['code' => 'pln_pro1234', 'name' => 'Pro &amp; Team', 'description' => '<p>Per chi lavora tutti i giorni</p>'],
+        'plan' => ['id' => 31, 'type' => 'subscription', 'code' => 'mod_pro1234', 'slug' => 'pro-team', 'name' => 'Pro &amp; Team', 'description' => '<p>Per chi lavora tutti i giorni</p>'],
         'prices' => [
             ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '24.90', 'sale_price' => '19.90', 'billing_interval' => 'month', 'term_months' => 1, 'trial_days' => 14, 'commitment_months' => 0],
             ['code' => 'ppr_anno123', 'name' => 'Annuale', 'price' => '249.00', 'sale_price' => '0.00', 'billing_interval' => 'year', 'term_months' => 12, 'trial_days' => 0, 'commitment_months' => 12, 'one_time_price' => '49.90'],
@@ -20,7 +20,7 @@ $piani = PlanCatalog::present([
         'features' => [['feature_key' => 'max_progetti', 'feature_value' => '20']],
     ],
     [
-        'plan' => ['code' => 'pln_base123', 'name' => 'Base', 'description' => ''],
+        'plan' => ['id' => 32, 'type' => 'subscription', 'code' => 'mod_base123', 'slug' => '', 'name' => 'Base', 'description' => ''],
         'prices' => [
             ['code' => 'ppr_tri1234', 'name' => 'Trimestrale', 'price' => '27.00', 'billing_interval' => 'month', 'term_months' => 3],
         ],
@@ -39,7 +39,9 @@ check('i piani pronti per la vista: prezzo mostrato, barrato, frequenza e indiri
         && $anno['amount'] === 249.0 && $anno['regular'] === null && $anno['unit'] === 'year' && $anno['count'] === 1
         && $anno['commitment_months'] === 12 && $anno['one_time'] === 49.9 && $mese['one_time'] === 0.0
         && $tri['unit'] === 'month' && $tri['count'] === 3
-        && $piani[0]['features'] === [['key' => 'max_progetti', 'value' => '20']];
+        && $piani[0]['features'] === [['key' => 'max_progetti', 'value' => '20']]
+        && $piani[0]['id'] === 31 && $piani[0]['slug'] === 'pro-team' && str_ends_with($piani[0]['url'], '/pro-team/')
+        && $piani[1]['url'] === '' && $piani[0]['image'] === '' && $piani[0]['image_alt'] === 'Pro & Team';
 });
 
 check('il JSON-LD è un ItemList di Product con gli stessi importi visibili e valido', function () use ($piani) {
@@ -52,7 +54,9 @@ check('il JSON-LD è un ItemList di Product con gli stessi importi visibili e va
 
     return $decoded['@type'] === 'ItemList' && $decoded['numberOfItems'] === 2
         && $decoded['url'] === 'https://shop.test/abbonamenti/'
-        && $pro['@type'] === 'Product' && $pro['name'] === 'Pro & Team' && $pro['productID'] === 'pln_pro1234'
+        && $pro['@type'] === 'Product' && $pro['name'] === 'Pro & Team' && $pro['productID'] === 'mod_pro1234'
+        && str_ends_with((string) $pro['url'], '/pro-team/') && $mese['url'] === $pro['url']
+        && !isset($decoded['itemListElement'][1]['item']['url'])
         && $mese['price'] === 19.9 && $mese['priceCurrency'] === 'EUR' && $mese['sku'] === 'ppr_mese123'
         && $mese['priceSpecification'][0]['@type'] === 'UnitPriceSpecification'
         && $mese['priceSpecification'][0]['unitCode'] === 'MON' && $mese['priceSpecification'][0]['billingDuration'] === 1
@@ -72,8 +76,8 @@ check('l\'una tantum nel JSON-LD: una PriceSpecification senza unità né durata
         && $una['name'] !== '' && !isset($una['unitCode'], $una['billingDuration'], $una['billingIncrement']);
 });
 
-check('la pagina dei piani e la configurazione mostrano l\'una tantum solo quando c\'è', function () use ($root) {
-    $piani = (string) file_get_contents($root.'/view/pages/subscriptions/plans.php');
+check('i prezzi (pagina degli abbonamenti e scheda) e la configurazione mostrano l\'una tantum solo quando c\'è', function () use ($root) {
+    $piani = (string) file_get_contents($root.'/view/components/subscriptions/prices.php');
     $configura = (string) file_get_contents($root.'/view/pages/subscriptions/configure.php');
 
     return str_contains($piani, "if (\$price['one_time'] > 0)") && str_contains($piani, "'ecommerce.subscriptions.one_time'")

@@ -6,12 +6,14 @@ use Throwable;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionSelection;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
 use Wonder\Plugin\Gestionale\Support\Catalog\Customizations;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
@@ -79,6 +81,9 @@ final class CheckoutSubscriptions
                 // Il nome del piano: il periodo lo dice già il prezzo sotto («9,90 €/Mese»).
                 'name' => $entry !== null ? (string) $entry['plan']['name'] : $item['price_code'],
                 'price' => $entry['price'] ?? null,
+                // La foto e la scheda del prodotto abbonamento.
+                'image' => $entry !== null ? (string) ($entry['plan']['image'] ?? '') : '',
+                'url' => $entry !== null ? (string) ($entry['plan']['url'] ?? '') : '',
                 'quantity' => $item['quantity'],
                 'customization' => is_array($line) ? Customizations::lines($line) : [],
                 'unit_price' => $unit,
@@ -248,8 +253,9 @@ final class CheckoutSubscriptions
                 'line_total_display' => $row['line_total'] !== null ? CartPresenter::money($total, $currency) : '',
                 'parts' => self::parts($row, (float) ($oneTime[$row['index']] ?? 0), $currency),
                 'children' => $row['children'],
-                'image' => '',
-                'image_html' => '',
+                'image' => $row['image'],
+                'image_html' => $row['image'] !== '' ? (string) ImageFormat::fit(Product::image($row['image'], Product::IMAGE_THUMB)->displaySizes('72px'), 'catalog.card.image_fit') : '',
+                'url' => $row['url'],
                 'tracking' => $row['tracking'],
             ];
         }

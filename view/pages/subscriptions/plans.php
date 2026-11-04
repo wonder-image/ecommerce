@@ -3,8 +3,10 @@
 /**
  * La pagina pubblica dei piani (G10 §5).
  *
- * SEO: `INDEX,FOLLOW`, un solo titolo h1, piani resi lato server. schema.org:
- * `ItemList` di `Product` con gli stessi importi in pagina. Breadcrumb:
+ * SEO: `INDEX,FOLLOW`, un solo titolo h1, piani resi lato server; ogni
+ * abbonamento è un prodotto del catalogo e il nome (e la foto) portano alla
+ * sua scheda. schema.org: `ItemList` di `Product` con gli stessi importi in
+ * pagina e l'`url` della scheda. Breadcrumb:
  * Home › Abbonamenti, a video e in JSON-LD (dal core). dataLayer:
  * gli eventi rimasti in sospeso (`remove_from_cart` quando la selezione si
  * è svuotata), poi `view_item_list` alla vista e `select_item` al clic su
@@ -21,14 +23,15 @@
 
 use Wonder\Elements\Components\Breadcrumb;
 use Wonder\Plugin\Ecommerce\Ecommerce;
-use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
+use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
 
 $plans = is_array($plans ?? null) ? $plans : [];
-$flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
 $listName = (string) $title;
 
 $SEO->schemaOrg = PlanCatalog::schemaOrg($plans, (string) $page_url, $listName, (string) $currency);
@@ -68,7 +71,14 @@ Ecommerce::layout('shop');
         <?php $index = 0; ?>
         <?php foreach ($plans as $plan): ?>
             <section class="wi-box p-6 d-flex d-column gap-4" aria-labelledby="piano-<?=e($plan['code'])?>">
-                <h2 class="subtitle" id="piano-<?=e($plan['code'])?>"><?=e($plan['name'])?></h2>
+                <?php if ($plan['image'] !== ''): ?>
+                    <a class="<?=ImageFormat::className('catalog.card.image_format', '1:1')?> d-block p-r o-hidden bg-light" href="<?=e($plan['url'])?>" tabindex="-1" aria-hidden="true">
+                        <?=ImageFormat::fit(Product::image($plan['image'], Product::IMAGE_CARD, (string) $plan['image_alt'])->displaySizes('(max-width: 768px) 100vw, 30vw'), 'catalog.card.image_fit')?>
+                    </a>
+                <?php endif; ?>
+                <h2 class="subtitle" id="piano-<?=e($plan['code'])?>">
+                    <?php if ($plan['url'] !== ''): ?><a href="<?=e($plan['url'])?>"><?=e($plan['name'])?></a><?php else: ?><?=e($plan['name'])?><?php endif; ?>
+                </h2>
                 <?php if ($plan['description'] !== ''): ?>
                     <p class="text"><?=e($plan['description'])?></p>
                 <?php endif; ?>
@@ -79,33 +89,15 @@ Ecommerce::layout('shop');
                         <?php endforeach; ?>
                     </ul>
                 <?php endif; ?>
-                <ul class="d-flex d-column gap-3">
-                    <?php foreach ($plan['prices'] as $price): ?>
-                        <?php $item = PlanCatalog::trackingItem($price, $plan['name'], $index++); ?>
-                        <li class="d-flex d-column gap-1">
-                            <span class="text-small tx-secondary"><?=e($price['name'])?></span>
-                            <span class="subtitle">
-                                <?php if ($price['regular'] !== null): ?>
-                                    <del class="text-small tx-secondary"><?=e(CartPresenter::money($price['regular'], $currency))?></del>
-                                <?php endif; ?>
-                                <?=e(CartPresenter::money($price['amount'], $currency))?>
-                                <span class="text-small"><?=e(SubscriptionView::every($price['unit'], $price['count']))?></span>
-                            </span>
-                            <?php if ($price['one_time'] > 0): ?>
-                                <span class="text-small"><?=e(__t('ecommerce.subscriptions.one_time', ['price' => CartPresenter::money($price['one_time'], $currency)]))?></span>
-                            <?php endif; ?>
-                            <span class="text-small tx-secondary"><?=e(__t($include_tax ? 'ecommerce.subscriptions.tax_included' : 'ecommerce.subscriptions.tax_excluded'))?></span>
-                            <?php if ($price['trial_days'] > 0): ?>
-                                <span class="text-small"><?=e(__t('ecommerce.subscriptions.trial', ['days' => $price['trial_days']]))?></span>
-                            <?php endif; ?>
-                            <?php if ($price['commitment_months'] > 0): ?>
-                                <span class="text-small"><?=e(__t('ecommerce.subscriptions.commitment', ['months' => $price['commitment_months']]))?></span>
-                            <?php endif; ?>
-                            <a class="btn btn-black mt-2" href="<?=e($price['url'])?>"
-                               data-select-item="<?=e((string) json_encode(['event' => 'select_item', 'ecommerce' => ['item_list_name' => $listName, 'items' => [$item]]], $flags))?>"><?=e(__t('ecommerce.subscriptions.add'))?></a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+                <?=View::component(Ecommerce::viewPath('components/subscriptions/prices.php'), [
+                    'plan' => $plan,
+                    'currency' => $currency,
+                    'include_tax' => $include_tax,
+                    'list_name' => $listName,
+                    'index' => $index,
+                    'direct' => SubscriptionsController::addsDirectly((int) $plan['id']),
+                ])?>
+                <?php $index += count($plan['prices']); ?>
             </section>
         <?php endforeach; ?>
     </div>

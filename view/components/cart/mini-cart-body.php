@@ -76,10 +76,17 @@ $rows = count($items) + count($serviceItems);
                 $last = $index === $rows - 1;
                 ?>
                 <article class="w-100 d-grid gap-4 box-border <?=$index === 0 ? 'pb-4' : 'pt-4 pb-4'?>" style="grid-template-columns:72px 1fr<?=$last ? '' : ';border-bottom:1px solid var(--black-color-10)'?>">
-                    <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => '', 'url' => ''])?>
+                    <?php $serviceUrl = (string) ($service['url'] ?? ''); ?>
+                    <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => $service['image'] ?? '', 'url' => $serviceUrl])?>
                     <div class="w-100 d-flex d-column gap-1">
                         <div class="w-100 d-grid gap-2" style="grid-template-columns:1fr auto;align-items:start">
-                            <h3 class="text fw-600"><?=e($service['name'] ?? '')?></h3>
+                            <h3 class="text fw-600">
+                                <?php if ($serviceUrl !== ''): ?>
+                                    <a class="tx-black tx-none" href="<?=e($serviceUrl)?>"><?=e($service['name'] ?? '')?></a>
+                                <?php else: ?>
+                                    <?=e($service['name'] ?? '')?>
+                                <?php endif; ?>
+                            </h3>
                             <form method="post" action="<?=e(__r('ecommerce.cart.service_remove', ['index' => (int) $service['index']]))?>" data-ecommerce-mini-cart-form>
                                 <?=Csrf::field()?>
                                 <button class="tx-black" type="submit" style="width:28px;height:28px;border:0;border-radius:50%;background:transparent;cursor:pointer" aria-label="<?=e(__t('ecommerce.cart.mini.remove_item', ['name' => $service['name'] ?? '']))?>">

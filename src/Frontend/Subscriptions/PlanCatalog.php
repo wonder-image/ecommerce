@@ -3,19 +3,24 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Subscriptions;
 
 use Throwable;
-use Wonder\Plugin\Gestionale\Models\Subscriptions\Plan;
+use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductUrl;
+use Wonder\Plugin\Gestionale\Models\Catalog\ProductImage;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanFeature;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
+use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 
 /**
- * I piani della pagina pubblica (G10 §5): letti dal gestionale, preparati per
- * la vista, per il JSON-LD e per il dataLayer, con gli **stessi** importi.
+ * Gli abbonamenti della pagina pubblica (G10 §5): i prodotti di tipo
+ * abbonamento del catalogo, letti dal gestionale e preparati per la vista,
+ * per il JSON-LD e per il dataLayer, con gli **stessi** importi. La chiave
+ * `plan` delle voci resta per nome interno: è il modello del prodotto.
  *
- * `load()` legge il database; `present()`, `schemaOrg()` e `trackingItems()`
- * sono pure e le provano i test.
+ * `load()` legge il database; `present()`, `schemaOrg()`, `offers()` e
+ * `trackingItems()` sono pure e le provano i test.
  *
- * Solo i piani attivi e visibili sul sito, con i prezzi attivi; un piano senza
+ * Solo i prodotti visibili anche sul sito, con i prezzi attivi; uno senza
  * prezzi attivi non si mostra.
  */
 final class PlanCatalog
@@ -23,32 +28,55 @@ final class PlanCatalog
     public const CURRENCY = 'EUR';
 
     /**
-     * @return list<array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>}>
+     * @return list<array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>, images: list<array<string, mixed>>}>
      */
     public static function load(): array
     {
+        $result = [];
+
+        foreach (SubscriptionModels::live() as $model) {
+            $entry = SubscriptionModels::isOnline($model) ? self::loadModel($model) : null;
+
+            if ($entry !== null) {
+                $result[] = $entry;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * La voce di un solo prodotto abbonamento, per la sua scheda; `null` se
+     * non ha prezzi attivi.
+     *
+     * @param array<string, mixed> $model
+     * @return array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>, images: list<array<string, mixed>>}|null
+     */
+    public static function loadModel(array $model): ?array
+    {
+        $id = (int) ($model['id'] ?? 0);
+
+        if ($id <= 0) {
+            return null;
+        }
+
         try {
-            $plans = self::rows(Plan::find(['active' => 'true', 'visible_online' => 'true', 'deleted' => 'false'], null, 'position', 'ASC'));
-            $result = [];
+            $prices = self::rows(PlanPrice::find(['product_model_id' => $id, 'active' => 'true', 'deleted' => 'false'], null, 'position', 'ASC'));
 
-            foreach ($plans as $plan) {
-                $prices = self::rows(PlanPrice::find(['plan_id' => (int) $plan['id'], 'active' => 'true', 'deleted' => 'false'], null, 'position', 'ASC'));
-
-                if ($prices === []) {
-                    continue;
-                }
-
-                $result[] = [
-                    'plan' => $plan,
-                    'prices' => $prices,
-                    'features' => self::rows(PlanFeature::find(['plan_id' => (int) $plan['id'], 'deleted' => 'false'], null, 'position', 'ASC')),
-                ];
+            if ($prices === []) {
+                return null;
             }
 
-            return $result;
+            $features = self::rows(PlanFeature::find(['product_model_id' => $id, 'deleted' => 'false'], null, 'position', 'ASC'));
+            $images = array_values(array_filter(
+                ProductImages::for(self::rows(ProductImage::find(['product_model_id' => $id, 'deleted' => 'false'], null, 'position', 'ASC')), 0),
+                [ProductImages::class, 'isShowable'],
+            ));
         } catch (Throwable) {
-            return [];
+            return null;
         }
+
+        return ['plan' => $model, 'prices' => $prices, 'features' => $features, 'images' => $images];
     }
 
     /** Il listino è IVA inclusa? Come il catalogo dei prodotti (G10.4). */
@@ -66,9 +94,9 @@ final class PlanCatalog
      * basso), quello pieno barrato, la frequenza a parole e l'indirizzo per
      * abbonarsi.
      *
-     * @param list<array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>}> $plans
+     * @param list<array{plan: array<string, mixed>, prices: list<array<string, mixed>>, features: list<array<string, mixed>>, images?: list<array<string, mixed>>}> $plans
      * @param callable(string): string $subscribeUrl il codice del prezzo → l'indirizzo
-     * @return list<array{id: int, code: string, name: string, description: string, features: list<array{key: string, value: string}>, prices: list<array<string, mixed>>}>
+     * @return list<array{id: int, code: string, slug: string, url: string, name: string, description: string, image: string, image_alt: string, features: list<array{key: string, value: string}>, prices: list<array<string, mixed>>}>
      */
     public static function present(array $plans, callable $subscribeUrl): array
     {
@@ -101,10 +129,17 @@ final class PlanCatalog
                 ];
             }
 
+            $slug = (string) ($plan['slug'] ?? '');
+            $image = $entry['images'][0] ?? null;
+
             $out[] = [
                 'id' => (int) ($plan['id'] ?? 0),
                 'code' => (string) ($plan['code'] ?? ''),
+                'slug' => $slug,
+                'url' => $slug !== '' ? ProductUrl::make($slug) : '',
                 'name' => $name,
+                'image' => is_array($image) ? ProductImages::url($image) : '',
+                'image_alt' => is_array($image) && trim((string) ($image['alt'] ?? '')) !== '' ? trim((string) $image['alt']) : $name,
                 'description' => trim(html_entity_decode(strip_tags((string) ($plan['description'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8')),
                 'features' => array_map(static fn (array $feature): array => [
                     'key' => (string) ($feature['feature_key'] ?? ''),
@@ -130,48 +165,8 @@ final class PlanCatalog
         $items = [];
 
         foreach ($presented as $index => $plan) {
-            $offers = [];
-
-            foreach ($plan['prices'] as $price) {
-                $specification = [[
-                    '@type' => 'UnitPriceSpecification',
-                    'price' => $price['amount'],
-                    'priceCurrency' => $currency,
-                    'unitCode' => $price['unit'] === 'year' ? 'ANN' : 'MON',
-                    'billingDuration' => $price['count'],
-                    'billingIncrement' => $price['count'],
-                ]];
-
-                if ($price['regular'] !== null) {
-                    $specification[] = [
-                        '@type' => 'UnitPriceSpecification',
-                        'priceType' => 'https://schema.org/StrikethroughPrice',
-                        'price' => $price['regular'],
-                        'priceCurrency' => $currency,
-                    ];
-                }
-
-                // L'una tantum: si paga una volta, quindi senza unità di fatturazione.
-                if ($price['one_time'] > 0.0) {
-                    $specification[] = [
-                        '@type' => 'PriceSpecification',
-                        'name' => SubscriptionView::oneTimeLabel(),
-                        'price' => $price['one_time'],
-                        'priceCurrency' => $currency,
-                    ];
-                }
-
-                $offers[] = [
-                    '@type' => 'Offer',
-                    'name' => $price['name'],
-                    'sku' => $price['code'],
-                    'price' => $price['amount'],
-                    'priceCurrency' => $currency,
-                    'priceSpecification' => $specification,
-                    'url' => $pageUrl,
-                    'availability' => 'https://schema.org/InStock',
-                ];
-            }
+            $productUrl = self::absolute((string) ($plan['url'] ?? ''));
+            $offers = self::offers($plan, $productUrl !== '' ? $productUrl : $pageUrl, $currency);
 
             $product = [
                 '@type' => 'Product',
@@ -179,6 +174,14 @@ final class PlanCatalog
                 'productID' => $plan['code'],
                 'offers' => $offers,
             ];
+
+            if ($productUrl !== '') {
+                $product['url'] = $productUrl;
+            }
+
+            if (($plan['image'] ?? '') !== '') {
+                $product['image'] = self::absolute((string) $plan['image']);
+            }
 
             if ($plan['description'] !== '') {
                 $product['description'] = $plan['description'];
@@ -195,6 +198,75 @@ final class PlanCatalog
             'numberOfItems' => count($items),
             'itemListElement' => $items,
         ];
+    }
+
+    /**
+     * Le `Offer` di un abbonamento, una per prezzo: la `UnitPriceSpecification`
+     * ricorrente, il prezzo pieno barrato se in pagina si vede e una
+     * `PriceSpecification` per l'una tantum. Servono alla pagina degli
+     * abbonamenti e alla scheda del prodotto.
+     *
+     * @param array<string, mixed> $plan una voce di `present()`
+     * @return list<array<string, mixed>>
+     */
+    public static function offers(array $plan, string $url, string $currency = self::CURRENCY): array
+    {
+        $offers = [];
+
+        foreach ($plan['prices'] as $price) {
+            $specification = [[
+                '@type' => 'UnitPriceSpecification',
+                'price' => $price['amount'],
+                'priceCurrency' => $currency,
+                'unitCode' => $price['unit'] === 'year' ? 'ANN' : 'MON',
+                'billingDuration' => $price['count'],
+                'billingIncrement' => $price['count'],
+            ]];
+
+            if ($price['regular'] !== null) {
+                $specification[] = [
+                    '@type' => 'UnitPriceSpecification',
+                    'priceType' => 'https://schema.org/StrikethroughPrice',
+                    'price' => $price['regular'],
+                    'priceCurrency' => $currency,
+                ];
+            }
+
+            // L'una tantum: si paga una volta, quindi senza unità di fatturazione.
+            if ($price['one_time'] > 0.0) {
+                $specification[] = [
+                    '@type' => 'PriceSpecification',
+                    'name' => SubscriptionView::oneTimeLabel(),
+                    'price' => $price['one_time'],
+                    'priceCurrency' => $currency,
+                ];
+            }
+
+            $offers[] = [
+                '@type' => 'Offer',
+                'name' => $price['name'],
+                'sku' => $price['code'],
+                'price' => $price['amount'],
+                'priceCurrency' => $currency,
+                'priceSpecification' => $specification,
+                'url' => $url,
+                'availability' => 'https://schema.org/InStock',
+            ];
+        }
+
+        return $offers;
+    }
+
+    /** L'indirizzo assoluto, per il JSON-LD. */
+    public static function absolute(string $url): string
+    {
+        if ($url === '' || preg_match('~^https?://~i', $url)) {
+            return $url;
+        }
+
+        $site = rtrim((string) ($GLOBALS['PATH']->site ?? (defined('APP_URL') ? APP_URL : '')), '/');
+
+        return $site !== '' ? $site.'/'.ltrim($url, '/') : $url;
     }
 
     /**

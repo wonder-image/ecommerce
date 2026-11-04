@@ -66,9 +66,9 @@ check('le madri possibili: righe in corso senza madre di uno dei piani chiesti',
 
 check('i prezzi che si possono aggiungere: fuori quelli che vogliono una madre che non c\'è', function () use ($righe, $piani, $madri) {
     $candidati = [
-        ['code' => 'ppr_host2', 'price_id' => 102, 'plan_id' => 1, 'label' => 'Hosting annuale'],
-        ['code' => 'ppr_dom', 'price_id' => 202, 'plan_id' => 2, 'label' => 'Dominio'],
-        ['code' => 'ppr_x', 'price_id' => 401, 'plan_id' => 4, 'label' => 'Casella in più'],
+        ['code' => 'ppr_host2', 'price_id' => 102, 'product_model_id' => 1, 'label' => 'Hosting annuale'],
+        ['code' => 'ppr_dom', 'price_id' => 202, 'product_model_id' => 2, 'label' => 'Dominio'],
+        ['code' => 'ppr_x', 'price_id' => 401, 'product_model_id' => 4, 'label' => 'Casella in più'],
     ];
     $senzaEmail = array_values(array_filter($righe, static fn (array $r): bool => $r['id'] !== 4));
 
@@ -79,13 +79,13 @@ check('i prezzi che si possono aggiungere: fuori quelli che vogliono una madre c
 
 check('cambia: fuori il prezzo attuale e i piani che rompono madre o figlie', function () use ($righe, $piani, $madri) {
     $candidati = [
-        ['code' => 'ppr_host1', 'price_id' => 101, 'plan_id' => 1, 'label' => 'Hosting mensile'],
-        ['code' => 'ppr_host2', 'price_id' => 102, 'plan_id' => 1, 'label' => 'Hosting annuale'],
-        ['code' => 'ppr_srv', 'price_id' => 103, 'plan_id' => 5, 'label' => 'Server'],
-        ['code' => 'ppr_dom1', 'price_id' => 201, 'plan_id' => 2, 'label' => 'Dominio'],
-        ['code' => 'ppr_dom2', 'price_id' => 202, 'plan_id' => 2, 'label' => 'Dominio biennale'],
-        ['code' => 'ppr_mail', 'price_id' => 301, 'plan_id' => 3, 'label' => 'Email'],
-        ['code' => 'ppr_x', 'price_id' => 401, 'plan_id' => 4, 'label' => 'Casella in più'],
+        ['code' => 'ppr_host1', 'price_id' => 101, 'product_model_id' => 1, 'label' => 'Hosting mensile'],
+        ['code' => 'ppr_host2', 'price_id' => 102, 'product_model_id' => 1, 'label' => 'Hosting annuale'],
+        ['code' => 'ppr_srv', 'price_id' => 103, 'product_model_id' => 5, 'label' => 'Server'],
+        ['code' => 'ppr_dom1', 'price_id' => 201, 'product_model_id' => 2, 'label' => 'Dominio'],
+        ['code' => 'ppr_dom2', 'price_id' => 202, 'product_model_id' => 2, 'label' => 'Dominio biennale'],
+        ['code' => 'ppr_mail', 'price_id' => 301, 'product_model_id' => 3, 'label' => 'Email'],
+        ['code' => 'ppr_x', 'price_id' => 401, 'product_model_id' => 4, 'label' => 'Casella in più'],
     ];
 
     // L'hosting ha figli dominio: va bene solo un piano senza madri sotto cui il dominio può stare.
