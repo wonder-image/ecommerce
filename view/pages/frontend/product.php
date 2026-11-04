@@ -26,6 +26,9 @@ if (!$product instanceof ProductDetail) {
 $data = $product->data();
 // Un prodotto abbonamento: i prezzi ricorrenti sono le opzioni d'acquisto.
 $subscription = $data['subscription'] ?? null;
+// Il form dell'abbonamento si legge una volta: il prezzo sotto il nome e le opzioni partono dallo stesso prezzo scelto.
+$subscriptionForm = $subscription !== null ? SubscriptionsController::productForm((int) $data['id'], array_column($subscription['prices'], 'code')) : [];
+$subscriptionPrice = $subscription !== null ? SubscriptionView::chosen($subscription['prices'], (string) ($subscriptionForm['price'] ?? '')) : null;
 $sheet = $data['attributes'];
 $SEO->schemaOrg = $product->schemaOrg();
 $images = [];
@@ -209,6 +212,9 @@ Ecommerce::layout('shop');
                 <p class="text-small tx-dark mt-2"><?=e(__t($bundleGroups !== [] ? 'ecommerce.catalog.bundle.value_from' : 'ecommerce.catalog.bundle.value', ['price' => $money($bundle['value'], $data['currency'])]))?></p>
             <?php endif; ?>
         </div>
+        <?php elseif ($subscriptionPrice !== null): ?>
+            <!-- Abbonamento: il prezzo scelto col periodo, lo aggiorna lo script delle opzioni -->
+            <p class="subtitle fw-600 mt-2"><span data-subscription-price><?=e((string) SubscriptionView::pricePer($subscriptionPrice, $data['currency']))?></span> <s class="text fw-400 tx-dark ml-2" data-subscription-regular<?=$subscriptionPrice['regular'] !== null ? '' : ' hidden'?>><?=e((string) SubscriptionView::pricePer($subscriptionPrice, $data['currency'], 'product', true))?></s></p>
         <?php endif; ?>
 
         <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants'], 'hasVariants' => $data['has_variants'], 'textOnly' => $data['variant_buttons']])?>
@@ -251,7 +257,7 @@ Ecommerce::layout('shop');
                     'include_tax' => (bool) $data['prices_include_tax'],
                     'stepper' => $stepper,
                     // Personalizzazioni e servizio madre si compilano qui, come le opzioni dei prodotti.
-                    'form' => SubscriptionsController::productForm((int) $data['id'], array_column($subscription['prices'], 'code')),
+                    'form' => $subscriptionForm,
                     'plans_url' => __r('ecommerce.subscriptions.plans'),
                     'authenticated' => CartSession::authenticated(),
                     // Login e registrazione tornano alla scheda.

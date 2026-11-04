@@ -7,6 +7,14 @@ versionamento semantico.
 
 ### Cambiato
 
+- **Scheda dell'abbonamento: il prezzo col periodo sotto il nome**, al posto
+  dei prodotti, «30,00 €/Anno» o «3,00 €/Mese», col pieno barrato se
+  scontato; segue il prezzo scelto fra le opzioni. Le card del catalogo
+  mostrano il prezzo più basso col periodo, «Da 3,00 €/Mese» con più prezzi.
+  Nuovi `SubscriptionView::pricePer()`, `chosen()` e `from()`, testo
+  `ecommerce.subscriptions.from` (it, en); il prezzo in testa al componente
+  `components/subscriptions/options.php` passa alla pagina, che passa al
+  componente il `form` di `productForm()`.
 - **L'abbonamento è un prodotto del catalogo** (`type = subscription`, richiede il
   gestionale senza `gst_plans`). Le colonne dei prezzi, dei limiti e dei
   legami sono `product_model_id`; nel codice del modulo non resta `plan_id`

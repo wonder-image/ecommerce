@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Subscriptions;
 
 use Throwable;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 
 /** Le parole delle pagine degli abbonamenti: frequenza, limiti, stati. */
 final class SubscriptionView
@@ -36,6 +37,54 @@ final class SubscriptionView
             : self::text('ecommerce.subscriptions.per.'.$unit.'s', ['price' => $price, 'count' => $count]);
 
         return $text !== '' ? $text : $price.' '.self::every($unit, $count);
+    }
+
+    /**
+     * Il prezzo di una voce di `PlanCatalog::present()` col periodo, nei
+     * decimali di un contesto (`product`, `card`): «30,00 €/Anno». Con
+     * `regular` vero il prezzo pieno, `null` se non è barrato.
+     *
+     * @param array<string, mixed> $price
+     */
+    public static function pricePer(array $price, string $currency, string $context = 'product', bool $regular = false): ?string
+    {
+        $amount = $regular ? $price['regular'] : $price['amount'];
+
+        return $amount === null ? null : self::per(
+            CartPresenter::money((float) $amount, $currency, CartPresenter::decimals($context)),
+            (string) $price['unit'],
+            (int) $price['count'],
+        );
+    }
+
+    /**
+     * Il prezzo scelto nella scheda: quello del codice, se c'è, altrimenti il
+     * primo. Lo usano il prezzo sotto il nome e le opzioni.
+     *
+     * @param list<array<string, mixed>> $prices
+     * @return array<string, mixed>|null
+     */
+    public static function chosen(array $prices, string $code): ?array
+    {
+        foreach ($prices as $price) {
+            if ($code !== '' && $price['code'] === $code) {
+                return $price;
+            }
+        }
+
+        return $prices[0] ?? null;
+    }
+
+    /** «Da 3,00 €/Mese» se i prezzi sono più d'uno, se no il prezzo così com'è. */
+    public static function from(string $label, int $prices): string
+    {
+        if ($prices <= 1) {
+            return $label;
+        }
+
+        $text = self::text('ecommerce.subscriptions.from', ['price' => $label]);
+
+        return $text !== '' ? $text : $label;
     }
 
     /**

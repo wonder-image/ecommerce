@@ -45,11 +45,17 @@ voce del menu dell'account non c'è.
 - La scheda del prodotto abbonamento è allineata a quella dei prodotti
   (componente `components/subscriptions/options.php`, form
   `add_to_cart_subscription`): i prezzi sono righe `wi-choice` con un radio
-  `price`, il prezzo in alto segue la scelta e c'è un solo «Aggiungi al
-  carrello». Il periodo si legge «Pagamento mensile», «Pagamento annuale» o
-  «Pagamento ogni 3 mesi» (`SubscriptionView::billing()`, testi
-  `ecommerce.subscriptions.billing.*`); la pagina degli abbonamenti resta
-  con «al mese». Il form è sempre il `POST` di aggiunta: personalizzazioni
+  `price` e c'è un solo «Aggiungi al carrello». Sotto il nome, dove i
+  prodotti hanno il prezzo, c'è il prezzo scelto col periodo, «30,00 €/Anno»
+  o «3,00 €/Mese», barrato accanto al pieno se scontato
+  (`SubscriptionView::pricePer()`, testi `ecommerce.subscriptions.per.*`): lo
+  stampa `pages/frontend/product.php` (`data-subscription-price`) e lo script
+  delle opzioni lo cambia al cambio del radio (`data-per`, `data-regular`). Il
+  prezzo selezionato all'apertura lo sceglie `SubscriptionView::chosen()`.
+  Nei dettagli di ogni opzione il periodo si legge «Pagamento mensile»,
+  «Pagamento annuale» o «Pagamento ogni 3 mesi» (`SubscriptionView::billing()`,
+  testi `ecommerce.subscriptions.billing.*`); la pagina degli abbonamenti
+  resta con «al mese». Il form è sempre il `POST` di aggiunta: personalizzazioni
   (es. il dominio), servizio madre e, con `product.quantity`, la quantità col
   −/+ stanno nella scheda, come le opzioni dei prodotti
   (`SubscriptionsController::productForm()`, che usa `configureFields()`).
@@ -63,7 +69,9 @@ voce del menu dell'account non c'è.
   mostra un alert della lib e il form non parte. Il server resta la guardia:
   `requireLogin()` manda comunque al login.
 - Nel catalogo (elenchi, ricerca, categorie, tag) la card di un abbonamento
-  mostra il prezzo più basso, senza il periodo, e porta alla scheda: non si
+  mostra il prezzo più basso col suo periodo, «Da 3,00 €/Mese» se i prezzi
+  sono più d'uno (`SubscriptionView::from()`, testo
+  `ecommerce.subscriptions.from`), e porta alla scheda: non si
   aggiunge dalla card. L'elenco per varianti, i filtri e l'ordinamento per
   prezzo leggono le righe di magazzino (`gst_products`), che un abbonamento
   non ha: lì non compare.

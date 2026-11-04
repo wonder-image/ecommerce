@@ -392,6 +392,7 @@
             "year": "{{price}}/year",
             "years": "{{price}}/{{count}} years"
         },
+        "from": "From {{price}}",
         "status": {
             "pending": "Pending",
             "trialing": "Trial",

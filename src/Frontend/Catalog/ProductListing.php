@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
@@ -324,7 +325,7 @@ final class ProductListing
 
     /**
      * La card di un prodotto abbonamento: niente varianti né righe prodotto.
-     * Il prezzo è il ricorrente più basso, la foto quella del modello e
+     * Il prezzo è il ricorrente più basso col suo periodo, la foto quella del modello e
      * l'`item_id` il codice `ppr_` del primo prezzo, come nella scheda e nel
      * carrello. Si compra dalla scheda, mai dalla card.
      */
@@ -347,6 +348,9 @@ final class ProductListing
             'image_alt' => $plan['image_alt'],
             'price' => $cheapest['regular'] ?? $cheapest['amount'],
             'sale_price' => $cheapest['regular'] !== null ? $cheapest['amount'] : 0,
+            // Il prezzo col periodo, come nella scheda: «Da 3,00 €/Mese» se i prezzi sono più d'uno.
+            'price_formatted' => SubscriptionView::from((string) SubscriptionView::pricePer($cheapest, PlanCatalog::CURRENCY, 'card', $cheapest['regular'] !== null), count($plan['prices'])),
+            'sale_price_formatted' => $cheapest['regular'] !== null ? SubscriptionView::from((string) SubscriptionView::pricePer($cheapest, PlanCatalog::CURRENCY, 'card'), count($plan['prices'])) : '',
             'short_description' => (string) ($model['short_description'] ?? ''),
             'variants' => [],
             'cart' => null,
