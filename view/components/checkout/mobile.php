@@ -14,7 +14,7 @@ use Wonder\View\View;
         <?=View::component(Ecommerce::viewPath('components/checkout/lines.php'), compact('items', 'currency'))?>
         <?=View::component(Ecommerce::viewPath('components/checkout/totals.php'), ['order' => $order, 'currency' => $currency, 'shippingRow' => Gestionale::feature('shipping') && (string) ($order['fulfillment_type'] ?? 'shipping') !== 'pickup', 'services' => $services ?? null])?>
         <?php if ($coupons): ?>
-            <?=View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['code' => $couponCode, 'return' => 'checkout', 'id' => 'checkout-coupon-mobile', 'order' => $order, 'currency' => $currency])?>
+            <?=View::component(Ecommerce::viewPath('components/checkout/coupon.php'), ['codes' => $couponCodes, 'return' => 'checkout', 'id' => 'checkout-coupon-mobile', 'order' => $order, 'currency' => $currency])?>
         <?php endif; ?>
     </div>
 </details>

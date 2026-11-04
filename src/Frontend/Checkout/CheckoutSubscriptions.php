@@ -270,8 +270,10 @@ final class CheckoutSubscriptions
             : '';
         $preview['display']['discount_saved'] = CartPresenter::money(abs((float) ($preview['order']['discount_total'] ?? 0)) + $discount, $currency);
 
-        if ($coupon !== '' && (string) ($preview['coupon']['code'] ?? '') === '') {
-            $preview['coupon'] = ['code' => $coupon];
+        // Il codice dell'abbonamento si toglie dal riquadro come gli altri.
+        $codes = (array) ($preview['coupon']['codes'] ?? []);
+        if ($coupon !== '' && !in_array(strtolower($coupon), array_map('strtolower', $codes), true)) {
+            $preview['coupon']['codes'] = [...$codes, $coupon];
         }
 
         // L'abbonamento si paga solo con la carta dentro la pagina: niente wallet, niente manuali.

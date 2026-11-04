@@ -153,6 +153,8 @@
         "coupon_apply": "Applica",
         "coupon_remove": "Rimuovi",
         "coupon_applied_title": "Codice applicato!",
+        "coupons_applied_title": "Codici applicati!",
+        "coupon_remove_code": "Rimuovi {{code}}",
         "coupon_saved": "Hai risparmiato {{amount}}",
         "order_summary": "Riepilogo ordine",
         "submit_manual": "Ordina",

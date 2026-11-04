@@ -188,14 +188,16 @@ class Checkout {
             this.placed = null;
         }
 
-        const action = event.submitter?.value || 'apply';
+        // «Rimuovi» di una riga porta il suo codice: si toglie quello, gli altri restano.
+        const remove = event.submitter?.name === 'remove';
+        const action = remove ? 'remove' : (event.submitter?.value || 'apply');
         const release = couponSending(couponForm, event.submitter);
 
         try {
             await this.reopening;
             const data = this.body({
                 action,
-                code: couponForm.querySelector('[name="code"]')?.value || '',
+                code: remove ? event.submitter.value : (couponForm.querySelector('[name="code"]')?.value || ''),
                 return: couponForm.querySelector('[name="return"]')?.value || '',
             });
             // Come il carrello: lo spinner resta almeno CART_SPINNER_MIN ms, anche con una risposta immediata.
@@ -207,6 +209,12 @@ class Checkout {
             if (payload) {
                 this.render(payload);
                 couponError(couponForm, payload.error || '');
+
+                // Il codice entrato sta ora nel riquadro: l'input torna vuoto per il prossimo.
+                if (!payload.error && !remove) {
+                    document.querySelectorAll('[data-checkout-coupon] [name="code"]').forEach((input) => { input.value = ''; });
+                    checkoutLabels(document);
+                }
             }
         } finally {
             release(this);
@@ -512,19 +520,42 @@ class Checkout {
     }
 
     couponBox(payload) {
-        const code = payload.coupon?.code || '';
+        // I codici uno per uno; un server che manda solo lo specchio «A, B» dell'ordine vale lo stesso.
+        const codes = Array.isArray(payload.coupon?.codes)
+            ? payload.coupon.codes
+            : (payload.coupon?.code || '').split(',').map((code) => code.trim()).filter((code) => code !== '');
 
         document.querySelectorAll('[data-checkout-coupon]').forEach((form) => {
-            const input = form.querySelector('[name="code"]');
+            // L'input resta sempre: un coupon cumulabile si aggiunge agli altri.
+            form.querySelector('[data-checkout-coupon-applied]')?.toggleAttribute('hidden', codes.length === 0);
 
-            if (input && !(payload.error && code === '')) {
-                input.value = code;
+            const title = form.querySelector('[data-checkout-coupon-title]');
+
+            if (title) {
+                title.textContent = codes.length > 1 ? title.dataset.many : title.dataset.one;
             }
 
-            // Col codice applicato l'input lascia il posto al riquadro col risparmio.
-            form.querySelector('[data-checkout-coupon-entry]')?.toggleAttribute('hidden', code !== '');
-            form.querySelector('[data-checkout-coupon-applied]')?.toggleAttribute('hidden', code === '');
-            form.querySelectorAll('[data-checkout-coupon-code]').forEach((node) => { node.textContent = code; });
+            const list = form.querySelector('[data-checkout-coupon-codes]');
+            const template = form.querySelector('template[data-checkout-coupon-row]');
+
+            if (list && template) {
+                list.replaceChildren(...codes.map((code) => {
+                    const row = template.content.firstElementChild.cloneNode(true);
+                    const button = row.querySelector('[data-checkout-coupon-remove]');
+
+                    row.querySelector('[data-checkout-coupon-code]').textContent = code;
+                    button.value = code;
+                    button.setAttribute('aria-label', (button.dataset.label || '').replace('{{code}}', code));
+                    // Righe nuove a ordine nato: spente come gli altri campi, le riaccende `thaw()`.
+                    if (this.frozen) {
+                        button.disabled = true;
+                        this.frozenFields = [...(this.frozenFields || []), button];
+                    }
+
+                    return row;
+                }));
+            }
+
             form.querySelectorAll('[data-checkout-coupon-saved]').forEach((node) => { node.textContent = payload.display?.discount_saved || ''; });
         });
     }

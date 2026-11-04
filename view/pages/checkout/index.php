@@ -9,6 +9,7 @@ use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Ecommerce\Frontend\Slots;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -43,7 +44,7 @@ foreach ($payments as $p) {
         $manual = (bool) $p['manual'];
     }
 }
-$couponCode = (string) ($summary['coupon']['code'] ?? ($order['coupon_code'] ?? ''));
+$couponCodes = (array) ($summary['coupon']['codes'] ?? CheckoutSummary::couponCodes((int) ($order['id'] ?? 0)));
 $same = (string) ($values['same_as_shipping'] ?? '1') !== '0';
 $invoice = !empty($values['invoice']);
 // Aprendo «Mi serve fattura» parte «Azienda»; con la fattura già chiesta vale la scelta fatta.
@@ -58,7 +59,7 @@ $services = !empty($subscriptions) && isset($summary['subscriptions']) ? (array)
 ] : null;
 $aside = [
     'step' => 'checkout', 'items' => (array) ($summary['items'] ?? $items), 'order' => $order, 'currency' => $currency,
-    'coupons' => $coupons, 'couponCode' => $couponCode, 'notices' => (array) ($summary['notices'] ?? []),
+    'coupons' => $coupons, 'couponCodes' => $couponCodes, 'notices' => (array) ($summary['notices'] ?? []),
     'services' => $services,
 ];
 
