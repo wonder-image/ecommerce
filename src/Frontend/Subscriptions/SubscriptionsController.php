@@ -223,33 +223,18 @@ final class SubscriptionsController
         self::verifyCsrf($back);
         self::requireLogin($back);
         $raw = (string) ($_POST['index'] ?? '');
-        $items = SubscriptionSelection::items();
-        $index = ctype_digit($raw) ? (int) $raw : -1;
+        $removed = self::forget(ctype_digit($raw) ? (int) $raw : -1);
 
-        if (!isset($items[$index])) {
+        if ($removed === null) {
             self::redirect($back);
         }
 
-        $children = SubscriptionSelection::children($index);
-        $catalog = CheckoutSubscriptions::catalog();
-        $tracking = [];
-
-        foreach ([$index, ...$children] as $gone) {
-            $found = $catalog[$items[$gone]['price_code']] ?? null;
-
-            if ($found !== null) {
-                $tracking[] = CheckoutSubscriptions::trackingItem($found, $items[$gone]);
-            }
+        if ($removed['event'] !== null) {
+            self::pushEvent($removed['event']);
         }
 
-        if ($tracking !== []) {
-            self::pushEvent(SubscriptionTracking::removeFromCart($tracking));
-        }
-
-        SubscriptionSelection::remove($index);
-
-        if ($children !== []) {
-            FlashMessage::info((string) __t('ecommerce.subscriptions.summary.removed_children', ['count' => (string) count($children)]));
+        if ($removed['children'] > 0) {
+            FlashMessage::info((string) __t('ecommerce.subscriptions.summary.removed_children', ['count' => (string) $removed['children']]));
         }
 
         // Senza servizi né prodotti il checkout rimanda al carrello: meglio i piani.
@@ -534,14 +519,49 @@ final class SubscriptionsController
         return is_array($state) && ($state['price'] ?? '') === $code ? $state : [];
     }
 
-    /** @param array<string, mixed> $event */
-    private static function pushEvent(array $event): void
+    /**
+     * Toglie un servizio dalla selezione, con le righe figlie: lo usano
+     * checkout e carrello. Null se l'indice non c'è; `event` è il
+     * `remove_from_cart` di tutte le righe tolte.
+     *
+     * @return array{event: array<string, mixed>|null, children: int}|null
+     */
+    public static function forget(int $index): ?array
+    {
+        $items = SubscriptionSelection::items();
+
+        if (!isset($items[$index])) {
+            return null;
+        }
+
+        $children = SubscriptionSelection::children($index);
+        $catalog = CheckoutSubscriptions::catalog();
+        $tracking = [];
+
+        foreach ([$index, ...$children] as $gone) {
+            $found = $catalog[$items[$gone]['price_code']] ?? null;
+
+            if ($found !== null) {
+                $tracking[] = CheckoutSubscriptions::trackingItem($found, $items[$gone]);
+            }
+        }
+
+        SubscriptionSelection::remove($index);
+
+        return [
+            'event' => $tracking !== [] ? SubscriptionTracking::removeFromCart($tracking) : null,
+            'children' => count($children),
+        ];
+    }
+
+    /** Gli eventi in attesa per la pagina dopo un redirect (piani, carrello). @param array<string, mixed> $event */
+    public static function pushEvent(array $event): void
     {
         $_SESSION[self::EVENTS] = array_slice([...(array) ($_SESSION[self::EVENTS] ?? []), $event], -10);
     }
 
     /** @return list<array<string, mixed>> */
-    private static function pullEvents(): array
+    public static function pullEvents(): array
     {
         $events = array_values(array_filter((array) ($_SESSION[self::EVENTS] ?? []), 'is_array'));
         unset($_SESSION[self::EVENTS]);

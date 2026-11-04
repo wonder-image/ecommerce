@@ -4,18 +4,23 @@ use Wonder\Elements\Components\Accordion;
 use Wonder\Elements\Components\Button;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
 use Wonder\Plugin\Ecommerce\Frontend\Slots;
+use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\View\View;
 use Wonder\Http\Csrf;
 
 $order = (array) ($cart['order'] ?? []);
 $items = CartPresenter::lines(array_values((array) ($cart['items'] ?? [])));
 $currency = (string) ($order['currency'] ?? 'EUR');
+// I servizi scelti stanno in sessione, accanto ai prodotti (CheckoutSubscriptions::cart).
+$services = is_array($services ?? null) ? $services : null;
+$serviceItems = array_values((array) ($services['items'] ?? []));
 $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT;
 $labels = [];
-foreach (['coupon_remove', 'updating', 'summary_error', 'fees_total'] as $key) {
+foreach (['coupon_remove', 'updating', 'summary_error', 'fees_total', 'today_total', 'subscriptions_first_charge'] as $key) {
     $labels[$key] = (string) __t('ecommerce.checkout.'.$key);
 }
 foreach (['products_total', 'discount', 'total'] as $key) {
@@ -23,6 +28,12 @@ foreach (['products_total', 'discount', 'total'] as $key) {
 }
 
 Ecommerce::layout('shop');
+// Dati di pagina ed eventi rimasti dopo un redirect (un servizio tolto da qui).
+View::head(DataLayer::script([
+    'type' => 'cart',
+    'language' => __l(),
+    'currency' => $currency,
+], is_array($events ?? null) && $events !== [] ? $events : null));
 ?>
 <?php
 View::head(\Wonder\Plugin\Ecommerce\Frontend\StoreFont::style('cart'));
@@ -33,7 +44,7 @@ $step = static fn (float $value): string => rtrim(rtrim(number_format($value, 3,
 $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
 ?>
 <?=Slots::render('cart.before', $slot)?>
-<?php if ($items === []): ?>
+<?php if ($items === [] && $serviceItems === []): ?>
     <h1 class="title mb-6"><?=e(__t('ecommerce.cart.title'))?></h1>
     <?php // Lo stato vuoto della lib, come ordini e coupon dell'area cliente. ?>
     <section class="w-100 wi-box p-6">
@@ -53,7 +64,7 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
             <?php // Sotto il titolo, in grigio: «Hai 5 articoli nel carrello». ?>
             <div class="w-100 mb-2">
                 <h1 class="subtitle"><?=e(__t('ecommerce.cart.title'))?></h1>
-                <p class="wi-cart__meta wi-cart__count"><?=e(__t('ecommerce.cart.in_cart', ['items' => (string) __t(($count = CartPresenter::count($items)) === '1' ? 'ecommerce.cart.count_one' : 'ecommerce.cart.count', ['count' => $count])]))?></p>
+                <p class="wi-cart__meta wi-cart__count"><?=e(__t('ecommerce.cart.in_cart', ['items' => (string) __t(($count = CartSession::withServices(CartPresenter::count($items))) === '1' ? 'ecommerce.cart.count_one' : 'ecommerce.cart.count', ['count' => $count])]))?></p>
             </div>
             <?php foreach ($items as $index => $item): ?>
                 <?php
@@ -117,12 +128,49 @@ $slot = ['order' => $order, 'items' => $items, 'currency' => $currency];
                     </div>
                 </article>
             <?php endforeach; ?>
+            <?php foreach ($serviceItems as $position => $service): ?>
+                <?php
+                $name = (string) ($service['name'] ?? '');
+                $children = (int) ($service['children'] ?? 0);
+                $confirm = [
+                    (string) ($children > 0
+                        ? __t('ecommerce.cart.service_remove_confirm_children', ['name' => $name, 'count' => (string) $children])
+                        : __t('ecommerce.cart.remove_confirm_text', ['name' => $name])),
+                    (string) __t('ecommerce.cart.service_remove_confirm_title'),
+                    (string) __t('ecommerce.cart.remove_confirm_ok'),
+                ];
+                ?>
+                <?php if ($items !== [] || $position > 0): ?><hr class="wi-cart__line"><?php endif; ?>
+                <?php // Un servizio si compra una volta: niente quantità, solo «Rimuovi». ?>
+                <article class="w-100 wi-cart__item">
+                    <?=View::component(Ecommerce::viewPath('components/cart/thumb.php'), ['image' => '', 'url' => ''])?>
+                    <div class="w-100 wi-cart__body">
+                        <div class="w-100 wi-cart__head">
+                            <div class="w-100">
+                                <h2 class="text fw-600"><?=e($name)?></h2>
+                                <?php if (($parts = (array) ($service['parts'] ?? [])) !== []): ?>
+                                    <ul class="wi-cart__parts wi-cart__meta">
+                                        <?php foreach ($parts as $part): ?><li><?=e($part)?></li><?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </div>
+                            <p class="wi-cart__price"><strong class="d-block"><?=e((string) ($service['line_total_display'] ?? ''))?></strong></p>
+                        </div>
+                        <div class="w-100 wi-cart__foot" style="justify-content:flex-end">
+                            <form id="cart_service_remove_<?=e((string) (int) $service['index'])?>" method="post" action="<?=e(__r('ecommerce.cart.service_remove', ['index' => (int) $service['index']]))?>" data-cart-action>
+                                <?=Csrf::field()?>
+                                <button class="wi-cart__remove text-small" type="submit" data-wi-confirm="<?=e($confirm[0])?>" data-wi-confirm-title="<?=e($confirm[1])?>" data-wi-confirm-ok="<?=e($confirm[2])?>"><i class="bi bi-trash3"></i> <?=e(__t('ecommerce.cart.remove'))?></button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            <?php endforeach; ?>
             <?=Slots::render('cart.after_items', $slot)?>
         </div>
         <div class="w-100 d-flex d-column gap-5">
             <?=View::component(Ecommerce::viewPath('components/checkout/aside.php'), [
                 'step' => 'cart', 'items' => $items, 'order' => $order, 'currency' => $currency,
-                'coupons' => false, 'couponCodes' => [], 'notices' => [],
+                'coupons' => false, 'couponCodes' => [], 'notices' => [], 'services' => $services,
                 // I bottoni rapidi stanno sopra «Procedi».
                 'express' => Ecommerce::config('cart.express', true) ? ExpressCheckout::render('cart', $order) : '',
                 'button' => (string) Button::to((string) __r('ecommerce.checkout.index'), (string) __t('ecommerce.cart.proceed'))->variant('primary')->class('w-100 a-c mt-5'),

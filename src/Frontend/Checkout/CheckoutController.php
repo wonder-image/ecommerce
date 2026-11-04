@@ -121,6 +121,8 @@ final class CheckoutController
         View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
             'cart' => $cart,
             'summary' => $summary,
+            // L'add_to_cart di un servizio appena scelto: il piano rimanda qui.
+            'events' => SubscriptionsController::pullEvents(),
             'values' => $values,
             'shipping_fields' => self::fields(array_diff_key(
                 Order::shippingAddress()->formSchema($values['shipping_country'] ?? null),
@@ -350,7 +352,7 @@ final class CheckoutController
         if ($json) {
             // Carrello: la riga della spedizione e il totale che la comprende, come li disegna la pagina.
             if ($return === 'cart' && isset($payload['order'])) {
-                $payload['cart_shipping'] = self::cartShipping($cartId, (array) $payload['order']);
+                $payload['cart_shipping'] = self::cartShipping($cartId, (array) $payload['order'], (float) ($payload['subscriptions']['first_charge'] ?? 0));
             }
             self::json(['success' => $payload['error'] === ''] + $payload, $status);
         }
@@ -370,7 +372,7 @@ final class CheckoutController
      * @param array<string, mixed> $order
      * @return array{price_display: string, total_display: string}|null
      */
-    private static function cartShipping(int $cartId, array $order): ?array
+    private static function cartShipping(int $cartId, array $order, float $firstCharge = 0.0): ?array
     {
         // L'anteprima porta i totali dopo il coupon; l'indirizzo lo dà il carrello.
         $shipping = CartPresenter::cartShipping($order + ['id' => $cartId] + (array) Order::findById($cartId));
@@ -379,6 +381,8 @@ final class CheckoutController
         return $shipping === null ? null : [
             'price_display' => $shipping['price'] > 0 ? CartPresenter::money($shipping['price'], $currency) : (string) __t('ecommerce.checkout.free'),
             'total_display' => CartPresenter::money($shipping['total'], $currency),
+            // Con i servizi il totale del carrello più il loro primo addebito.
+            'today_display' => CartPresenter::money($shipping['total'] + $firstCharge, $currency),
         ];
     }
 

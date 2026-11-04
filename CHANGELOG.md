@@ -7,6 +7,14 @@ versionamento semantico.
 
 ### Corretto
 
+- Carrello e mini carrello: tornano i servizi, ciascuno col suo «Rimuovi»
+  (`POST /carrello/servizi/{index}/remove/`, rotta `ecommerce.cart.service_remove`,
+  con conferma che avvisa delle righe figlie). Il totale diventa «Totale di oggi»
+  col «Poi…» sotto, come nel checkout; il conteggio, anche
+  quello sull'icona del carrello (`CartSession::count()`), comprende i servizi. Dal mini
+  carrello la rimozione manda `remove_from_cart` dal JS con i dati del server;
+  gli eventi rimasti in sessione partono alla pagina del carrello o del checkout.
+  Nel checkout le righe dei servizi restano senza «Togli».
 - Checkout, righe dei servizi: nome del piano senza il periodo («Pro», non
   «Pro — Mensile»), sotto «24,90 €/Mese» senza «cad.» né badge della quantità
   quando è uno solo; sotto il totale, come Stripe Checkout, «Poi 24,90 €/Mese»

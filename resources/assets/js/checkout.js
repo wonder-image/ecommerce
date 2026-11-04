@@ -298,7 +298,8 @@ class Checkout {
 
     totals(payload) {
         const d = payload.display;
-        const services = this.form ? payload.subscriptions || null : null;
+        // Anche nel carrello: i servizi scelti hanno il loro primo addebito.
+        const services = payload.subscriptions || null;
         // Solo servizi: niente prodotti né spedizione, si legge il primo addebito.
         const products = !services || (payload.items || []).some((item) => (item.type ?? 'product') === 'product');
         const rows = products ? [[this.labels.products_total, d.products_total]] : [];
@@ -332,7 +333,7 @@ class Checkout {
             rows.push([this.labels.subscriptions_first_charge, d.subscriptions_first_charge]);
         }
 
-        const total = cart ? cart.total_display : (services ? d.today_total : d.total);
+        const total = cart ? (services ? cart.today_display : cart.total_display) : (services ? d.today_total : d.total);
 
         rows.push([services ? this.labels.today_total : this.labels.total, total, true]);
 

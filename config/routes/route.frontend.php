@@ -93,6 +93,10 @@ Route::area('frontend')
                 Route::post('/items/{id}/remove/', $handler, ['cart_action' => 'remove'])
                     ->where('id', '[0-9]+')
                     ->name('remove');
+                // I servizi stanno in sessione: si tolgono per posizione nella selezione.
+                Route::post('/servizi/{index}/remove/', $handler, ['cart_action' => 'service_remove'])
+                    ->where('index', '[0-9]+')
+                    ->name('service_remove');
             });
 
         Route::name('ecommerce.checkout.')

@@ -193,9 +193,9 @@ class Cart {
             });
             this.render(payload);
 
-            // add_to_cart lo scrive il server dalla riga salvata: prezzi e
-            // sovrapprezzi sono quelli del carrello, non quelli della pagina.
-            if (payload.success && payload.event && payload.event.event === 'add_to_cart') {
+            // add_to_cart e remove_from_cart li scrive il server dalle righe
+            // salvate: prezzi e sovrapprezzi sono quelli del carrello, non quelli della pagina.
+            if (payload.success && payload.event && ['add_to_cart', 'remove_from_cart'].includes(payload.event.event)) {
                 window.dataLayer = window.dataLayer || [];
                 window.dataLayer.push({ ecommerce: null });
                 window.dataLayer.push(payload.event);

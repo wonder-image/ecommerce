@@ -98,10 +98,10 @@ View::head(DataLayer::script([
     'type' => 'checkout',
     'language' => __l(),
     'currency' => $currency,
-], [
+], [...(is_array($events ?? null) ? $events : []), [
     'event' => 'begin_checkout',
     'ecommerce' => ['currency' => $currency, 'value' => (float) ($services !== null ? $services['today_total'] : ($order['total'] ?? 0)), 'items' => $gaItems],
-], (int) ($_SESSION['user_id'] ?? 0)));
+]], (int) ($_SESSION['user_id'] ?? 0)));
 ?>
 <h1 class="wi-checkout__sr"><?=e(__t('ecommerce.checkout.title'))?></h1>
 <?=View::component(Ecommerce::viewPath('components/checkout/mobile.php'), $aside)?>

@@ -66,10 +66,13 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
 
 - **Carrello**: la selezione degli abbonamenti resta `SubscriptionSelection`
   (le righe ordine non sanno di prova, ricorrenza e righe figlie: `OrderItem::TYPES`
-  non ha un tipo abbonamento). Il checkout mostra le due liste insieme; la
-  pagina `/carrello/` mostra solo i prodotti e oggi non c'è un pulsante per
-  togliere un servizio (la rotta `POST /abbonamenti/riepilogo/togli/` resta,
-  senza interfaccia). Anche il mini-carrello conta solo i prodotti. `/abbonamenti/{price}/`
+  non ha un tipo abbonamento). Carrello, mini carrello e checkout mostrano le due
+  liste insieme (`CheckoutSubscriptions::cart()` per carrello e mini carrello).
+  Nel carrello e nel mini carrello ogni servizio ha il suo «Rimuovi»
+  (`POST /carrello/servizi/{index}/remove/`, `CartController::serviceRemove()` →
+  `SubscriptionsController::forget()`): la pagina fa un POST con redirect, il
+  mini carrello risponde in JSON con l'evento `remove_from_cart`. Nel checkout
+  le righe dei servizi non hanno il «Togli». `/abbonamenti/{price}/`
   aggiunge e manda al checkout; `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
 - **CheckoutController::index**: con abbonamenti nel carrello login
   obbligatorio (niente ospite, niente express checkout); senza prodotti la
@@ -101,7 +104,9 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
    `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
 2. **schema.org**: nessun JSON-LD (pagine private).
 3. **Breadcrumb**: `$SEO->breadcrumb = []`; nessun percorso visibile nuovo.
-4. **dataLayer**: `begin_checkout`, `add_payment_info` e `purchase` con
+4. **dataLayer**: `remove_from_cart` per il servizio tolto: dal JS del mini
+   carrello alla risposta del server, dalla sessione alla pagina del carrello
+   (`page.type = cart`) o del checkout dopo il redirect. `begin_checkout`, `add_payment_info` e `purchase` con
    **tutti** gli item: prodotti (`item_id` = sku) e servizi (`item_id` = codice
    prezzo, come `SubscriptionTracking`); `value` = quanto si paga oggi;
    `purchase` una volta sola, alla conferma dell'abbonamento, con

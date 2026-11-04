@@ -137,4 +137,38 @@ check('riga del servizio: senza «cad.» e senza badge se è uno solo, il «poi�
         && str_contains(file_get_contents($root.'/src/Frontend/Checkout/CheckoutSubscriptions.php'), "\$entry['plan']['name'] : \$item['price_code']");
 });
 
+check('carrello e mini carrello: i servizi con «Rimuovi», il checkout no', function () use ($root): bool {
+    $pagina = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $mini = (string) file_get_contents($root.'/view/components/cart/mini-cart-body.php');
+    $rotte = (string) file_get_contents($root.'/config/routes/route.frontend.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Cart/CartController.php');
+
+    return str_contains($pagina, "__r('ecommerce.cart.service_remove', ['index' => (int) \$service['index']])")
+        && str_contains($pagina, "'services' => \$services,")
+        && str_contains($pagina, "\$items === [] && \$serviceItems === []")
+        && str_contains($mini, "__r('ecommerce.cart.service_remove', ['index' => (int) \$service['index']])")
+        && str_contains($mini, "'ecommerce.checkout.today_total' : 'ecommerce.cart.total'")
+        && str_contains($rotte, "Route::post('/servizi/{index}/remove/', \$handler, ['cart_action' => 'service_remove'])")
+        && str_contains($controller, "'service_remove' => self::serviceRemove(")
+        && str_contains($controller, 'SubscriptionsController::forget($index)')
+        && str_contains($controller, "'empty' => \$items === [] && \$services === null");
+});
+
+check('dataLayer: remove_from_cart dal mini carrello, eventi in attesa su carrello e checkout', function () use ($root): bool {
+    $js = (string) file_get_contents($root.'/resources/assets/js/mini-cart.js');
+    $pagina = (string) file_get_contents($root.'/view/pages/cart/index.php');
+    $checkout = (string) file_get_contents($root.'/src/Frontend/Checkout/CheckoutController.php');
+
+    return str_contains($js, "['add_to_cart', 'remove_from_cart'].includes(payload.event.event)")
+        && str_contains($js, 'window.dataLayer.push({ ecommerce: null });')
+        && str_contains($pagina, "'type' => 'cart',")
+        && str_contains($checkout, "'events' => SubscriptionsController::pullEvents(),");
+});
+
+check('carrello senza servizi: nessun riepilogo dei servizi', function (): bool {
+    $_SESSION = [];
+
+    return CheckoutSubscriptions::cart(['id' => 0, 'total' => 25], 25, 'EUR') === null;
+});
+
 summary();

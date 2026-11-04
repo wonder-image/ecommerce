@@ -1017,7 +1017,7 @@ check('il controller passa le scelte al carrello e il mini-carrello spinge add_t
     return str_contains($controller, "'choices' => \$choices")
         && str_contains($controller, 'CartPresenter::addEvent(')
         && str_contains($js, "window.dataLayer.push({ ecommerce: null });")
-        && str_contains($js, "payload.event.event === 'add_to_cart'")
+        && str_contains($js, "['add_to_cart', 'remove_from_cart'].includes(payload.event.event)")
         && str_contains($body, 'CartPresenter::parts($item)');
 });
 

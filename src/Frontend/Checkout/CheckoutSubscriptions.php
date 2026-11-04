@@ -247,6 +247,7 @@ final class CheckoutSubscriptions
                 'line_total' => $total,
                 'line_total_display' => $row['line_total'] !== null ? CartPresenter::money($total, $currency) : '',
                 'parts' => self::parts($row, (float) ($oneTime[$row['index']] ?? 0), $currency),
+                'children' => $row['children'],
                 'image' => '',
                 'image_html' => '',
                 'tracking' => $row['tracking'],
@@ -294,6 +295,34 @@ final class CheckoutSubscriptions
         if ($options === [] && $error === '') {
             $preview['subscriptions']['error'] = (string) __t('ecommerce.subscriptions.error');
         }
+    }
+
+    /**
+     * I servizi per carrello e mini-carrello: le righe e i totali come nel
+     * checkout (`extend()` su un'anteprima con il solo ordine). `today_total`
+     * parte da `$total`, il totale del carrello con la sua spedizione. Null
+     * senza servizi. Pagamento ed errori restano al checkout.
+     *
+     * @param array<string, mixed> $order
+     * @return array{items: list<array<string, mixed>>, first_charge: float, today_total: float, then: string, products: bool}|null
+     */
+    public static function cart(array $order, float $total, string $currency): ?array
+    {
+        if (self::items() === []) {
+            return null;
+        }
+
+        $preview = ['order' => $order, 'items' => [], 'payment_methods' => ['options' => []], 'coupon' => ['codes' => []], 'display' => []];
+        self::extend($preview, [], $currency);
+        $first = (float) ($preview['subscriptions']['first_charge'] ?? 0);
+
+        return [
+            'items' => $preview['items'],
+            'first_charge' => $first,
+            'today_total' => round($total + $first, 2),
+            'then' => (string) ($preview['display']['subscriptions_then'] ?? ''),
+            'products' => self::hasProducts((int) ($order['id'] ?? 0)),
+        ];
     }
 
     /**
