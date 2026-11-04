@@ -10,6 +10,7 @@ require SITE.'/vendor/autoload.php';
 require SITE.'/vendor/wonder-image/app/wonder-image.php';
 require __DIR__.'/../harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressAddress;
 
 /** @return array<string, mixed> */
@@ -71,6 +72,18 @@ check('post: nome, via, pagamento e consensi', function (): bool {
         && $p['accept_terms'] === '1' && $p['same_as_shipping'] === '0' && $p['billing_city'] === 'Torino'
         && $p['billing_name'] === 'Maria Luisa' && $p['billing_surname'] === 'Rossi' && $p['billing_province'] === 'TO'
         && $p['email'] === 'cliente@example.com' && $p['shipping_phone'] === '+39 333 1234567';
+});
+check('post: ogni consenso porta l\'id del documento attivo, come il modulo della pagina', function (): bool {
+    $p = ExpressAddress::post(walletProva(), null, 12, 'apple_pay', CheckoutRules::CONSENTS);
+
+    foreach (CheckoutRules::CONSENTS as $tipo) {
+        $attivo = sqlSelect('legal_documents', ['doc_type' => $tipo, 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC');
+        if (!$attivo->exists || ($p[$tipo.'_id'] ?? '') !== (string) $attivo->id || $p['accept_'.$tipo] !== '1') {
+            return false;
+        }
+    }
+
+    return true;
 });
 check('post: le particelle restano nel cognome', function (): bool {
     $nome = fn (string $n): array => array_intersect_key(

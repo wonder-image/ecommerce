@@ -22,7 +22,7 @@ $cart = is_array($product['cart'] ?? null) ? $product['cart'] : null;
 $description = Ecommerce::config('catalog.card.short_description', false) === true ? (string) ($product['description'] ?? '') : '';
 ?>
 <article class="product-card product-card--grid w-100 h-100">
-    <div class="p-r">
+    <div class="p-r w-100">
         <<?=$tag?> class="product-card__media p-r d-block <?=ImageFormat::className('catalog.card.image_format', '1:1')?> bg-light o-hidden"<?=$link?><?=$mediaA11y?>>
             <?php if (($product['image'] ?? '') !== ''): ?>
                 <?=ImageFormat::fit(Product::image((string) $product['image'], Product::IMAGE_CARD, (string) ($product['image_alt'] ?? '')), 'catalog.card.image_fit')?>
