@@ -17,6 +17,27 @@ final class SubscriptionView
             : self::text('ecommerce.subscriptions.every.'.$unit.'s', ['count' => $count]);
     }
 
+    /** «Pagamento mensile», «Pagamento ogni 3 mesi», «Pagamento annuale»: la scheda del prodotto. */
+    public static function billing(string $unit, int $count): string
+    {
+        $unit = $unit === 'year' ? 'year' : 'month';
+
+        return $count <= 1
+            ? self::text('ecommerce.subscriptions.billing.'.$unit)
+            : self::text('ecommerce.subscriptions.billing.'.$unit.'s', ['count' => $count]);
+    }
+
+    /** «9,90 €/Mese», «9,90 €/3 Mesi», «99,00 €/Anno»: il prezzo già formattato e il periodo. */
+    public static function per(string $price, string $unit, int $count): string
+    {
+        $unit = $unit === 'year' ? 'year' : 'month';
+        $text = $count <= 1
+            ? self::text('ecommerce.subscriptions.per.'.$unit, ['price' => $price])
+            : self::text('ecommerce.subscriptions.per.'.$unit.'s', ['price' => $price, 'count' => $count]);
+
+        return $text !== '' ? $text : $price.' '.self::every($unit, $count);
+    }
+
     /**
      * Il nome di un limite: quello scritto in `ecommerce.subscriptions.features.<chiave>`
      * se il sito lo traduce, altrimenti la chiave resa leggibile

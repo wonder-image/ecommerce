@@ -158,4 +158,13 @@ check('il prezzo usa Da/A e il massimo dinamico, con le etichette ordine richies
         && ($order['name_desc'] ?? '') === 'Nome: z-a';
 });
 
+check('la card di un abbonamento: il prezzo più basso e il suo codice ppr_ come item_id', function (): bool {
+    $listing = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Catalog/ProductListing.php');
+
+    return str_contains($listing, "=== SubscriptionModels::TYPE) return self::subscriptionCard(\$model);")
+        && str_contains($listing, "'item_id' => (string) \$cheapest['code'],")
+        && str_contains($listing, "'price' => \$cheapest['regular'] ?? \$cheapest['amount'],")
+        && str_contains($listing, "'cart' => null,");
+});
+
 summary();

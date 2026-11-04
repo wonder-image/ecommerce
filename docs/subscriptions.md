@@ -5,6 +5,13 @@ sezione dell'area cliente. Le regole e lo stato stanno nel gestionale
 (`OnlineSubscriptions`, `SubscriptionEvents`). Il modulo mostra, raccoglie i dati
 e manda il cliente su Stripe.
 
+Un abbonamento è un **prodotto del catalogo** di tipo `subscription`
+(`gst_product_models.type`, vedi `SubscriptionModels` del gestionale): la
+tabella dei piani non c'è più. Prezzi ricorrenti (`PlanPrice`), limiti
+(`PlanFeature`) e legami (`PlanLink`) puntano al modello con `product_model_id`.
+Come gli altri prodotti ha foto, tag, categorie, ricerca, scheda
+(`/prodotto/{slug}/`) e SEO; non ha magazzino, varianti né spedizione.
+
 Tutto si accende con la funzionalità **`online_subscriptions`** del gestionale
 (richiede *Vendita online* e *Abbonamenti*). Spenta, le rotte rispondono 404 e la
 voce del menu dell'account non c'è.
@@ -13,12 +20,13 @@ voce del menu dell'account non c'è.
 
 | Rotta | Nome | Cosa fa |
 |---|---|---|
-| `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | piani visibili e attivi, con i prezzi attivi |
-| `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | account obbligatorio; quantità, personalizzazioni e servizio a cui si collega |
-| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al riepilogo |
-| `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | servizi scelti, fatturazione, codice sconto e totale del primo addebito (una tantum compresa) |
-| `POST /abbonamenti/riepilogo/` | `ecommerce.subscriptions.start` | crea l'abbonamento in attesa con tutti i servizi e manda a Stripe |
-| `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui |
+| `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | prodotti abbonamento visibili (anche online), con i prezzi attivi; foto e nome portano alla scheda |
+| `GET /prodotto/{slug}/` | `ecommerce.catalog.product` | la scheda del prodotto abbonamento: foto, descrizione, limiti, i prezzi ricorrenti come opzioni (radio) e un solo «Aggiungi al carrello» |
+| `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | 301 alla scheda del prodotto: la vecchia pagina di configurazione non c'è più |
+| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | account obbligatorio; aggiunge il servizio alla selezione e manda al checkout; dopo un errore torna alla scheda |
+| `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | 301 a `/checkout/`: i servizi si pagano lì, insieme ai prodotti (vedi `checkout-abbonamenti.md`) |
+| `POST /abbonamenti/riepilogo/` | `ecommerce.subscriptions.start` | 303 a `/checkout/`: il vecchio modulo rimasto aperto |
+| `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui, poi torna al checkout; il checkout non ha più il bottone, la rotta resta per i moduli già aperti |
 | `GET /abbonamenti/conferma/?abbonamento=sub_…` | `ecommerce.subscriptions.confirm` | aspetta la notifica di Stripe e poi conferma |
 | `GET /account/abbonamenti/` | `account.subscriptions` | sezione dell'area cliente |
 | `GET /account/abbonamenti/{sub_…}/aggiungi/` | `account.subscriptions.add` | Aggiungi servizio: scelta del prezzo e configurazione (`?price=ppr_…`) |
@@ -29,15 +37,52 @@ voce del menu dell'account non c'è.
 | `POST /account/abbonamenti/{sub_…}/disdici/` | `account.subscriptions.cancel` | disdetta |
 | `POST /account/abbonamenti/{sub_…}/carta/` | `account.subscriptions.card` | portale di Stripe |
 
+- «Aggiungi» (pagina degli abbonamenti, componente
+  `components/subscriptions/prices.php`) manda subito il `POST` quando il
+  servizio non ha personalizzazioni né madre
+  (`SubscriptionsController::addsDirectly()`); altrimenti porta alla scheda
+  del prodotto.
+- La scheda del prodotto abbonamento è allineata a quella dei prodotti
+  (componente `components/subscriptions/options.php`, form
+  `add_to_cart_subscription`): i prezzi sono righe `wi-choice` con un radio
+  `price`, il prezzo in alto segue la scelta e c'è un solo «Aggiungi al
+  carrello». Il periodo si legge «Pagamento mensile», «Pagamento annuale» o
+  «Pagamento ogni 3 mesi» (`SubscriptionView::billing()`, testi
+  `ecommerce.subscriptions.billing.*`); la pagina degli abbonamenti resta
+  con «al mese». Il form è sempre il `POST` di aggiunta: personalizzazioni
+  (es. il dominio), servizio madre e, con `product.quantity`, la quantità col
+  −/+ stanno nella scheda, come le opzioni dei prodotti
+  (`SubscriptionsController::productForm()`, che usa `configureFields()`).
+  Senza una madre adatta nella selezione la scheda dice quali piani
+  aggiungere prima e il bottone è spento. Dopo un errore il server torna alla
+  scheda: il prezzo scelto è di nuovo selezionato, i valori restano e
+  l'errore sta sul campo. Il server legge il `price` scelto (`chosenPrice()`),
+  quindi il form funziona anche senza JS.
+- Chi non ha fatto l'accesso legge che serve un account, coi link a
+  registrazione e login (`?continue=` alla scheda); «Aggiungi al carrello»
+  mostra un alert della lib e il form non parte. Il server resta la guardia:
+  `requireLogin()` manda comunque al login.
+- Nel catalogo (elenchi, ricerca, categorie, tag) la card di un abbonamento
+  mostra il prezzo più basso, senza il periodo, e porta alla scheda: non si
+  aggiunge dalla card. L'elenco per varianti, i filtri e l'ordinamento per
+  prezzo leggono le righe di magazzino (`gst_products`), che un abbonamento
+  non ha: lì non compare.
+- Le varianti di un abbonamento (se l'URL ne nomina una) rimandano con un 301
+  alla scheda del modello. Nessun altro indirizzo è cambiato: i piani non
+  avevano una scheda.
+- In carrello, mini carrello e checkout la riga di un servizio ha la foto del
+  prodotto (formato e fit della card, `catalog.card.image_*`) e il nome porta
+  alla scheda.
 - I servizi scelti stanno in sessione (`SubscriptionSelection`), non nel carrello
   degli ordini, e appartengono al cliente che li ha scelti. Ogni aggiunta passa
-  dal controllo del gestionale sulla selezione intera: piano visibile,
+  dal controllo del gestionale sulla selezione intera: abbonamento visibile,
   personalizzazioni, servizio madre, stessi intervalli di addebito.
 - Un servizio che si appoggia a un altro (piano *figlio*) chiede di scegliere la
   riga madre fra quelle della selezione; senza una madre adatta la pagina dice
   quali piani aggiungere prima. Togliere una madre toglie anche le figlie.
-- Il codice sconto si prova con «Applica»: se non vale, il riepilogo lo dice sul
-  campo e mostra i totali senza sconto.
+- Il codice sconto è quello del checkout: si prova sull'ordine e
+  sull'abbonamento, vale dove è valido e l'errore esce solo se non vale da
+  nessuna parte.
 - Chi ha già il numero massimo di abbonamenti va nell'area cliente, dove può
   aggiungere servizi a quello che ha.
 - La selezione si svuota alla conferma, non quando parte Stripe: chi torna
@@ -56,7 +101,7 @@ rinnovi, sui cambi e sui servizi aggiunti dall'area cliente; ha l'aliquota della
 riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone.
 
 - Piani: «+ 49,00 € una tantum» sotto il canone (`PlanCatalog::present()` dà
-  `one_time`); la pagina del servizio ricorda che arriva col primo pagamento.
+  `one_time`); nella scheda è nei dettagli di ogni prezzo.
 - Riepilogo: «Una tantum» sotto ogni servizio che ce l'ha, una riga «Una tantum»
   nel primo addebito e il totale `first_charge_total` di
   `OnlineSubscriptions::preview()`. In prova il primo addebito è la sola una
@@ -69,9 +114,10 @@ riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone
 
 | Pagina | SEO | schema.org | Breadcrumb | dataLayer |
 |---|---|---|---|---|
-| Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per piano); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
-| Servizio | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › servizio | pagina `subscription_configure` |
-| Riepilogo | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › riepilogo | pagina `subscription_checkout`; `begin_checkout` con un item per servizio e `value` = totale del primo addebito (`first_charge_total`: canone più una tantum, in prova solo l'una tantum) |
+| Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per abbonamento, con `url` e `image` della scheda); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
+| Scheda dell'abbonamento | quella dei prodotti: `INDEX,FOLLOW`, canonical, un `<h1>`, `$SEO->image` | `Product` con `productID` = codice del modello e un `Offer` per prezzo, uguale a quello della pagina degli abbonamenti (`PlanCatalog::offers()`), `url` = la scheda | Home › categoria › prodotto, come gli altri | pagina `product`; `view_product` con un item per prezzo (`ppr_…`); nessun `select_item` (i prezzi sono opzioni, come le varianti dei prodotti); `add_to_cart` dal server dopo l'aggiunta |
+| Card del catalogo | — | `ItemList` dell'elenco | — | `item_id` = codice `ppr_` del prezzo mostrato (il più basso) |
+| Checkout | `NOINDEX,NOFOLLOW` (quello dei prodotti) | nessuno | `[]` | `begin_checkout`, `add_shipping_info` e `add_payment_info` con prodotti e servizi; `value` = totale di oggi (ordine più primo addebito: canone più una tantum, in prova solo l'una tantum) |
 | Conferma | `NOINDEX,NOFOLLOW` | nessuno | `[]` | pagina `subscription_confirmation`; `purchase` una volta sola per abbonamento (la sessione ricorda i codici), con `transaction_id` = codice `sub_`, `value` = canone del primo periodo più una tantum (in prova solo l'una tantum, zero se non c'è) |
 | Area cliente | del pannello | nessuno | del pannello | del pannello |
 
@@ -84,10 +130,10 @@ Gli identificativi sono gli stessi ovunque:
   `quantity` la quantità del servizio.
 
 `add_to_cart` e `remove_from_cart` si mettono da parte in sessione e partono
-alla pagina successiva (piani o riepilogo), ognuno preceduto da
+alla pagina successiva (piani o checkout), ognuno preceduto da
 `{ecommerce: null}`.
 
-I form hanno `id` semantici: `subscription_configure`, `subscription_checkout`, `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
+I form hanno `id` semantici: `add_to_cart_subscription` (scheda), `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
 
 ## Limiti nei testi
 

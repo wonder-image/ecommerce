@@ -12,7 +12,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 $root = dirname(__DIR__);
 $piani = PlanCatalog::present([
     [
-        'plan' => ['code' => 'pln_pro1234', 'name' => 'Pro &amp; Team', 'description' => '<p>Per chi lavora tutti i giorni</p>'],
+        'plan' => ['id' => 31, 'type' => 'subscription', 'code' => 'mod_pro1234', 'slug' => 'pro-team', 'name' => 'Pro &amp; Team', 'description' => '<p>Per chi lavora tutti i giorni</p>'],
         'prices' => [
             ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '24.90', 'sale_price' => '19.90', 'billing_interval' => 'month', 'term_months' => 1, 'trial_days' => 14, 'commitment_months' => 0],
             ['code' => 'ppr_anno123', 'name' => 'Annuale', 'price' => '249.00', 'sale_price' => '0.00', 'billing_interval' => 'year', 'term_months' => 12, 'trial_days' => 0, 'commitment_months' => 12, 'one_time_price' => '49.90'],
@@ -20,7 +20,7 @@ $piani = PlanCatalog::present([
         'features' => [['feature_key' => 'max_progetti', 'feature_value' => '20']],
     ],
     [
-        'plan' => ['code' => 'pln_base123', 'name' => 'Base', 'description' => ''],
+        'plan' => ['id' => 32, 'type' => 'subscription', 'code' => 'mod_base123', 'slug' => '', 'name' => 'Base', 'description' => ''],
         'prices' => [
             ['code' => 'ppr_tri1234', 'name' => 'Trimestrale', 'price' => '27.00', 'billing_interval' => 'month', 'term_months' => 3],
         ],
@@ -39,7 +39,9 @@ check('i piani pronti per la vista: prezzo mostrato, barrato, frequenza e indiri
         && $anno['amount'] === 249.0 && $anno['regular'] === null && $anno['unit'] === 'year' && $anno['count'] === 1
         && $anno['commitment_months'] === 12 && $anno['one_time'] === 49.9 && $mese['one_time'] === 0.0
         && $tri['unit'] === 'month' && $tri['count'] === 3
-        && $piani[0]['features'] === [['key' => 'max_progetti', 'value' => '20']];
+        && $piani[0]['features'] === [['key' => 'max_progetti', 'value' => '20']]
+        && $piani[0]['id'] === 31 && $piani[0]['slug'] === 'pro-team' && str_ends_with($piani[0]['url'], '/pro-team/')
+        && $piani[1]['url'] === '' && $piani[0]['image'] === '' && $piani[0]['image_alt'] === 'Pro & Team';
 });
 
 check('il JSON-LD è un ItemList di Product con gli stessi importi visibili e valido', function () use ($piani) {
@@ -52,7 +54,9 @@ check('il JSON-LD è un ItemList di Product con gli stessi importi visibili e va
 
     return $decoded['@type'] === 'ItemList' && $decoded['numberOfItems'] === 2
         && $decoded['url'] === 'https://shop.test/abbonamenti/'
-        && $pro['@type'] === 'Product' && $pro['name'] === 'Pro & Team' && $pro['productID'] === 'pln_pro1234'
+        && $pro['@type'] === 'Product' && $pro['name'] === 'Pro & Team' && $pro['productID'] === 'mod_pro1234'
+        && str_ends_with((string) $pro['url'], '/pro-team/') && $mese['url'] === $pro['url']
+        && !isset($decoded['itemListElement'][1]['item']['url'])
         && $mese['price'] === 19.9 && $mese['priceCurrency'] === 'EUR' && $mese['sku'] === 'ppr_mese123'
         && $mese['priceSpecification'][0]['@type'] === 'UnitPriceSpecification'
         && $mese['priceSpecification'][0]['unitCode'] === 'MON' && $mese['priceSpecification'][0]['billingDuration'] === 1
@@ -72,12 +76,13 @@ check('l\'una tantum nel JSON-LD: una PriceSpecification senza unità né durata
         && $una['name'] !== '' && !isset($una['unitCode'], $una['billingDuration'], $una['billingIncrement']);
 });
 
-check('la pagina dei piani e la configurazione mostrano l\'una tantum solo quando c\'è', function () use ($root) {
-    $piani = (string) file_get_contents($root.'/view/pages/subscriptions/plans.php');
-    $configura = (string) file_get_contents($root.'/view/pages/subscriptions/configure.php');
+check('i prezzi (pagina degli abbonamenti e scheda) mostrano l\'una tantum solo quando c\'è', function () use ($root) {
+    $piani = (string) file_get_contents($root.'/view/components/subscriptions/prices.php');
+    $scheda = (string) file_get_contents($root.'/view/components/subscriptions/options.php');
 
     return str_contains($piani, "if (\$price['one_time'] > 0)") && str_contains($piani, "'ecommerce.subscriptions.one_time'")
-        && str_contains($configura, "if (\$price['one_time'] > 0)") && str_contains($configura, "'ecommerce.subscriptions.one_time_first'");
+        && str_contains($scheda, "if (\$price['one_time'] > 0)") && str_contains($scheda, "'ecommerce.subscriptions.one_time'")
+        && !file_exists($root.'/view/pages/subscriptions/configure.php');
 });
 
 check('view_item_list: un item per prezzo, con il codice del prezzo come item_id e il prezzo numerico', function () use ($piani) {
@@ -154,17 +159,19 @@ check('purchase con l\'una tantum: si somma al canone, in prova è tutto il valo
         && $attivo['items'][0]['price'] === 10.0;
 });
 
-check('le pagine: piani indicizzati con breadcrumb, servizio, riepilogo e conferma private', function () use ($root) {
+check('le pagine: piani indicizzati con breadcrumb, conferma privata, riepilogo e vecchio servizio con un 301', function () use ($root) {
     $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
 
     return substr_count($controller, "'INDEX,FOLLOW'") >= 1
-        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 3
+        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 1
+        && str_contains($controller, "header('Location: '.self::route('ecommerce.checkout.index'), true, 301);")
+        && str_contains($controller, "header('Location: '.\$url, true, 301);")
         && str_contains($controller, "\$SEO->breadcrumb = [];")
         && str_contains($controller, 'self::TRACKED');
 });
 
 check('le viste: un solo h1, dataLayer dal punto condiviso, JSON-LD solo sui piani', function () use ($root) {
-    foreach (['plans', 'configure', 'summary', 'confirm'] as $vista) {
+    foreach (['plans', 'confirm'] as $vista) {
         $source = (string) file_get_contents($root.'/view/pages/subscriptions/'.$vista.'.php');
 
         if (substr_count($source, '<h1') !== 1 || !str_contains($source, 'DataLayer::script(')) {
@@ -198,9 +205,8 @@ check('le traduzioni degli abbonamenti ci sono in tutte le lingue, con la descri
         if (!isset($testi['subscriptions']['plans']['title'], $testi['account']['subscriptions']['title'])
             || mb_strlen((string) $testi['subscriptions']['plans']['seo']) > 140
             || !isset($testi['subscriptions']['add'], $testi['subscriptions']['summary']['submit'], $testi['subscriptions']['configure']['parent'])
-            || !isset($testi['subscriptions']['one_time'], $testi['subscriptions']['one_time_label'], $testi['subscriptions']['one_time_first'])
+            || !isset($testi['subscriptions']['one_time'], $testi['subscriptions']['one_time_label'])
             || !isset($testi['subscriptions']['summary']['one_time'], $testi['subscriptions']['summary']['one_time_line'], $testi['subscriptions']['summary']['after_trial'])
-            || mb_strlen((string) $testi['subscriptions']['configure']['seo']) > 140
             || mb_strlen((string) $testi['subscriptions']['summary']['seo']) > 140) {
             return false;
         }

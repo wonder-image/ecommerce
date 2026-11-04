@@ -6,10 +6,13 @@ use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\ExpressCheckout;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\View\View;
@@ -21,6 +24,8 @@ if (!$product instanceof ProductDetail) {
 }
 
 $data = $product->data();
+// Un prodotto abbonamento: i prezzi ricorrenti sono le opzioni d'acquisto.
+$subscription = $data['subscription'] ?? null;
 $sheet = $data['attributes'];
 $SEO->schemaOrg = $product->schemaOrg();
 $images = [];
@@ -59,13 +64,13 @@ if ($suggested_products !== []) $events[] = $listEvent('suggested_products', (st
 $productStyle = module_asset('ecommerce', 'css/product.css');
 // Foglio piccolo e sopra la piega: inline, fuori dal render-blocking.
 if ($productStyle !== '') View::head(Asset::inlineStyle(strtok($productStyle, '?')) ?? '<link rel="stylesheet" href="'.e($productStyle).'">');
-if ((bool) Ecommerce::config('product.express', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
+if ($subscription === null && (bool) Ecommerce::config('product.express', true) && ExpressCheckout::available() && ($checkoutJs = module_asset('ecommerce', 'js/checkout.js')) !== '') {
     View::head('<script src="'.e($checkoutJs).'" defer></script>');
 }
 
 // Il sito decide se la scheda ha la quantità con −/+ e se mostra i bottoni rapidi.
 $stepper = (bool) Ecommerce::config('product.quantity', false);
-$expressHere = (bool) Ecommerce::config('product.express', true);
+$expressHere = $subscription === null && (bool) Ecommerce::config('product.express', true);
 
 // Il foglio dei bottoni rapidi parte dal prezzo dell'offerta caricata
 $expressOffer = current(array_filter($data['offers'], fn ($offer) => (int) $offer['product_id'] === (int) $data['selected_product_id'])) ?: ($data['offers'][0] ?? []);
@@ -196,6 +201,7 @@ Ecommerce::layout('shop');
             <p class="text"><?=e($data['short_description'])?></p>
         <?php endif; ?>
 
+        <?php if ($subscription === null): ?>
         <div>
             <p class="subtitle fw-600 mt-2"><span data-product-price><?=e($priceLabel)?></span> <s class="text fw-400 tx-dark ml-2" data-product-regular<?=$regularPrice > 0 ? '' : ' hidden'?>><?=$regularPrice > 0 ? e($money($regularPrice, $data['currency'])) : ''?></s></p>
 
@@ -203,6 +209,7 @@ Ecommerce::layout('shop');
                 <p class="text-small tx-dark mt-2"><?=e(__t($bundleGroups !== [] ? 'ecommerce.catalog.bundle.value_from' : 'ecommerce.catalog.bundle.value', ['price' => $money($bundle['value'], $data['currency'])]))?></p>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <?=View::component(Ecommerce::viewPath('components/catalog/variants.php'), ['variants' => $data['variants'], 'hasVariants' => $data['has_variants'], 'textOnly' => $data['variant_buttons']])?>
 
@@ -228,6 +235,31 @@ Ecommerce::layout('shop');
             </ul>
         <?php endif; ?>
 
+        <?php if ($subscription !== null): ?>
+            <!-- Abbonamento: i limiti, i prezzi ricorrenti come opzioni e un solo «Aggiungi al carrello» -->
+            <?php if ($subscription['features'] !== []): ?>
+                <ul class="text-small d-flex d-column gap-1 mt-2">
+                    <?php foreach ($subscription['features'] as $feature): ?>
+                        <li><?=e(SubscriptionView::featureLabel($feature['key']))?>: <strong><?=e($feature['value'])?></strong></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+            <div data-subscription-product>
+                <?=View::component(Ecommerce::viewPath('components/subscriptions/options.php'), [
+                    'plan' => $subscription,
+                    'currency' => $data['currency'],
+                    'include_tax' => (bool) $data['prices_include_tax'],
+                    'stepper' => $stepper,
+                    // Personalizzazioni e servizio madre si compilano qui, come le opzioni dei prodotti.
+                    'form' => SubscriptionsController::productForm((int) $data['id'], array_column($subscription['prices'], 'code')),
+                    'plans_url' => __r('ecommerce.subscriptions.plans'),
+                    'authenticated' => CartSession::authenticated(),
+                    // Login e registrazione tornano alla scheda.
+                    'login_url' => __r('ecommerce.auth.login').'?continue='.rawurlencode((string) $data['url']),
+                    'signup_url' => __r('ecommerce.auth.signup.request').'?continue='.rawurlencode((string) $data['url']),
+                ])?>
+            </div>
+        <?php else: ?>
         <!-- Acquisto: opzioni e «Aggiungi al carrello» -->
         <div class="<?=$bundleGroups !== [] || $sheet['files'] !== [] ? 'mt-2' : 'mt-6'?>">
             <?php if (count($data['offers']) === 1): ?>
@@ -295,6 +327,7 @@ Ecommerce::layout('shop');
                 </form>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <?php if ($expressHere): ?>
             <div data-express-product<?=$selectedAvailable ? '' : ' hidden'?>>

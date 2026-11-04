@@ -9,7 +9,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
 use Wonder\Plugin\Gestionale\Models\Payments\Payment;
-use Wonder\Plugin\Gestionale\Models\Subscriptions\Plan;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\Subscription;
 use Wonder\Plugin\Gestionale\Support\Orders\OrderSheet;
@@ -46,13 +46,13 @@ final class AccountSubscriptions
 
     /**
      * @param array<string, mixed> $row
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates i prezzi in vendita, da `candidates()`
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates i prezzi in vendita, da `candidates()`
      * @return array<string, mixed>
      */
     public static function present(array $row, array $candidates): array
     {
         $price = PlanPrice::findById((int) $row['plan_price_id']);
-        $plan = is_array($price) ? Plan::findById((int) $price['plan_id']) : null;
+        $plan = SubscriptionModels::ofPrice(is_array($price) ? $price : null);
         $status = (string) $row['status'];
         $live = in_array($status, Subscription::LIVE, true);
         $online = (string) ($row['provider'] ?? '') === 'stripe' && trim((string) ($row['provider_reference'] ?? '')) !== '';
@@ -116,7 +116,7 @@ final class AccountSubscriptions
     /**
      * I prezzi in vendita, con gli id che servono alle regole dei servizi.
      *
-     * @return list<array{code: string, price_id: int, plan_id: int, label: string}>
+     * @return list<array{code: string, price_id: int, product_model_id: int, label: string}>
      */
     public static function candidates(): array
     {
@@ -140,7 +140,7 @@ final class AccountSubscriptions
                 $candidates[] = [
                     'code' => (string) $price['code'],
                     'price_id' => $ids[$price['code']],
-                    'plan_id' => (int) $plan['id'],
+                    'product_model_id' => (int) $plan['id'],
                     'label' => $price['full_name'].' · '.CartPresenter::money($price['amount'], PlanCatalog::CURRENCY).' '.SubscriptionView::every($price['unit'], $price['count']),
                 ];
             }
@@ -154,7 +154,7 @@ final class AccountSubscriptions
      * righe (anche se non più in vendita).
      *
      * @param list<array<string, mixed>> $items
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates
      * @return array<int, int>
      */
     public static function planOf(array $items, array $candidates): array
@@ -162,7 +162,7 @@ final class AccountSubscriptions
         $map = [];
 
         foreach ($candidates as $candidate) {
-            $map[$candidate['price_id']] = $candidate['plan_id'];
+            $map[$candidate['price_id']] = $candidate['product_model_id'];
         }
 
         foreach ($items as $item) {
@@ -170,7 +170,7 @@ final class AccountSubscriptions
 
             if ($priceId > 0 && !isset($map[$priceId])) {
                 $price = PlanPrice::findById($priceId);
-                $map[$priceId] = is_array($price) ? (int) ($price['plan_id'] ?? 0) : 0;
+                $map[$priceId] = is_array($price) ? (int) ($price['product_model_id'] ?? 0) : 0;
             }
         }
 
@@ -194,7 +194,7 @@ final class AccountSubscriptions
      *
      * @param array<string, mixed> $item
      * @param list<array<string, mixed>> $items
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates
      * @param array<int, int> $planOf
      * @return array<string, mixed>
      */

@@ -83,6 +83,10 @@
         "remove_confirm_title": "Remove this product?",
         "remove_confirm_text": "“{{name}}” will be removed from your cart.",
         "remove_confirm_ok": "Remove",
+        "service_remove_confirm_title": "Remove the service?",
+        "service_remove_confirm_children": "“{{name}}” will be removed from your cart, along with its {{count}} linked services.",
+        "service_removed": "Service removed from your cart.",
+        "service_removed_children": "Service removed from your cart, along with its {{count}} linked services.",
         "summary": "Summary",
         "products_total": "Subtotal",
         "discount": "Discount",
@@ -181,6 +185,9 @@
         "consents": "Consents",
         "coupon_applied": "Coupon applied.",
         "coupon_removed": "Coupon removed.",
+        "details": "Your details",
+        "today_total": "Total due today",
+        "subscriptions_first_charge": "First charge for services",
         "errors": {
             "empty": "Your cart is empty.",
             "payment_method": "Choose an available payment method.",
@@ -353,6 +360,13 @@
         "error_title": "Subscription",
         "error": "Something went wrong: please try again in a few minutes.",
         "add": "Add",
+        "options": "Choose your plan",
+        "signup_required": "You need an account to buy this subscription:",
+        "signup_link": "sign up",
+        "signup_or": "or",
+        "login_link": "log in",
+        "login_alert_title": "Log in to continue",
+        "login_alert": "Please log in or sign up before adding the subscription to your cart.",
         "tax_included": "VAT included",
         "tax_excluded": "VAT excluded",
         "trial": "{{days}}-day free trial",
@@ -360,12 +374,23 @@
         "commitment": "{{months}}-month commitment",
         "one_time": "+ {{price}} one-time fee",
         "one_time_label": "One-time fee",
-        "one_time_first": "Plus a {{price}} one-time fee, with the first payment only.",
         "every": {
             "month": "per month",
             "months": "every {{count}} months",
             "year": "per year",
             "years": "every {{count}} years"
+        },
+        "billing": {
+            "month": "Monthly payment",
+            "months": "Payment every {{count}} months",
+            "year": "Yearly payment",
+            "years": "Payment every {{count}} years"
+        },
+        "per": {
+            "month": "{{price}}/month",
+            "months": "{{price}}/{{count}} months",
+            "year": "{{price}}/year",
+            "years": "{{price}}/{{count}} years"
         },
         "status": {
             "pending": "Pending",
@@ -383,29 +408,23 @@
             "empty": "There are no plans available right now."
         },
         "configure": {
-            "seo": "Choose the quantity and options of the service before adding it to your subscription.",
-            "price": "Price",
             "quantity": "Quantity",
             "choose_option": "Choose…",
             "parent": "Linked to",
             "parent_option": "{{name}} (row {{row}})",
             "parent_help": "This service depends on another service in your selection: if you remove that one, this goes too.",
             "parent_missing": "This service must be linked to another one: first add one of these plans: {{plans}}.",
-            "back_to_plans": "Back to plans",
-            "to_summary": "Selected services: {{count}} · go to summary"
+            "back_to_plans": "Back to plans"
         },
         "summary": {
             "title": "Subscription summary",
             "seo": "Check the services you chose and your billing details, then complete the subscription.",
-            "added": "{{name}} is in your summary.",
+            "added": "{{name}} is in your checkout.",
             "add_more": "Add another service",
             "services": "Services",
             "unit": "{{price}} each",
             "parent": "Linked to {{name}}",
             "one_time_line": "One-time fee: {{price}}",
-            "remove": "Remove",
-            "remove_confirm": "Do you want to remove this service?",
-            "remove_with_children": "Do you want to remove this service? Its linked services ({{count}}) go too.",
             "removed_children": "We also removed the linked services ({{count}}).",
             "first_charge": "First charge",
             "subtotal": "Subtotal",
@@ -415,6 +434,8 @@
             "tax_included": "of which VAT",
             "total": "Total",
             "after_trial": "At the end of the trial you pay {{price}} for the subscription.",
+            "then": "Then {{price}}",
+            "then_trial": "Then {{price}} starting {{date}}",
             "coupon": "Discount code (optional)",
             "apply": "Apply",
             "stripe": "Payment happens on Stripe's secure page; then you come back here.",
@@ -422,6 +443,7 @@
         },
         "confirm": {
             "title": "Subscription",
+            "order": "Order no. {{number}}: you can find it in your orders.",
             "waiting_title": "We are confirming your payment",
             "waiting_text": "It takes a few seconds: this page refreshes by itself.",
             "confirmed_title": "Subscription active",
@@ -429,7 +451,7 @@
             "slow_title": "This is taking longer than expected",
             "slow_text": "Your payment is being checked: look again shortly in the Subscriptions section of your account. If it does not appear, contact us.",
             "failed_title": "Subscription not activated",
-            "failed_text": "The payment was not completed. You can try again from the plans page.",
+            "failed_text": "The payment was not completed. You can try again from the checkout.",
             "account": "Go to your subscriptions",
             "plans": "Back to plans"
         }

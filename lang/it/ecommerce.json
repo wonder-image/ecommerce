@@ -101,6 +101,10 @@
         "remove_confirm_title": "Rimuovere il prodotto?",
         "remove_confirm_text": "«{{name}}» uscirà dal carrello.",
         "remove_confirm_ok": "Rimuovi",
+        "service_remove_confirm_title": "Rimuovere il servizio?",
+        "service_remove_confirm_children": "«{{name}}» uscirà dal carrello, con i {{count}} servizi collegati.",
+        "service_removed": "Servizio rimosso dal carrello.",
+        "service_removed_children": "Servizio rimosso dal carrello, con i {{count}} servizi collegati.",
         "summary": "Riepilogo",
         "products_total": "Subtotale",
         "discount": "Sconto",
@@ -199,6 +203,9 @@
         "consents": "Consensi",
         "coupon_applied": "Coupon applicato.",
         "coupon_removed": "Coupon tolto.",
+        "details": "I tuoi dati",
+        "today_total": "Totale di oggi",
+        "subscriptions_first_charge": "Primo addebito dei servizi",
         "errors": {
             "empty": "Il carrello è vuoto.",
             "payment_method": "Scegli un metodo di pagamento disponibile.",
@@ -411,6 +418,13 @@
         "error_title": "Abbonamento",
         "error": "Qualcosa non ha funzionato: riprova tra qualche minuto.",
         "add": "Aggiungi",
+        "options": "Scegli il piano",
+        "signup_required": "Per acquistare questo abbonamento serve un account:",
+        "signup_link": "registrati",
+        "signup_or": "oppure",
+        "login_link": "accedi",
+        "login_alert_title": "Accedi per continuare",
+        "login_alert": "Per aggiungere l'abbonamento al carrello devi prima accedere o registrarti.",
         "tax_included": "IVA inclusa",
         "tax_excluded": "IVA esclusa",
         "trial": "{{days}} giorni di prova gratuita",
@@ -418,12 +432,23 @@
         "commitment": "Vincolo di {{months}} mesi",
         "one_time": "+ {{price}} una tantum",
         "one_time_label": "Una tantum",
-        "one_time_first": "In più {{price}} una tantum, solo col primo pagamento.",
         "every": {
             "month": "al mese",
             "months": "ogni {{count}} mesi",
             "year": "all'anno",
             "years": "ogni {{count}} anni"
+        },
+        "billing": {
+            "month": "Pagamento mensile",
+            "months": "Pagamento ogni {{count}} mesi",
+            "year": "Pagamento annuale",
+            "years": "Pagamento ogni {{count}} anni"
+        },
+        "per": {
+            "month": "{{price}}/Mese",
+            "months": "{{price}}/{{count}} Mesi",
+            "year": "{{price}}/Anno",
+            "years": "{{price}}/{{count}} Anni"
         },
         "status": {
             "pending": "In attesa",
@@ -441,29 +466,23 @@
             "empty": "Al momento non ci sono piani disponibili."
         },
         "configure": {
-            "seo": "Scegli quantità e personalizzazioni del servizio prima di aggiungerlo al tuo abbonamento.",
-            "price": "Prezzo",
             "quantity": "Quantità",
             "choose_option": "Scegli…",
             "parent": "Collegato a",
             "parent_option": "{{name}} (riga {{row}})",
             "parent_help": "Questo servizio si appoggia a un altro servizio della tua selezione: se togli quello, va via anche questo.",
             "parent_missing": "Questo servizio va collegato a un altro: aggiungi prima uno di questi piani: {{plans}}.",
-            "back_to_plans": "Torna ai piani",
-            "to_summary": "Servizi scelti: {{count}} · vai al riepilogo"
+            "back_to_plans": "Torna ai piani"
         },
         "summary": {
             "title": "Riepilogo abbonamento",
             "seo": "Controlla i servizi scelti e i dati di fatturazione, poi completa l'abbonamento.",
-            "added": "{{name}} è nel riepilogo.",
+            "added": "{{name}} è nel checkout.",
             "add_more": "Aggiungi un altro servizio",
             "services": "Servizi",
             "unit": "{{price}} cad.",
             "parent": "Collegato a {{name}}",
             "one_time_line": "Una tantum: {{price}}",
-            "remove": "Togli",
-            "remove_confirm": "Vuoi togliere questo servizio?",
-            "remove_with_children": "Vuoi togliere questo servizio? Vanno via anche i servizi collegati ({{count}}).",
             "removed_children": "Abbiamo tolto anche i servizi collegati ({{count}}).",
             "first_charge": "Primo addebito",
             "subtotal": "Subtotale",
@@ -473,6 +492,8 @@
             "tax_included": "di cui IVA",
             "total": "Totale",
             "after_trial": "Alla fine della prova paghi {{price}} di canone.",
+            "then": "Poi {{price}}",
+            "then_trial": "Poi {{price}} dal {{date}}",
             "coupon": "Codice sconto (facoltativo)",
             "apply": "Applica",
             "stripe": "Il pagamento avviene sulla pagina sicura di Stripe; poi torni qui.",
@@ -480,6 +501,7 @@
         },
         "confirm": {
             "title": "Abbonamento",
+            "order": "Ordine n. {{number}}: lo trovi nei tuoi ordini.",
             "waiting_title": "Stiamo confermando il pagamento",
             "waiting_text": "Ci vuole qualche secondo: la pagina si aggiorna da sola.",
             "confirmed_title": "Abbonamento attivo",
@@ -487,7 +509,7 @@
             "slow_title": "Ci sta mettendo più del previsto",
             "slow_text": "Il pagamento è in verifica: controlla tra poco nella sezione Abbonamenti del tuo account. Se non compare, scrivici.",
             "failed_title": "Abbonamento non attivato",
-            "failed_text": "Il pagamento non è stato completato. Puoi riprovare dalla pagina dei piani.",
+            "failed_text": "Il pagamento non è stato completato. Puoi riprovare dal checkout.",
             "account": "Vai ai tuoi abbonamenti",
             "plans": "Torna ai piani"
         }

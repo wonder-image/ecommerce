@@ -4,6 +4,7 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Cart;
 
 use Wonder\Http\Cookie;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Gestionale\Support\Orders\Cart;
 
@@ -84,7 +85,8 @@ final class CartSession
 
     /**
      * Quanti articoli ci sono nel carrello, senza aprirlo né ricalcolarlo:
-     * serve a ogni pagina per il numerino sull'icona del nav.
+     * serve a ogni pagina per il numerino sull'icona del nav. I servizi
+     * contano una riga ciascuno, come nel mini carrello.
      */
     public static function count(): string
     {
@@ -100,7 +102,17 @@ final class CartSession
             array_push($items, ...Cart::contents((int) $cart['id'])['items']);
         }
 
-        return CartPresenter::count($items);
+        return self::withServices(CartPresenter::count($items));
+    }
+
+    /** Il conteggio dei prodotti più le righe dei servizi scelti. */
+    public static function withServices(string $products): string
+    {
+        $services = count(CheckoutSubscriptions::items());
+
+        return $services === 0
+            ? $products
+            : CartPresenter::quantity((float) str_replace(',', '.', $products) + $services);
     }
 
     public static function user(): object

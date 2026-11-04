@@ -3,6 +3,8 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Wonder\Plugin\Ecommerce\Ecommerce;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 use Wonder\Plugin\Gestionale\Models\Catalog\Brand;
 use Wonder\Plugin\Gestionale\Models\Catalog\Product;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductImage;
@@ -233,6 +235,7 @@ final class ProductListing
     {
         $modelId = (int) ($model['id'] ?? 0);
         if ($modelId <= 0) return null;
+        if ((string) ($model['type'] ?? '') === SubscriptionModels::TYPE) return self::subscriptionCard($model);
 
         $variants = self::rows(ProductVariant::find(
             ['product_model_id' => $modelId, 'visible' => 'true', 'deleted' => 'false'],
@@ -315,6 +318,44 @@ final class ProductListing
                 'item_name' => $name,
                 'price' => $price,
                 'item_variant' => is_array($selectedVariant) ? $variantName : '',
+            ],
+        ];
+    }
+
+    /**
+     * La card di un prodotto abbonamento: niente varianti né righe prodotto.
+     * Il prezzo è il ricorrente più basso, la foto quella del modello e
+     * l'`item_id` il codice `ppr_` del primo prezzo, come nella scheda e nel
+     * carrello. Si compra dalla scheda, mai dalla card.
+     */
+    private static function subscriptionCard(array $model): ?array
+    {
+        $entry = PlanCatalog::loadModel($model);
+        if ($entry === null) return null;
+
+        $plan = PlanCatalog::present([$entry], static fn (string $code): string => '')[0];
+        $amounts = array_column($plan['prices'], 'amount');
+        $cheapest = $plan['prices'][array_search(min($amounts), $amounts, true)];
+
+        return [
+            'id' => $plan['id'],
+            'model_id' => $plan['id'],
+            'variant_id' => 0,
+            'name' => $plan['name'],
+            'url' => $plan['url'],
+            'image' => $plan['image'],
+            'image_alt' => $plan['image_alt'],
+            'price' => $cheapest['regular'] ?? $cheapest['amount'],
+            'sale_price' => $cheapest['regular'] !== null ? $cheapest['amount'] : 0,
+            'short_description' => (string) ($model['short_description'] ?? ''),
+            'variants' => [],
+            'cart' => null,
+            'meta' => [
+                // Lo stesso prezzo della card: il codice `ppr_`, come scheda e carrello.
+                'item_id' => (string) $cheapest['code'],
+                'item_name' => $cheapest['full_name'],
+                'price' => (float) $cheapest['amount'],
+                'item_variant' => $cheapest['name'],
             ],
         ];
     }

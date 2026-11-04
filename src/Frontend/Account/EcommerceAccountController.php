@@ -221,9 +221,9 @@ class EcommerceAccountController extends AccountController
         $parentsMissing = false;
 
         if ($candidate !== null) {
-            $parents = $this->parentOptions($items, $candidate['plan_id'], $planOf);
-            $parentsMissing = AccountSubscriptions::parentsOf()($candidate['plan_id']) !== [] && $parents === [];
-            $fields = SubscriptionsController::configureFields($candidate['plan_id'], [
+            $parents = $this->parentOptions($items, $candidate['product_model_id'], $planOf);
+            $parentsMissing = AccountSubscriptions::parentsOf()($candidate['product_model_id']) !== [] && $parents === [];
+            $fields = SubscriptionsController::configureFields($candidate['product_model_id'], [
                 ...(is_array($state['values'] ?? null) ? $state['values'] : []),
                 'field' => $state['field'] ?? null,
                 'message' => (string) ($state['message'] ?? ''),
@@ -285,8 +285,8 @@ class EcommerceAccountController extends AccountController
 
             $parentId = 0;
 
-            if (AccountSubscriptions::parentsOf()($candidate['plan_id']) !== []) {
-                $parents = $this->parentOptions($items, $candidate['plan_id'], $planOf);
+            if (AccountSubscriptions::parentsOf()($candidate['product_model_id']) !== []) {
+                $parents = $this->parentOptions($items, $candidate['product_model_id'], $planOf);
 
                 if ($parents === []) {
                     $this->saveAddState($code, $priceCode, $values, null, (string) __t('ecommerce.account.subscriptions.add_parent_missing'));
@@ -547,8 +547,8 @@ class EcommerceAccountController extends AccountController
     }
 
     /**
-     * @param list<array{code: string, price_id: int, plan_id: int, label: string}> $candidates
-     * @return array{code: string, price_id: int, plan_id: int, label: string}|null
+     * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates
+     * @return array{code: string, price_id: int, product_model_id: int, label: string}|null
      */
     private function candidate(array $candidates, string $code): ?array
     {

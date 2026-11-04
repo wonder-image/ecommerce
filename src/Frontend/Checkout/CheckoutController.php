@@ -16,6 +16,7 @@ use Wonder\Auth\Frontend\AuthValidator;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Gestionale\Support\Throttle;
 use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\CustomerAccount\Models\ContactAddress;
@@ -68,7 +69,8 @@ final class CheckoutController
 
     private static function index(): void
     {
-        if (!self::guestAllowed() && !CartSession::authenticated()) {
+        // I servizi si comprano solo con l'account: l'abbonamento è del cliente.
+        if ((!self::guestAllowed() || CheckoutSubscriptions::selected()) && !CartSession::authenticated()) {
             self::redirect(self::loginUrl());
         }
 
@@ -76,7 +78,12 @@ final class CheckoutController
         self::resume(false);
         // Senza ricalcolo: lo fa l'anteprima, una volta, e solo se il carrello è cambiato.
         $cart = CartSession::peek();
-        if ((array) ($cart['items'] ?? []) === []) {
+        $services = CheckoutSubscriptions::items() !== [];
+        if ($services && (int) ($cart['order']['id'] ?? 0) === 0) {
+            // Solo servizi: l'anteprima vuole un carrello, anche vuoto.
+            $cart = CartSession::current(true);
+        }
+        if ((array) ($cart['items'] ?? []) === [] && !$services) {
             self::redirect(self::route('ecommerce.cart.index'));
         }
 
@@ -103,7 +110,8 @@ final class CheckoutController
         // L'anteprima riscrive spedizione e commissione sul carrello: la pagina parte da quello aggiornato.
         $cart = $page['cart'];
         // Il ricalcolo dell'anteprima può aver tolto tutto (prodotti spenti): come prima, si torna al carrello.
-        if ((array) ($cart['items'] ?? []) === []) {
+        $products = (array) ($cart['items'] ?? []) !== [];
+        if (!$products && !$services) {
             self::redirect(self::route('ecommerce.cart.index'));
         }
         $user = CartSession::user();
@@ -113,19 +121,25 @@ final class CheckoutController
         View::make(Ecommerce::viewPath('pages/checkout/index.php'), [
             'cart' => $cart,
             'summary' => $summary,
+            // L'add_to_cart di un servizio appena scelto: il piano rimanda qui.
+            'events' => SubscriptionsController::pullEvents(),
             'values' => $values,
             'shipping_fields' => self::fields(array_diff_key(
                 Order::shippingAddress()->formSchema($values['shipping_country'] ?? null),
                 array_flip(['shipping_name', 'shipping_surname', 'shipping_phone', 'shipping_phone_prefix'])
             ), $values),
-            // Il cellulare si chiede una volta, nei contatti.
+            // Il cellulare si chiede una volta, nei contatti; senza prodotti anche nome e cognome.
             'billing_fields' => self::fields(array_diff_key(
                 $billing,
-                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec', 'billing_phone_prefix', 'billing_phone'])
+                array_flip(['billing_type', 'billing_business_name', 'billing_cf', 'billing_pi', 'billing_sdi', 'billing_pec', 'billing_phone_prefix', 'billing_phone']),
+                $products ? [] : array_flip(['billing_name', 'billing_surname'])
             ), $values),
             'invoice_fields' => self::fields(CheckoutFields::pick($billing, CheckoutFields::INVOICE), $values),
             'consents' => CheckoutRules::askedConsents((int) ($user->id ?? 0)),
-            'express' => ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
+            // La barra rapida paga solo l'ordine: con i servizi resta spenta.
+            'express' => $services ? [] : ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
+            'products' => $products,
+            'subscriptions' => $services,
             'user_email' => CartSession::authenticated() ? trim((string) ($user->email ?? '')) : '',
             'guest' => !CartSession::authenticated(),
         ])->render();
@@ -185,7 +199,7 @@ final class CheckoutController
         // I POST che scrivono sul carrello buttano l'anteprima della GET.
         CheckoutSnapshot::forget();
 
-        if (!self::guestAllowed() && !CartSession::authenticated()) {
+        if ((!self::guestAllowed() || CheckoutSubscriptions::selected()) && !CartSession::authenticated()) {
             self::leave(self::loginUrl(), $json, 401);
         }
 
@@ -212,6 +226,22 @@ final class CheckoutController
                 }
 
                 throw new RuntimeException((string) __t('ecommerce.checkout.errors.empty'));
+            }
+
+            if (CheckoutSubscriptions::items() !== []) {
+                // Con i servizi si paga solo in pagina, col JavaScript: il ritorno è la conferma dell'abbonamento.
+                if (!$json) {
+                    throw new RuntimeException((string) __t('ecommerce.checkout.errors.online_javascript'));
+                }
+
+                $started = CheckoutSubscriptionStart::start($cartId, $post, $_POST, $user);
+                self::json([
+                    'success' => true,
+                    'client_secret' => $started['client_secret'],
+                    'intent' => $started['intent'],
+                    'return_url' => SubscriptionsController::absolute(self::route('ecommerce.subscriptions.confirm')).'?abbonamento='.rawurlencode($started['code']),
+                    'billing_details' => $started['billing_details'],
+                ]);
             }
 
             $placed = CheckoutPlacement::place($cartId, $post, $user, ['json' => $json, 'expected_total' => $_POST['expected_total'] ?? null]);
@@ -249,6 +279,12 @@ final class CheckoutController
         } catch (GuestAccountExists $e) {
             self::accountExists($e, $post, $json);
         } catch (UserError $error) {
+            // Troppi abbonamenti: lo dice l'area cliente, dove si gestiscono.
+            if ($error->key() === 'subscription.limit_reached') {
+                FlashMessage::error($error->getMessage(), (string) __t('ecommerce.subscriptions.error_title'));
+                self::leave(self::route('account.subscriptions'), $json, 409);
+            }
+
             self::reject([$error->getMessage()], $post, $json);
         } catch (RuntimeException $error) {
             self::reject([$error->getMessage()], $post, $json);
@@ -316,7 +352,7 @@ final class CheckoutController
         if ($json) {
             // Carrello: la riga della spedizione e il totale che la comprende, come li disegna la pagina.
             if ($return === 'cart' && isset($payload['order'])) {
-                $payload['cart_shipping'] = self::cartShipping($cartId, (array) $payload['order']);
+                $payload['cart_shipping'] = self::cartShipping($cartId, (array) $payload['order'], (float) ($payload['subscriptions']['first_charge'] ?? 0));
             }
             self::json(['success' => $payload['error'] === ''] + $payload, $status);
         }
@@ -336,7 +372,7 @@ final class CheckoutController
      * @param array<string, mixed> $order
      * @return array{price_display: string, total_display: string}|null
      */
-    private static function cartShipping(int $cartId, array $order): ?array
+    private static function cartShipping(int $cartId, array $order, float $firstCharge = 0.0): ?array
     {
         // L'anteprima porta i totali dopo il coupon; l'indirizzo lo dà il carrello.
         $shipping = CartPresenter::cartShipping($order + ['id' => $cartId] + (array) Order::findById($cartId));
@@ -345,6 +381,8 @@ final class CheckoutController
         return $shipping === null ? null : [
             'price_display' => $shipping['price'] > 0 ? CartPresenter::money($shipping['price'], $currency) : (string) __t('ecommerce.checkout.free'),
             'total_display' => CartPresenter::money($shipping['total'], $currency),
+            // Con i servizi il totale del carrello più il loro primo addebito.
+            'today_display' => CartPresenter::money($shipping['total'] + $firstCharge, $currency),
         ];
     }
 
@@ -396,9 +434,13 @@ final class CheckoutController
         return $cartId > 0 ? $cartId : self::redirect(self::route('ecommerce.cart.index'));
     }
 
-    /** L'id del carrello del cliente, 0 se non c'è o è vuoto. */
+    /** L'id del carrello del cliente, 0 se non c'è o è vuoto; con i servizi scelti vale anche vuoto. */
     private static function cartId(): int
     {
+        if (CheckoutSubscriptions::items() !== []) {
+            return (int) (CartSession::current(true)['order']['id'] ?? 0);
+        }
+
         $cart = CartSession::current(false);
 
         return (array) ($cart['items'] ?? []) === [] ? 0 : (int) ($cart['order']['id'] ?? 0);

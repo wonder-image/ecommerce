@@ -8,6 +8,7 @@ require __DIR__.'/harness.php';
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
 use Wonder\Plugin\Ecommerce\Frontend\Tracking\DataLayer;
 
@@ -356,6 +357,81 @@ check('le miniature della galleria si spengono con product.thumbs', function () 
 
     return str_contains($view, "->thumbnails(count(\$images) > 1 && (bool) Ecommerce::config('product.thumbs', true))")
         && $config['product']['thumbs'] === true;
+});
+
+check('un prodotto abbonamento: un Offer per prezzo ricorrente con lo sku ppr_, view_product con gli stessi item_id', function () {
+    $piano = PlanCatalog::present([[
+        'plan' => ['id' => 31, 'type' => 'subscription', 'code' => 'mod_pro1234', 'slug' => 'pro', 'name' => 'Pro'],
+        'prices' => [
+            ['code' => 'ppr_mese123', 'name' => 'Mensile', 'price' => '24.90', 'sale_price' => '19.90', 'billing_interval' => 'month', 'term_months' => 1],
+            ['code' => 'ppr_anno123', 'name' => 'Annuale', 'price' => '199.00', 'billing_interval' => 'year', 'term_months' => 12],
+        ],
+        'features' => [],
+    ]], static fn (string $code): string => '/abbonamenti/'.$code.'/')[0];
+
+    $scheda = ProductDetail::make([
+        'id' => 31,
+        'name' => 'Pro',
+        'url' => 'https://shop.test/prodotto/pro/',
+        'currency' => 'EUR',
+        'offers' => [],
+        'subscription' => $piano,
+    ]);
+    $schema = $scheda->schemaOrg();
+    $json = json_decode((string) json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG), true, flags: JSON_THROW_ON_ERROR);
+    $evento = $scheda->viewProductEvent();
+    $ids = array_column($evento['ecommerce']['items'], 'item_id');
+
+    return $json['@type'] === 'Product' && $schema['productID'] === 'mod_pro1234'
+        && count($schema['offers']) === 2
+        && $schema['offers'][0]['sku'] === 'ppr_mese123' && $schema['offers'][0]['price'] === 19.9
+        && $schema['offers'][0]['priceSpecification'][0]['@type'] === 'UnitPriceSpecification'
+        && $schema['offers'][0]['priceSpecification'][0]['unitCode'] === 'MON'
+        && $schema['offers'][1]['priceSpecification'][0]['unitCode'] === 'ANN'
+        && $schema['offers'][0]['url'] === 'https://shop.test/prodotto/pro/'
+        && $scheda->data()['available'] === true && $scheda->data()['price'] === 19.9
+        && $ids === ['ppr_mese123', 'ppr_anno123'] && $evento['ecommerce']['value'] === 19.9;
+});
+
+check('la scheda di un abbonamento: i prezzi sono opzioni con un solo «Aggiungi al carrello», registrazione e alert per chi non è entrato', function () {
+    $root = dirname(__DIR__);
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+    $opzioni = (string) file_get_contents($root.'/view/components/subscriptions/options.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
+    $testi = true;
+    foreach (['it', 'en'] as $lingua) {
+        $json = json_decode((string) file_get_contents($root.'/lang/'.$lingua.'/ecommerce.json'), true);
+        foreach (['options', 'signup_required', 'signup_link', 'signup_or', 'login_link', 'login_alert_title', 'login_alert'] as $chiave) {
+            $testi = $testi && is_string($json['subscriptions'][$chiave] ?? null);
+        }
+        foreach (['month', 'months', 'year', 'years'] as $unita) {
+            $testi = $testi && is_string($json['subscriptions']['billing'][$unita] ?? null);
+        }
+    }
+
+    return str_contains($view, "if (\$subscription !== null)")
+        && str_contains($view, 'components/subscriptions/options.php')
+        && !str_contains($view, 'components/subscriptions/prices.php')
+        && str_contains($view, 'CartSession::authenticated()')
+        && str_contains($view, "__r('ecommerce.auth.signup.request')")
+        && substr_count($opzioni, 'type="submit"') === 1
+        && str_contains($opzioni, 'type="radio" name="price"')
+        && str_contains($opzioni, 'id="add_to_cart_subscription"')
+        && str_contains($opzioni, 'data-subscription-login-alert')
+        && str_contains($opzioni, 'alertContainer')
+        && str_contains($opzioni, 'SubscriptionView::billing(')
+        && !str_contains($opzioni, 'SubscriptionView::every(')
+        && str_contains($controller, 'self::chosenPrice(')
+        // Personalizzazioni e madre nella scheda: niente pagina di configurazione.
+        && str_contains($view, 'SubscriptionsController::productForm(')
+        && str_contains($opzioni, 'method="post"')
+        && str_contains($opzioni, '<?=Csrf::field()?>')
+        && str_contains($opzioni, "\$fields['customizations']")
+        && str_contains($opzioni, "\$fields['parent']")
+        && !str_contains($opzioni, 'configureUrl(')
+        && str_contains($controller, "\$back = \$found !== null")
+        && $testi
+        && substr_count($view, '<h1') === 1;
 });
 
 summary();

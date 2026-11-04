@@ -749,8 +749,9 @@ check('carrello, mini carrello, checkout e area cliente usano la stessa miniatur
         }
     }
 
+    // `align-self` tiene il formato del config anche quando il testo allunga la riga.
     return str_contains($thumb, 'class="wi-thumb"') && str_contains($thumb, 'data-line-image') && str_contains($thumb, 'data-line-quantity')
-        && !str_contains($css, '--wi-thumb-size');
+        && str_contains($thumb, 'align-self: flex-start') && !str_contains($css, '--wi-thumb-size');
 });
 
 check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto quadrata comune e il codice sconto in un riquadro a parte', function () use ($root): bool {
@@ -1016,8 +1017,35 @@ check('il controller passa le scelte al carrello e il mini-carrello spinge add_t
     return str_contains($controller, "'choices' => \$choices")
         && str_contains($controller, 'CartPresenter::addEvent(')
         && str_contains($js, "window.dataLayer.push({ ecommerce: null });")
-        && str_contains($js, "payload.event.event === 'add_to_cart'")
+        && str_contains($js, "['add_to_cart', 'remove_from_cart'].includes(payload.event.event)")
         && str_contains($body, 'CartPresenter::parts($item)');
+});
+
+check('remove_from_cart per la riga tolta o calata, add_to_cart se la quantità sale', function (): bool {
+    $line = ['id' => 7, 'product_id' => 9, 'parent_item_id' => 0, 'name' => 'Cesto', 'unit_price' => '12.50', 'quantity' => '3.000'];
+    $before = ['items' => [$line]];
+    $removed = CartPresenter::changeEvent($before, ['items' => []], 7, 'eur');
+    $lowered = CartPresenter::changeEvent($before, ['items' => [['quantity' => '1.000'] + $line]], 7);
+    $raised = CartPresenter::changeEvent($before, ['items' => [['quantity' => '5.000'] + $line]], 7);
+
+    return $removed === ['event' => 'remove_from_cart', 'ecommerce' => [
+            'currency' => 'EUR', 'value' => 37.5,
+            'items' => [['item_id' => '9', 'item_name' => 'Cesto', 'price' => 12.5, 'quantity' => 3.0]],
+        ]]
+        && $lowered['event'] === 'remove_from_cart' && $lowered['ecommerce']['items'][0]['quantity'] === 2.0
+        && $raised['event'] === 'add_to_cart' && $raised['ecommerce']['value'] === 25.0
+        && CartPresenter::changeEvent($before, $before, 7) === null
+        && CartPresenter::changeEvent($before, [], 99) === null;
+});
+
+check('togliere o cambiare un prodotto manda l\'evento: JSON al mini carrello, sessione alla pagina', function () use ($root): bool {
+    $controller = (string) file_get_contents($root.'/src/Frontend/Cart/CartController.php');
+
+    return substr_count($controller, 'event: self::changed($itemId),') === 2
+        && substr_count($controller, 'later: true') === 2
+        && str_contains($controller, 'CartPresenter::changeEvent(')
+        && str_contains($controller, "\$event(\$cart, \$current)")
+        && str_contains($controller, 'SubscriptionsController::pushEvent($pushed);');
 });
 
 check('i testi dei multiprodotti ci sono in tutte le lingue', function () use ($root): bool {

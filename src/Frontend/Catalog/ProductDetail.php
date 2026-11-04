@@ -2,6 +2,8 @@
 
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
+
 /**
  * View-model della scheda prodotto.
  *
@@ -52,7 +54,9 @@ final class ProductDetail
             'name' => $this->data['name'],
             'description' => $this->seoDescription(5000),
             'url' => $this->data['url'],
-            'productID' => $this->data['item_id'],
+            'productID' => $this->data['subscription'] !== null
+                ? ((string) ($this->data['subscription']['code'] ?? '') ?: $this->data['item_id'])
+                : $this->data['item_id'],
         ];
 
         if ($this->data['images'] !== []) {
@@ -74,7 +78,11 @@ final class ProductDetail
 
         $offers = $this->data['offers'];
 
-        if (count($offers) === 1) {
+        // Un abbonamento: un'offerta per prezzo ricorrente, come la pagina
+        // degli abbonamenti, con lo stesso `sku` (il codice `ppr_`).
+        if ($this->data['subscription'] !== null) {
+            $schema['offers'] = PlanCatalog::offers($this->data['subscription'], $this->data['url'], $this->data['currency']);
+        } elseif (count($offers) === 1) {
             $offer = $offers[0];
             $schema['offers'] = [
                 '@type' => 'Offer',
@@ -111,6 +119,10 @@ final class ProductDetail
     /** @return array<string, mixed> */
     public function viewProductEvent(): array
     {
+        if ($this->data['subscription'] !== null) {
+            return $this->viewSubscriptionEvent($this->data['subscription']);
+        }
+
         $price = (float) $this->data['price'];
         $regular = (float) $this->data['regular_price'];
         $discount = max(0.0, $regular - $price);
@@ -149,6 +161,41 @@ final class ProductDetail
                 'currency' => $this->data['currency'],
                 'value' => $price,
                 'items' => [$item],
+            ],
+        ];
+    }
+
+    /**
+     * La vista di un abbonamento: un item per prezzo, col codice `ppr_` come
+     * `item_id`, gli stessi della pagina degli abbonamenti e del carrello.
+     *
+     * @param array<string, mixed> $plan
+     * @return array<string, mixed>
+     */
+    private function viewSubscriptionEvent(array $plan): array
+    {
+        $items = [];
+        foreach ($plan['prices'] as $index => $price) {
+            $items[] = PlanCatalog::trackingItem($price, (string) $plan['name'], $index);
+        }
+
+        $price = (float) $this->data['price'];
+
+        return [
+            'event' => 'view_product',
+            'product' => [
+                'id' => $this->data['item_id'],
+                'name' => $this->data['name'],
+                'category' => 'abbonamento',
+                'price' => $price,
+                'discount' => max(0.0, (float) $this->data['regular_price'] - $price),
+                'quantity' => 1,
+                'brand' => $this->data['brand'],
+            ],
+            'ecommerce' => [
+                'currency' => $this->data['currency'],
+                'value' => $price,
+                'items' => $items,
             ],
         ];
     }
@@ -211,6 +258,24 @@ final class ProductDetail
                 }
             }
         }
+        // Un abbonamento non ha righe di magazzino: vale il primo prezzo.
+        $subscription = is_array($row['subscription'] ?? null) && ($row['subscription']['prices'] ?? []) !== []
+            ? $row['subscription']
+            : null;
+        if ($subscription !== null && $offers === []) {
+            $first = $subscription['prices'][0];
+            $selected = [
+                'product_id' => 0,
+                'item_id' => self::string($first['code'] ?? ''),
+                'sku' => '',
+                'gtin' => '',
+                'mpn' => '',
+                'regular_price' => (float) ($first['regular'] ?? $first['amount'] ?? 0),
+                'price' => (float) ($first['amount'] ?? 0),
+                'catalog_price' => (float) ($first['amount'] ?? 0),
+            ];
+        }
+
         $selected ??= $offers[0] ?? [
             'product_id' => 0,
             'item_id' => self::string($row['id'] ?? ''),
@@ -271,11 +336,14 @@ final class ProductDetail
             'price' => $selected['price'],
             'catalog_price' => $selected['catalog_price'],
             'regular_price' => $selected['regular_price'],
-            'available' => $offers !== [] && in_array(true, array_column($offers, 'available'), true),
+            'available' => $subscription !== null || ($offers !== [] && in_array(true, array_column($offers, 'available'), true)),
             'stock_managed' => $offers !== [] && in_array(true, array_column($offers, 'stock_managed'), true),
             'currency' => $currency,
             'details' => array_values((array) ($row['details'] ?? [])),
             'attributes' => self::attributes((array) ($row['attributes'] ?? [])),
+            // Un prodotto abbonamento: la voce di PlanCatalog::present(), con i prezzi ricorrenti.
+            'subscription' => $subscription,
+            'prices_include_tax' => (bool) ($row['prices_include_tax'] ?? true),
         ];
     }
 

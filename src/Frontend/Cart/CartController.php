@@ -7,7 +7,9 @@ use Wonder\Frontend\Support\FlashMessage;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Http\Csrf;
 use Wonder\Http\Exceptions\NotFoundHttpException;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\OnlinePayment;
+use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Http\SafeRedirect;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Support\Errors\Errors;
@@ -25,6 +27,7 @@ final class CartController
             'add' => self::add(),
             'quantity' => self::quantity((int) ($parameters['id'] ?? 0)),
             'remove' => self::remove((int) ($parameters['id'] ?? 0)),
+            'service_remove' => self::serviceRemove((int) ($parameters['index'] ?? -1)),
             default => self::notFound(),
         };
     }
@@ -33,12 +36,21 @@ final class CartController
     {
         self::resume(false);
         $cart = CartSession::current(false);
+        $order = (array) ($cart['order'] ?? []);
 
         self::seo();
         View::make(Ecommerce::viewPath('pages/cart/index.php'), [
             'cart' => $cart,
+            // Il totale di oggi parte dal totale del carrello, con la spedizione più economica.
+            'services' => CheckoutSubscriptions::cart(
+                $order,
+                (float) (CartPresenter::cartShipping($order)['total'] ?? $order['total'] ?? 0),
+                (string) ($order['currency'] ?? '') ?: (string) Ecommerce::config('catalog.currency', 'EUR')
+            ),
             'coupons' => Gestionale::feature('coupons'),
             'step' => 'cart',
+            // Gli eventi GTM rimasti dopo un redirect (servizio tolto o aggiunto).
+            'events' => SubscriptionsController::pullEvents(),
         ])->render();
     }
 
@@ -100,7 +112,9 @@ final class CartController
                 $itemId,
                 self::number($_POST['quantity'] ?? 0)
             ),
-            (string) __t('ecommerce.cart.updated')
+            (string) __t('ecommerce.cart.updated'),
+            event: self::changed($itemId),
+            later: true
         );
     }
 
@@ -108,12 +122,70 @@ final class CartController
     {
         self::mutate(
             static fn (int $cartId): array => Cart::remove($cartId, $itemId),
-            (string) __t('ecommerce.cart.removed')
+            (string) __t('ecommerce.cart.removed'),
+            event: self::changed($itemId),
+            later: true
         );
     }
 
+    /** L'evento della riga cambiata, dal carrello prima e dopo. */
+    private static function changed(int $itemId): callable
+    {
+        return static fn (array $cart, array $before): ?array => CartPresenter::changeEvent(
+            $before,
+            $cart,
+            $itemId,
+            (string) ($cart['order']['currency'] ?? '') ?: (string) Ecommerce::config('catalog.currency', 'EUR')
+        );
+    }
+
+    /**
+     * Toglie un servizio (e le righe figlie) dalla selezione in sessione:
+     * non tocca l'ordine. Col JSON il mini carrello riceve `remove_from_cart`
+     * in `event`; senza, l'evento aspetta la pagina del carrello.
+     */
+    private static function serviceRemove(int $index): never
+    {
+        self::requirePost();
+        $wantsJson = self::wantsJson();
+        self::requireCsrf();
+
+        $removed = SubscriptionsController::forget($index);
+        $children = (int) ($removed['children'] ?? 0);
+        $notice = $removed === null ? '' : (string) ($children > 0
+            ? __t('ecommerce.cart.service_removed_children', ['count' => (string) $children])
+            : __t('ecommerce.cart.service_removed'));
+
+        if ($wantsJson) {
+            $payload = self::payload(CartSession::current(false), true, $notice);
+
+            if (($removed['event'] ?? null) !== null) {
+                $payload['event'] = $removed['event'];
+            }
+
+            self::json($payload);
+        }
+
+        if ($removed !== null) {
+            if ($removed['event'] !== null) {
+                SubscriptionsController::pushEvent($removed['event']);
+            }
+
+            FlashMessage::success($notice, (string) __t('ecommerce.cart.notice_title'));
+        }
+
+        self::redirect(SafeRedirect::fromRequest(
+            $_POST['continue'] ?? '',
+            self::route('ecommerce.cart.index')
+        ));
+    }
+
     /** @param (callable(array): ?array)|null $event l'evento GTM, dal carrello che il server ha appena scritto */
-    private static function mutate(callable $mutation, string $notice, bool $createCart = false, ?callable $event = null): never
+    /**
+     * `$event($dopo, $prima)` dà l'evento GTM: col JSON va nella risposta, con
+     * `$later` aspetta in sessione la pagina del redirect (carrello).
+     */
+    private static function mutate(callable $mutation, string $notice, bool $createCart = false, ?callable $event = null, bool $later = false): never
     {
         self::requirePost();
         $wantsJson = self::wantsJson();
@@ -122,6 +194,7 @@ final class CartController
 
         $errors = [];
         $cart = null;
+        $current = [];
 
         try {
             $current = CartSession::current($createCart);
@@ -137,10 +210,14 @@ final class CartController
             $written = is_array($cart);
             $cart = $written ? $cart : CartSession::current(false);
             $payload = self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors);
-            if ($errors === [] && $written && $event !== null && ($pushed = $event($cart)) !== null) {
+            if ($errors === [] && $written && $event !== null && ($pushed = $event($cart, $current)) !== null) {
                 $payload['event'] = $pushed;
             }
             self::json($payload);
+        }
+
+        if ($errors === [] && $later && is_array($cart) && $event !== null && ($pushed = $event($cart, $current)) !== null) {
+            SubscriptionsController::pushEvent($pushed);
         }
 
         if ($errors === []) {
@@ -227,15 +304,24 @@ final class CartController
     private static function payload(array $cart, bool $success = true, string $notice = '', array $errors = []): array
     {
         $items = array_values((array) ($cart['items'] ?? []));
+        // I servizi stanno in sessione, fuori dall'ordine: contano anche loro.
+        // Il mini carrello somma il totale dell'ordine, senza stimare la spedizione.
+        $order = (array) ($cart['order'] ?? []);
+        $services = CheckoutSubscriptions::cart(
+            $order,
+            (float) ($order['total'] ?? 0),
+            (string) ($order['currency'] ?? '') ?: (string) Ecommerce::config('catalog.currency', 'EUR')
+        );
 
         return [
             'success' => $success,
             'notice' => $notice,
             'errors' => array_values(array_filter(array_map('strval', $errors))),
-            'count' => CartPresenter::count($items),
-            'empty' => $items === [],
+            'count' => CartSession::withServices(CartPresenter::count($items)),
+            'empty' => $items === [] && $services === null,
             'html' => View::component(Ecommerce::viewPath('components/cart/mini-cart-body.php'), [
                 'cart' => $cart,
+                'services' => $services,
                 'notice' => $notice,
                 'errors' => $errors,
             ]),

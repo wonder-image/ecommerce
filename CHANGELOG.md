@@ -5,8 +5,57 @@ versionamento semantico.
 
 ## 0.2.0-beta.1 — non rilasciata
 
+### Cambiato
+
+- **L'abbonamento è un prodotto del catalogo** (`type = subscription`, richiede il
+  gestionale senza `gst_plans`). Le colonne dei prezzi, dei limiti e dei
+  legami sono `product_model_id`; nel codice del modulo non resta `plan_id`
+  né `Plan::` (`SubscriptionModels` del gestionale al loro posto).
+  - Ha foto, tag, categorie, ricerca e scheda `/prodotto/{slug}/` come gli altri.
+    La scheda è allineata a quella dei prodotti: i prezzi ricorrenti sono
+    opzioni (radio) con un solo «Aggiungi al carrello» (componente
+    `components/subscriptions/options.php`, form `add_to_cart_subscription`).
+    Chi non ha fatto l'accesso legge che serve un account, col link alla
+    registrazione, e al clic vede un alert; il server rimanda comunque al login.
+  - Niente più pagina di configurazione: personalizzazioni (es. il dominio),
+    quantità (col −/+ se `product.quantity`) e servizio madre si compilano
+    nella scheda, e «Aggiungi al carrello» aggiunge subito. Dopo un errore si
+    torna alla scheda col prezzo scelto, i valori e l'errore sul campo. Il
+    vecchio `/abbonamenti/{ppr_…}/` fa 301 alla scheda; su `/abbonamenti/`
+    «Aggiungi» porta alla scheda quando il servizio va configurato. Tolta la
+    vista `pages/subscriptions/configure.php` (form `subscription_configure`)
+    e i testi `subscriptions.configure.seo`, `.price`, `.to_summary` e
+    `subscriptions.one_time_first`.
+  - JSON-LD della scheda: `Product` con un `Offer` per prezzo e
+    `UnitPriceSpecification`; `view_product` con un item per prezzo.
+  - `/abbonamenti/` elenca i prodotti abbonamento, con foto e link alla scheda.
+  - Card del catalogo: il prezzo più basso; `item_id` è il suo codice `ppr_`.
+  - Carrello, mini carrello e checkout: le righe dei servizi hanno la foto
+    del prodotto (formato del config) e il link alla scheda.
+  - Restano fuori dall'elenco per varianti, dai filtri e dall'ordinamento per
+    prezzo, che leggono le righe di magazzino.
+
 ### Corretto
 
+- Carrello e mini carrello, prodotti: togliere una riga o calarne la
+  quantità manda `remove_from_cart`, alzarla `add_to_cart`
+  (`CartPresenter::changeEvent()`, coi dati del server). Prima non partiva
+  niente. Dal mini carrello lo spinge il JS alla risposta; dalla pagina del
+  carrello parte dalla sessione dopo il redirect.
+- Carrello e mini carrello: tornano i servizi, ciascuno col suo «Rimuovi»
+  (`POST /carrello/servizi/{index}/remove/`, rotta `ecommerce.cart.service_remove`,
+  con conferma che avvisa delle righe figlie). Il totale diventa «Totale di oggi»
+  col «Poi…» sotto, come nel checkout; il conteggio, anche
+  quello sull'icona del carrello (`CartSession::count()`), comprende i servizi. Dal mini
+  carrello la rimozione manda `remove_from_cart` dal JS con i dati del server;
+  gli eventi rimasti in sessione partono alla pagina del carrello o del checkout.
+  Nel checkout le righe dei servizi restano senza «Togli».
+- Checkout, righe dei servizi: nome del piano senza il periodo («Pro», non
+  «Pro — Mensile»), sotto «24,90 €/Mese» senza «cad.» né badge della quantità
+  quando è uno solo; sotto il totale, come Stripe Checkout, «Poi 24,90 €/Mese»
+  (con la prova, «… dal» giorno del primo addebito).
+- Checkout: la foto delle righe tiene sempre il formato del config
+  (`catalog.card.image_format`), anche quando nome e scelte allungano la riga.
 - **Più coupon nel carrello e nel checkout.** Il riquadro del coupon nascondeva
   l'input dopo il primo codice, quindi non se ne poteva aggiungere un secondo
   anche se cumulabile. Ora l'input resta, il riquadro elenca i codici applicati
@@ -94,6 +143,16 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Abbonamenti nel checkout dei prodotti.** I servizi scelti finiscono nel
+  checkout, accanto ai prodotti, e si pagano con un solo pagamento e la carta
+  dentro la pagina (Payment Element): l'ordine entra nella prima fattura
+  dell'abbonamento. Senza prodotti la consegna sparisce. Il riepilogo mostra
+  il primo addebito dei servizi, il totale di oggi e quanto si paga dopo; il
+  coupon vale dove è valido. `/abbonamenti/riepilogo/` fa 301 al checkout e la
+  sua vista non c'è più. Con un servizio nel carrello restano solo i metodi
+  con la carta: Klarna, PayPal e gli altri che non fanno addebiti ricorrenti
+  spariscono. Richiede `OnlineSubscriptions::startInPage` del
+  gestionale.
 - **Una tantum degli abbonamenti (#21).** Con `one_time_price` del gestionale la
   pagina dei piani mostra «+ X € una tantum» accanto al canone e il JSON-LD
   aggiunge all'`Offer` una `PriceSpecification` non ricorrente. Il riepilogo ha
