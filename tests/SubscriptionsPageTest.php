@@ -76,12 +76,13 @@ check('l\'una tantum nel JSON-LD: una PriceSpecification senza unità né durata
         && $una['name'] !== '' && !isset($una['unitCode'], $una['billingDuration'], $una['billingIncrement']);
 });
 
-check('i prezzi (pagina degli abbonamenti e scheda) e la configurazione mostrano l\'una tantum solo quando c\'è', function () use ($root) {
+check('i prezzi (pagina degli abbonamenti e scheda) mostrano l\'una tantum solo quando c\'è', function () use ($root) {
     $piani = (string) file_get_contents($root.'/view/components/subscriptions/prices.php');
-    $configura = (string) file_get_contents($root.'/view/pages/subscriptions/configure.php');
+    $scheda = (string) file_get_contents($root.'/view/components/subscriptions/options.php');
 
     return str_contains($piani, "if (\$price['one_time'] > 0)") && str_contains($piani, "'ecommerce.subscriptions.one_time'")
-        && str_contains($configura, "if (\$price['one_time'] > 0)") && str_contains($configura, "'ecommerce.subscriptions.one_time_first'");
+        && str_contains($scheda, "if (\$price['one_time'] > 0)") && str_contains($scheda, "'ecommerce.subscriptions.one_time'")
+        && !file_exists($root.'/view/pages/subscriptions/configure.php');
 });
 
 check('view_item_list: un item per prezzo, con il codice del prezzo come item_id e il prezzo numerico', function () use ($piani) {
@@ -158,18 +159,19 @@ check('purchase con l\'una tantum: si somma al canone, in prova è tutto il valo
         && $attivo['items'][0]['price'] === 10.0;
 });
 
-check('le pagine: piani indicizzati con breadcrumb, servizio e conferma private, il riepilogo va al checkout', function () use ($root) {
+check('le pagine: piani indicizzati con breadcrumb, conferma privata, riepilogo e vecchio servizio con un 301', function () use ($root) {
     $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
 
     return substr_count($controller, "'INDEX,FOLLOW'") >= 1
-        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 2
+        && substr_count($controller, "'NOINDEX,NOFOLLOW'") === 1
         && str_contains($controller, "header('Location: '.self::route('ecommerce.checkout.index'), true, 301);")
+        && str_contains($controller, "header('Location: '.\$url, true, 301);")
         && str_contains($controller, "\$SEO->breadcrumb = [];")
         && str_contains($controller, 'self::TRACKED');
 });
 
 check('le viste: un solo h1, dataLayer dal punto condiviso, JSON-LD solo sui piani', function () use ($root) {
-    foreach (['plans', 'configure', 'confirm'] as $vista) {
+    foreach (['plans', 'confirm'] as $vista) {
         $source = (string) file_get_contents($root.'/view/pages/subscriptions/'.$vista.'.php');
 
         if (substr_count($source, '<h1') !== 1 || !str_contains($source, 'DataLayer::script(')) {
@@ -203,9 +205,8 @@ check('le traduzioni degli abbonamenti ci sono in tutte le lingue, con la descri
         if (!isset($testi['subscriptions']['plans']['title'], $testi['account']['subscriptions']['title'])
             || mb_strlen((string) $testi['subscriptions']['plans']['seo']) > 140
             || !isset($testi['subscriptions']['add'], $testi['subscriptions']['summary']['submit'], $testi['subscriptions']['configure']['parent'])
-            || !isset($testi['subscriptions']['one_time'], $testi['subscriptions']['one_time_label'], $testi['subscriptions']['one_time_first'])
+            || !isset($testi['subscriptions']['one_time'], $testi['subscriptions']['one_time_label'])
             || !isset($testi['subscriptions']['summary']['one_time'], $testi['subscriptions']['summary']['one_time_line'], $testi['subscriptions']['summary']['after_trial'])
-            || mb_strlen((string) $testi['subscriptions']['configure']['seo']) > 140
             || mb_strlen((string) $testi['subscriptions']['summary']['seo']) > 140) {
             return false;
         }

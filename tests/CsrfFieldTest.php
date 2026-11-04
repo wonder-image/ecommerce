@@ -118,7 +118,7 @@ check('il JS legge il token dal meta wi-csrf, poi dal campo _csrf', function () 
 });
 
 check('i moduli POST delle viste emettono Csrf::field()', function () use ($root) {
-    foreach (['view/components/cart/add.php', 'view/components/checkout/coupon.php', 'view/pages/checkout/index.php', 'view/pages/cart/index.php', 'view/pages/subscriptions/configure.php'] as $file) {
+    foreach (['view/components/cart/add.php', 'view/components/checkout/coupon.php', 'view/pages/checkout/index.php', 'view/pages/cart/index.php', 'view/components/subscriptions/options.php'] as $file) {
         if (!str_contains((string) file_get_contents($root.'/'.$file), '<?=Csrf::field()?>')) {
             throw new RuntimeException($file);
         }

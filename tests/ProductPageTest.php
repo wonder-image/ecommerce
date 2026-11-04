@@ -422,6 +422,14 @@ check('la scheda di un abbonamento: i prezzi sono opzioni con un solo «Aggiungi
         && str_contains($opzioni, 'SubscriptionView::billing(')
         && !str_contains($opzioni, 'SubscriptionView::every(')
         && str_contains($controller, 'self::chosenPrice(')
+        // Personalizzazioni e madre nella scheda: niente pagina di configurazione.
+        && str_contains($view, 'SubscriptionsController::productForm(')
+        && str_contains($opzioni, 'method="post"')
+        && str_contains($opzioni, '<?=Csrf::field()?>')
+        && str_contains($opzioni, "\$fields['customizations']")
+        && str_contains($opzioni, "\$fields['parent']")
+        && !str_contains($opzioni, 'configureUrl(')
+        && str_contains($controller, "\$back = \$found !== null")
         && $testi
         && substr_count($view, '<h1') === 1;
 });

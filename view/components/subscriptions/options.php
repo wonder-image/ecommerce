@@ -5,9 +5,14 @@
  * quello dei prodotti: i prezzi ricorrenti sono opzioni (righe `wi-choice`
  * con un radio) e c'è un solo «Aggiungi al carrello».
  *
+ * Il form manda subito il POST di aggiunta: personalizzazioni (es. il
+ * dominio) e servizio madre si compilano qui, come le opzioni dei prodotti,
+ * senza pagine di mezzo. Dopo un errore il server torna alla scheda col
+ * prezzo scelto, i valori inseriti e l'errore sul campo.
+ *
  * Il radio `price` porta il codice del prezzo: il server lo legge anche
- * senza JS (POST di aggiunta o GET della configurazione), lo script sposta
- * solo `action` sul prezzo scelto e aggiorna il prezzo in alto.
+ * senza JS, lo script sposta solo `action` sul prezzo scelto e aggiorna il
+ * prezzo in alto.
  *
  * Chi non ha fatto l'accesso legge che serve un account, col link alla
  * registrazione; se preme «Aggiungi al carrello» vede un alert e il form
@@ -16,24 +21,40 @@
  * @var array<string, mixed> $plan una voce di PlanCatalog::present()
  * @var string $currency
  * @var bool $include_tax
- * @var bool $direct il servizio entra con un clic, senza configurazione
+ * @var bool $stepper la quantità col −/+, come nella scheda dei prodotti
+ * @var array<string, mixed> $form SubscriptionsController::productForm()
+ * @var string $plans_url
  * @var bool $authenticated
  * @var string $login_url
  * @var string $signup_url
  */
 
+use Wonder\App\ResourceSchema\FormField;
 use Wonder\Http\Csrf;
+use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionsController;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
+use Wonder\View\View;
 
 $prices = array_values((array) ($plan['prices'] ?? []));
 if ($prices === []) return;
 
-$direct = (bool) ($direct ?? false);
 $authenticated = (bool) ($authenticated ?? false);
+$stepper = (bool) ($stepper ?? false);
+$fields = (array) ($form['fields'] ?? []);
+$missing = (array) ($form['missing_parents'] ?? []);
+$blocked = (bool) ($form['needs_parent'] ?? false) && ($fields['parent'] ?? null) === null;
+$chosen = (string) ($form['price'] ?? '');
 $checked = $prices[0];
-$url = static fn (array $price): string => $direct ? SubscriptionsController::addUrl((string) $price['code']) : SubscriptionsController::configureUrl((string) $price['code']);
+
+foreach ($prices as $price) {
+    if ($chosen !== '' && $price['code'] === $chosen) {
+        $checked = $price;
+    }
+}
+
+$url = static fn (array $price): string => SubscriptionsController::addUrl((string) $price['code']);
 ?>
 <div class="d-grid col-1 gap-3" data-subscription-options>
     <p class="subtitle fw-600 mt-2">
@@ -42,11 +63,9 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
         <s class="text fw-400 tx-dark ml-2" data-subscription-regular<?=$checked['regular'] !== null ? '' : ' hidden'?>><?=$checked['regular'] !== null ? e(CartPresenter::money((float) $checked['regular'], $currency)) : ''?></s>
     </p>
 
-    <form id="add_to_cart_subscription" method="<?=$direct ? 'post' : 'get'?>" action="<?=e($url($checked))?>" data-subscription-form data-authenticated="<?=$authenticated ? 'true' : 'false'?>">
-        <?php if ($direct): ?>
-            <?=Csrf::field()?>
-            <input type="hidden" name="quantity" value="1">
-        <?php endif; ?>
+    <form id="add_to_cart_subscription" method="post" action="<?=e($url($checked))?>" data-subscription-form data-authenticated="<?=$authenticated ? 'true' : 'false'?>">
+        <?=Csrf::field()?>
+        <?php if (!$stepper): ?><?=FormField::key('quantity')->hidden()->value('1')?><?php endif; ?>
 
         <fieldset class="wi-choice-group wi-choice-group--list">
             <legend class="wi-choice-group__legend text-small fw-400 mb-2"><?=e(__t('ecommerce.subscriptions.options'))?></legend>
@@ -59,7 +78,7 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
                     if ($price['commitment_months'] > 0) $details[] = (string) __t('ecommerce.subscriptions.commitment', ['months' => $price['commitment_months']]);
                     ?>
                     <label class="wi-choice">
-                        <input type="radio" name="price" value="<?=e((string) $price['code'])?>" required<?=$i === 0 ? ' checked' : ''?>
+                        <input type="radio" name="price" value="<?=e((string) $price['code'])?>" required<?=$price['code'] === $checked['code'] ? ' checked' : ''?>
                                data-action="<?=e($url($price))?>"
                                data-amount="<?=e(CartPresenter::money((float) $price['amount'], $currency))?>"
                                data-every="<?=e(SubscriptionView::billing($price['unit'], $price['count']))?>"
@@ -76,6 +95,27 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
 
         <p class="text-small tx-secondary mt-2"><?=e(__t($include_tax ? 'ecommerce.subscriptions.tax_included' : 'ecommerce.subscriptions.tax_excluded'))?></p>
 
+        <?php foreach ((array) ($fields['customizations'] ?? []) as $customization): ?>
+            <div class="w-100 d-flex d-column gap-1 mt-3">
+                <?=$customization['field']?>
+                <?php if ($customization['help'] !== ''): ?>
+                    <p class="text-small tx-secondary"><?=e($customization['help'])?></p>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+
+        <?php if (($fields['parent'] ?? null) !== null): ?>
+            <div class="w-100 d-flex d-column gap-1 mt-3">
+                <?=$fields['parent']?>
+                <p class="text-small tx-secondary"><?=e(__t('ecommerce.subscriptions.configure.parent_help'))?></p>
+            </div>
+        <?php elseif ($blocked && $authenticated): ?>
+            <p class="text-small mt-3" data-subscription-parent-missing>
+                <?=e(__t('ecommerce.subscriptions.configure.parent_missing', ['plans' => implode(', ', $missing)]))?>
+                <a href="<?=e((string) ($plans_url ?? ''))?>"><?=e(__t('ecommerce.subscriptions.configure.back_to_plans'))?></a>
+            </p>
+        <?php endif; ?>
+
         <?php if (!$authenticated): ?>
             <p class="text-small mt-3" data-subscription-signup>
                 <?=e(__t('ecommerce.subscriptions.signup_required'))?>
@@ -87,7 +127,8 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
         <?php endif; ?>
 
         <div class="w-100 d-flex gap-3 mt-3">
-            <button class="btn btn-primary w-100 wi-input-submit" type="submit"><?=e(__t('ecommerce.cart.add'))?></button>
+            <?php if ($stepper): ?><?=View::component(Ecommerce::viewPath('components/cart/quantity.php'))?><?php endif; ?>
+            <button class="btn btn-primary w-100 wi-input-submit" type="submit"<?=$blocked && $authenticated ? ' disabled' : ''?>><?=e(__t('ecommerce.cart.add'))?></button>
         </div>
     </form>
 </div>

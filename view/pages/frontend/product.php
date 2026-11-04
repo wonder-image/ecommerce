@@ -249,7 +249,10 @@ Ecommerce::layout('shop');
                     'plan' => $subscription,
                     'currency' => $data['currency'],
                     'include_tax' => (bool) $data['prices_include_tax'],
-                    'direct' => SubscriptionsController::addsDirectly((int) $data['id']),
+                    'stepper' => $stepper,
+                    // Personalizzazioni e servizio madre si compilano qui, come le opzioni dei prodotti.
+                    'form' => SubscriptionsController::productForm((int) $data['id'], array_column($subscription['prices'], 'code')),
+                    'plans_url' => __r('ecommerce.subscriptions.plans'),
                     'authenticated' => CartSession::authenticated(),
                     // Login e registrazione tornano alla scheda.
                     'login_url' => __r('ecommerce.auth.login').'?continue='.rawurlencode((string) $data['url']),

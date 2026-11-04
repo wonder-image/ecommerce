@@ -17,6 +17,15 @@ versionamento semantico.
     `components/subscriptions/options.php`, form `add_to_cart_subscription`).
     Chi non ha fatto l'accesso legge che serve un account, col link alla
     registrazione, e al clic vede un alert; il server rimanda comunque al login.
+  - Niente più pagina di configurazione: personalizzazioni (es. il dominio),
+    quantità (col −/+ se `product.quantity`) e servizio madre si compilano
+    nella scheda, e «Aggiungi al carrello» aggiunge subito. Dopo un errore si
+    torna alla scheda col prezzo scelto, i valori e l'errore sul campo. Il
+    vecchio `/abbonamenti/{ppr_…}/` fa 301 alla scheda; su `/abbonamenti/`
+    «Aggiungi» porta alla scheda quando il servizio va configurato. Tolta la
+    vista `pages/subscriptions/configure.php` (form `subscription_configure`)
+    e i testi `subscriptions.configure.seo`, `.price`, `.to_summary` e
+    `subscriptions.one_time_first`.
   - JSON-LD della scheda: `Product` con un `Offer` per prezzo e
     `UnitPriceSpecification`; `view_product` con un item per prezzo.
   - `/abbonamenti/` elenca i prodotti abbonamento, con foto e link alla scheda.

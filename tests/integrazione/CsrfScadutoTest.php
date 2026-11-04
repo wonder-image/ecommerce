@@ -186,9 +186,10 @@ $aggiungiPiano = scaduto(['controller' => 'subscriptions', 'action' => 'add', 'p
     'parent' => '2',
 ]]);
 $scelta = (array) ($aggiungiPiano['session']['ecommerce_subscription_configure'] ?? []);
-check('abbonamenti add: 302 alla configurazione con l\'avviso 929 e la scelta ricordata', fn () =>
+// PROVA non è un abbonamento del catalogo: senza scheda si torna ai piani.
+check('abbonamenti add: 302 indietro (scheda o piani) con l\'avviso 929 e la scelta ricordata', fn () =>
     $aggiungiPiano['status'] === 302
-    && percorso($aggiungiPiano['location']) === percorso((string) __r('ecommerce.subscriptions.configure', ['price' => 'PROVA']))
+    && percorso($aggiungiPiano['location']) === percorso((string) __r('ecommerce.subscriptions.plans'))
     && avviso929($aggiungiPiano)
     && ($scelta['quantity'] ?? '') === '3'
     && ($scelta['customization'] ?? []) === ['7' => 'Rosso']

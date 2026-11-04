@@ -22,7 +22,6 @@ use Wonder\Plugin\Gestionale\Support\Errors\Errors;
 use Wonder\Plugin\Gestionale\Support\Errors\UserError;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\PlanLinks;
-use Wonder\Plugin\Gestionale\Support\Subscriptions\Subscriptions;
 use Wonder\View\View;
 
 /**
@@ -37,10 +36,12 @@ use Wonder\View\View;
  * - **piani**: `INDEX,FOLLOW`, canonical assoluto senza parametri, `ItemList`
  *   di `Product` con gli importi visibili, breadcrumb Home › Abbonamenti,
  *   `view_item_list` e `select_item`;
- * - **servizio**, **riepilogo** e **conferma**: `NOINDEX,NOFOLLOW`, nessun
+ * - **riepilogo** e **conferma**: `NOINDEX,NOFOLLOW`, nessun
  *   dato strutturato, `$SEO->breadcrumb = []`; `add_to_cart` e
  *   `remove_from_cart` alla pagina dopo l'azione, `begin_checkout` sul
- *   riepilogo, `purchase` una volta sola alla conferma.
+ *   riepilogo, `purchase` una volta sola alla conferma;
+ * - il vecchio **servizio** (`/abbonamenti/{ppr_…}/`) fa un 301 alla scheda
+ *   del prodotto: personalizzazioni e madre si compilano lì.
  */
 final class SubscriptionsController
 {
@@ -98,32 +99,36 @@ final class SubscriptionsController
     }
 
     /**
-     * Un servizio prima di entrare nella selezione: quantità, personalizzazioni
-     * del piano e, se il piano ne vuole una, la riga madre. Chi ha già il
-     * massimo di abbonamenti va nell'area cliente, dove può aggiungere servizi.
+     * Il vecchio indirizzo della configurazione: personalizzazioni e servizio
+     * madre stanno ora nella scheda del prodotto, e il link salvato ci porta
+     * con un 301.
      */
-    private static function configure(string $code): void
+    private static function configure(string $code): never
     {
-        $url = self::configureUrl($code);
-
-        // Il form della scheda senza JS: il prezzo scelto arriva come ?price=,
-        // e si torna all'URL pulito del prezzo.
-        if (isset($_GET['price'])) {
-            self::redirect($url);
-        }
-
-        self::requireLogin($url);
-        self::requireRoom($code);
         $found = PlanCatalog::find($code, self::configureUrl(...));
+        $url = $found !== null ? (string) $found['plan']['url'] : '';
 
-        if ($found === null) {
+        if ($url === '') {
             self::notFound();
         }
 
-        $planId = (int) $found['plan']['id'];
-        $state = self::pullConfigureState($code);
-        $catalog = CheckoutSubscriptions::catalog();
+        header('Location: '.$url, true, 301);
+        exit;
+    }
+
+    /**
+     * Quello che serve al form della scheda: personalizzazioni e servizio
+     * madre (i campi di configureFields()), le madri che mancano nella
+     * selezione e, dopo un errore, il prezzo scelto con i valori inseriti.
+     *
+     * @param list<string> $priceCodes i prezzi dell'abbonamento
+     * @return array{fields: array<string, mixed>, price: string, needs_parent: bool, missing_parents: list<string>}
+     */
+    public static function productForm(int $planId, array $priceCodes): array
+    {
+        $state = self::pullConfigureState($priceCodes);
         $mothers = self::mothersOf($planId);
+        $catalog = $mothers !== [] ? CheckoutSubscriptions::catalog() : [];
         $parents = self::eligibleParents($mothers, $catalog);
         $missing = [];
 
@@ -135,30 +140,23 @@ final class SubscriptionsController
             }
         }
 
-        $title = (string) $found['price']['full_name'];
-        self::seo($title, (string) __t('ecommerce.subscriptions.configure.seo'), self::absolute($url), 'NOINDEX,NOFOLLOW', []);
-
-        View::make(Ecommerce::viewPath('pages/subscriptions/configure.php'), [
-            'plan' => $found['plan'],
-            'price' => $found['price'],
-            'title' => $title,
+        return [
             'fields' => self::configureFields($planId, $state, $parents),
+            'price' => (string) ($state['price'] ?? ''),
             'needs_parent' => $mothers !== [],
             'missing_parents' => array_values($missing),
-            'selected' => count(SubscriptionSelection::items()),
-            'include_tax' => PlanCatalog::pricesIncludeTax(),
-            'currency' => PlanCatalog::CURRENCY,
-            'plans_url' => self::route('ecommerce.subscriptions.plans'),
-            'summary_url' => self::route('ecommerce.checkout.index'),
-            'action' => self::route('ecommerce.subscriptions.add', ['price' => $code]),
-        ])->render();
+        ];
     }
 
     /** Il POST del servizio: entra nella selezione solo se la selezione intera resta valida. */
     private static function add(string $code): never
     {
         self::requirePost();
-        $back = self::configureUrl($code);
+        $found = PlanCatalog::find($code, self::configureUrl(...));
+        // Errori, token scaduto e login tornano alla scheda del prodotto.
+        $back = $found !== null && (string) $found['plan']['url'] !== ''
+            ? (string) $found['plan']['url']
+            : self::route('ecommerce.subscriptions.plans');
         $customization = [];
 
         foreach (is_array($_POST['customization'] ?? null) ? $_POST['customization'] : [] as $id => $value) {
@@ -174,7 +172,6 @@ final class SubscriptionsController
         ];
         self::verifyCsrf($back, static fn () => self::rememberConfigureState($code, $item));
         self::requireLogin($back);
-        $found = PlanCatalog::find($code, self::configureUrl(...));
 
         if ($found === null) {
             self::notFound();
@@ -477,16 +474,6 @@ final class SubscriptionsController
         }
     }
 
-    /** Chi ha già il massimo di abbonamenti aggiunge servizi dall'area cliente. */
-    private static function requireRoom(string $priceCode): void
-    {
-        try {
-            Subscriptions::assertRoom(CartSession::customerId());
-        } catch (UserError $error) {
-            self::toAccount($error->getMessage(), $priceCode);
-        }
-    }
-
     /**
      * Al limite di abbonamenti (G10b §7): con un solo abbonamento a cui si
      * possono aggiungere servizi si va dritti ad Aggiungi servizio, col prezzo
@@ -550,13 +537,16 @@ final class SubscriptionsController
         }
     }
 
-    /** @return array<string, mixed> */
-    private static function pullConfigureState(string $code): array
+    /**
+     * @param list<string> $codes i prezzi dell'abbonamento della scheda
+     * @return array<string, mixed>
+     */
+    private static function pullConfigureState(array $codes): array
     {
         $state = $_SESSION[self::CONFIGURE_STATE] ?? null;
         unset($_SESSION[self::CONFIGURE_STATE]);
 
-        return is_array($state) && ($state['price'] ?? '') === $code ? $state : [];
+        return is_array($state) && in_array((string) ($state['price'] ?? ''), $codes, true) ? $state : [];
     }
 
     /**

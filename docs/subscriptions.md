@@ -22,8 +22,8 @@ voce del menu dell'account non c'è.
 |---|---|---|
 | `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | prodotti abbonamento visibili (anche online), con i prezzi attivi; foto e nome portano alla scheda |
 | `GET /prodotto/{slug}/` | `ecommerce.catalog.product` | la scheda del prodotto abbonamento: foto, descrizione, limiti, i prezzi ricorrenti come opzioni (radio) e un solo «Aggiungi al carrello» |
-| `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | account obbligatorio; quantità, personalizzazioni e servizio a cui si collega |
-| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al checkout |
+| `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | 301 alla scheda del prodotto: la vecchia pagina di configurazione non c'è più |
+| `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | account obbligatorio; aggiunge il servizio alla selezione e manda al checkout; dopo un errore torna alla scheda |
 | `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | 301 a `/checkout/`: i servizi si pagano lì, insieme ai prodotti (vedi `checkout-abbonamenti.md`) |
 | `POST /abbonamenti/riepilogo/` | `ecommerce.subscriptions.start` | 303 a `/checkout/`: il vecchio modulo rimasto aperto |
 | `POST /abbonamenti/riepilogo/togli/` | `ecommerce.subscriptions.remove` | toglie un servizio e quelli collegati a lui, poi torna al checkout; il checkout non ha più il bottone, la rotta resta per i moduli già aperti |
@@ -40,8 +40,8 @@ voce del menu dell'account non c'è.
 - «Aggiungi» (pagina degli abbonamenti, componente
   `components/subscriptions/prices.php`) manda subito il `POST` quando il
   servizio non ha personalizzazioni né madre
-  (`SubscriptionsController::addsDirectly()`); altrimenti porta alla
-  configurazione.
+  (`SubscriptionsController::addsDirectly()`); altrimenti porta alla scheda
+  del prodotto.
 - La scheda del prodotto abbonamento è allineata a quella dei prodotti
   (componente `components/subscriptions/options.php`, form
   `add_to_cart_subscription`): i prezzi sono righe `wi-choice` con un radio
@@ -49,10 +49,15 @@ voce del menu dell'account non c'è.
   carrello». Il periodo si legge «Pagamento mensile», «Pagamento annuale» o
   «Pagamento ogni 3 mesi» (`SubscriptionView::billing()`, testi
   `ecommerce.subscriptions.billing.*`); la pagina degli abbonamenti resta
-  con «al mese». Con `addsDirectly()` il form è un `POST` di aggiunta, se no un
-  `GET` alla configurazione. Il server legge il `price` scelto
-  (`chosenPrice()`), quindi il form funziona anche senza JS: la
-  configurazione con `?price=` torna all'URL pulito del prezzo.
+  con «al mese». Il form è sempre il `POST` di aggiunta: personalizzazioni
+  (es. il dominio), servizio madre e, con `product.quantity`, la quantità col
+  −/+ stanno nella scheda, come le opzioni dei prodotti
+  (`SubscriptionsController::productForm()`, che usa `configureFields()`).
+  Senza una madre adatta nella selezione la scheda dice quali piani
+  aggiungere prima e il bottone è spento. Dopo un errore il server torna alla
+  scheda: il prezzo scelto è di nuovo selezionato, i valori restano e
+  l'errore sta sul campo. Il server legge il `price` scelto (`chosenPrice()`),
+  quindi il form funziona anche senza JS.
 - Chi non ha fatto l'accesso legge che serve un account, coi link a
   registrazione e login (`?continue=` alla scheda); «Aggiungi al carrello»
   mostra un alert della lib e il form non parte. Il server resta la guardia:
@@ -96,7 +101,7 @@ rinnovi, sui cambi e sui servizi aggiunti dall'area cliente; ha l'aliquota della
 riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone.
 
 - Piani: «+ 49,00 € una tantum» sotto il canone (`PlanCatalog::present()` dà
-  `one_time`); la pagina del servizio ricorda che arriva col primo pagamento.
+  `one_time`); nella scheda è nei dettagli di ogni prezzo.
 - Riepilogo: «Una tantum» sotto ogni servizio che ce l'ha, una riga «Una tantum»
   nel primo addebito e il totale `first_charge_total` di
   `OnlineSubscriptions::preview()`. In prova il primo addebito è la sola una
@@ -112,7 +117,6 @@ riga e il coupon non lo sconta. Il `total` dell'abbonamento resta il solo canone
 | Piani | `INDEX,FOLLOW`, canonical assoluto, un `<h1>`, contenuto lato server | `ItemList` di `Product` (uno per abbonamento, con `url` e `image` della scheda); per ogni prezzo un `Offer` con `UnitPriceSpecification` (`unitCode` `MON` o `ANN`, `billingDuration`, `billingIncrement`) e il prezzo pieno come `StrikethroughPrice` quando in pagina è barrato; l'una tantum come `PriceSpecification` senza unità né durata | Home › Abbonamenti, a video e dal core | pagina `subscription_plans`; `view_item_list` alla vista, `select_item` al clic su «Aggiungi»; `add_to_cart` e `remove_from_cart` dopo un'aggiunta o una rimozione |
 | Scheda dell'abbonamento | quella dei prodotti: `INDEX,FOLLOW`, canonical, un `<h1>`, `$SEO->image` | `Product` con `productID` = codice del modello e un `Offer` per prezzo, uguale a quello della pagina degli abbonamenti (`PlanCatalog::offers()`), `url` = la scheda | Home › categoria › prodotto, come gli altri | pagina `product`; `view_product` con un item per prezzo (`ppr_…`); nessun `select_item` (i prezzi sono opzioni, come le varianti dei prodotti); `add_to_cart` dal server dopo l'aggiunta |
 | Card del catalogo | — | `ItemList` dell'elenco | — | `item_id` = codice `ppr_` del prezzo mostrato (il più basso) |
-| Servizio | `NOINDEX,NOFOLLOW` | nessuno | `[]`; a video Abbonamenti › servizio | pagina `subscription_configure` |
 | Checkout | `NOINDEX,NOFOLLOW` (quello dei prodotti) | nessuno | `[]` | `begin_checkout`, `add_shipping_info` e `add_payment_info` con prodotti e servizi; `value` = totale di oggi (ordine più primo addebito: canone più una tantum, in prova solo l'una tantum) |
 | Conferma | `NOINDEX,NOFOLLOW` | nessuno | `[]` | pagina `subscription_confirmation`; `purchase` una volta sola per abbonamento (la sessione ricorda i codici), con `transaction_id` = codice `sub_`, `value` = canone del primo periodo più una tantum (in prova solo l'una tantum, zero se non c'è) |
 | Area cliente | del pannello | nessuno | del pannello | del pannello |
@@ -129,7 +133,7 @@ Gli identificativi sono gli stessi ovunque:
 alla pagina successiva (piani o checkout), ognuno preceduto da
 `{ecommerce: null}`.
 
-I form hanno `id` semantici: `subscription_configure`, `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
+I form hanno `id` semantici: `add_to_cart_subscription` (scheda), `subscription_change_{id riga}`, `subscription_pick_{sub_…}`, `subscription_add_pick`, `subscription_add` e `subscription_add_confirm`.
 
 ## Limiti nei testi
 

@@ -374,7 +374,6 @@
         "commitment": "{{months}}-month commitment",
         "one_time": "+ {{price}} one-time fee",
         "one_time_label": "One-time fee",
-        "one_time_first": "Plus a {{price}} one-time fee, with the first payment only.",
         "every": {
             "month": "per month",
             "months": "every {{count}} months",
@@ -409,16 +408,13 @@
             "empty": "There are no plans available right now."
         },
         "configure": {
-            "seo": "Choose the quantity and options of the service before adding it to your subscription.",
-            "price": "Price",
             "quantity": "Quantity",
             "choose_option": "Choose…",
             "parent": "Linked to",
             "parent_option": "{{name}} (row {{row}})",
             "parent_help": "This service depends on another service in your selection: if you remove that one, this goes too.",
             "parent_missing": "This service must be linked to another one: first add one of these plans: {{plans}}.",
-            "back_to_plans": "Back to plans",
-            "to_summary": "Selected services: {{count}} · go to summary"
+            "back_to_plans": "Back to plans"
         },
         "summary": {
             "title": "Subscription summary",

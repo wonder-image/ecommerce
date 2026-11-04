@@ -5,7 +5,8 @@
  * pagina degli abbonamenti. La scheda del prodotto usa invece `options.php`.
  *
  * Con `direct` vero il bottone manda subito il POST di aggiunta (servizio
- * senza personalizzazioni né madre); se no è un link alla configurazione.
+ * senza personalizzazioni né madre); se no è un link alla scheda del
+ * prodotto, dove si compilano personalizzazioni e servizio madre.
  * `data-select-item` porta l'evento GA4 `select_item`, che lo script della
  * pagina spinge al clic.
  *
@@ -61,7 +62,7 @@ $listName = (string) ($list_name ?? '');
                             data-select-item="<?=e((string) json_encode($event, $flags))?>"><?=e(__t('ecommerce.subscriptions.add'))?></button>
                 </form>
             <?php else: ?>
-                <a class="btn btn-black mt-2" href="<?=e($price['url'])?>"
+                <a class="btn btn-black mt-2" href="<?=e((string) $plan['url'])?>"
                    data-select-item="<?=e((string) json_encode($event, $flags))?>"><?=e(__t('ecommerce.subscriptions.add'))?></a>
             <?php endif; ?>
         </li>

@@ -432,7 +432,6 @@
         "commitment": "Vincolo di {{months}} mesi",
         "one_time": "+ {{price}} una tantum",
         "one_time_label": "Una tantum",
-        "one_time_first": "In più {{price}} una tantum, solo col primo pagamento.",
         "every": {
             "month": "al mese",
             "months": "ogni {{count}} mesi",
@@ -467,16 +466,13 @@
             "empty": "Al momento non ci sono piani disponibili."
         },
         "configure": {
-            "seo": "Scegli quantità e personalizzazioni del servizio prima di aggiungerlo al tuo abbonamento.",
-            "price": "Prezzo",
             "quantity": "Quantità",
             "choose_option": "Scegli…",
             "parent": "Collegato a",
             "parent_option": "{{name}} (riga {{row}})",
             "parent_help": "Questo servizio si appoggia a un altro servizio della tua selezione: se togli quello, va via anche questo.",
             "parent_missing": "Questo servizio va collegato a un altro: aggiungi prima uno di questi piani: {{plans}}.",
-            "back_to_plans": "Torna ai piani",
-            "to_summary": "Servizi scelti: {{count}} · vai al riepilogo"
+            "back_to_plans": "Torna ai piani"
         },
         "summary": {
             "title": "Riepilogo abbonamento",
