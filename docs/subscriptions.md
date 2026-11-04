@@ -12,9 +12,12 @@ tabella dei piani non c'è più. Prezzi ricorrenti (`PlanPrice`), limiti
 Come gli altri prodotti ha foto, tag, categorie, ricerca, scheda
 (`/prodotto/{slug}/`) e SEO; non ha magazzino, varianti né spedizione.
 
-Tutto si accende con la funzionalità **`online_subscriptions`** del gestionale
-(richiede *Vendita online* e *Abbonamenti*). Spenta, le rotte rispondono 404 e la
-voce del menu dell'account non c'è.
+Non c'è una funzionalità a parte: tutto si accende con *Abbonamenti*
+(`subscriptions`) e *Vendita online* (`online_sales`) del gestionale, come per i
+prodotti, letti da `OnlineSubscriptions::enabled()`. Un abbonamento si vende sul
+sito se ha anche **Acquistabile online** (`visible_online`,
+`OnlineSubscriptions::sellable()`). Senza, le rotte rispondono 404 e la voce del
+menu dell'account non c'è.
 
 ## Pagine
 

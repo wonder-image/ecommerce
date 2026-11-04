@@ -11,6 +11,7 @@ use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
 use Wonder\Plugin\Gestionale\Gestionale;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 
 /** L'ecommerce nel pannello account del core: metodi di pagamento, voci del menu del negozio (ordini, abbonamenti, coupon), font e stile. */
@@ -45,7 +46,7 @@ final class EcommerceAccountExtension extends BaseAccountExtension
     public function navigation(array $items, object $user): array
     {
         $own = ['orders' => ['label' => (string) __t('ecommerce.account.orders.title'), 'href' => Route::url('account.orders'), 'icon' => 'bi bi-bag']];
-        if (Gestionale::feature('online_subscriptions')) {
+        if (OnlineSubscriptions::enabled()) {
             $own['subscriptions'] = ['label' => (string) __t('ecommerce.account.subscriptions.title'), 'href' => Route::url('account.subscriptions'), 'icon' => 'bi bi-arrow-repeat'];
         }
         if (Gestionale::feature('coupons')) {

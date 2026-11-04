@@ -9,6 +9,7 @@ use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanFeature;
 use Wonder\Plugin\Gestionale\Models\Subscriptions\PlanPrice;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
 use Wonder\Plugin\Gestionale\Support\Catalog\ProductImages;
+use Wonder\Plugin\Gestionale\Support\Subscriptions\OnlineSubscriptions;
 use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionModels;
 
 /**
@@ -35,7 +36,7 @@ final class PlanCatalog
         $result = [];
 
         foreach (SubscriptionModels::live() as $model) {
-            $entry = SubscriptionModels::isOnline($model) ? self::loadModel($model) : null;
+            $entry = OnlineSubscriptions::sellable($model) ? self::loadModel($model) : null;
 
             if ($entry !== null) {
                 $result[] = $entry;

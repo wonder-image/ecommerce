@@ -7,6 +7,13 @@ versionamento semantico.
 
 ### Cambiato
 
+- **Niente più funzionalità «Abbonamenti online».** Pagine dei piani,
+  abbonamenti nel checkout e voce dell'area cliente si accendono con
+  *Abbonamenti* e *Vendita online* del gestionale
+  (`OnlineSubscriptions::enabled()`); `PlanCatalog` mostra solo gli
+  abbonamenti con **Acquistabile online** (`OnlineSubscriptions::sellable()`).
+  Richiede il gestionale con `OnlineSubscriptions::enabled()`: va unito dopo
+  la PR del gestionale.
 - **Scheda dell'abbonamento: il prezzo col periodo sotto il nome**, al posto
   dei prodotti, «30,00 €/Anno» o «3,00 €/Mese», col pieno barrato se
   scontato; segue il prezzo scelto fra le opzioni. Le card del catalogo

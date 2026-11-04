@@ -176,7 +176,7 @@ class EcommerceAccountController extends AccountController
 
     /**
      * Gli abbonamenti del cliente (G10.14), senza i pagamenti mai completati.
-     * Con `online_subscriptions` spenta la pagina non c'è.
+     * Senza `OnlineSubscriptions::enabled()` la pagina non c'è.
      */
     protected function subscriptions(): void
     {
@@ -636,7 +636,7 @@ class EcommerceAccountController extends AccountController
 
     private function requireSubscriptions(): void
     {
-        if (!Gestionale::feature('online_subscriptions')) {
+        if (!OnlineSubscriptions::enabled()) {
             $this->notFound();
         }
     }
