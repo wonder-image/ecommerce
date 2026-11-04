@@ -7,6 +7,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\Product;
  * La foto di una riga: carrello, mini carrello, checkout e ordine dell'area
  * cliente. Formato e fit sono quelli della card (`catalog.card.image_*`) e la
  * larghezza è sempre la stessa, così l'articolo si riconosce da un passo all'altro.
+ * `align-self` tiene il formato anche in una riga flex che il testo allunga.
  *
  * $image    il file della foto ('' = riquadro vuoto, 'data:,' = segnaposto del template JS)
  * $url      se c'è, la foto porta alla scheda (fuori dal tab: il link vero è il nome)
@@ -20,7 +21,7 @@ $url = trim((string) ($url ?? ''));
 $tag = $url !== '' ? 'a' : 'span';
 $attributes = $url !== '' ? ' href="'.e($url).'" tabindex="-1" aria-hidden="true"' : '';
 ?>
-<<?=$tag.$attributes?> class="wi-thumb" style="--wi-thumb-size: <?=$size?>px; aspect-ratio: <?=ImageFormat::aspectRatio('catalog.card.image_format', '1:1')?>">
+<<?=$tag.$attributes?> class="wi-thumb" style="--wi-thumb-size: <?=$size?>px; align-self: flex-start; aspect-ratio: <?=ImageFormat::aspectRatio('catalog.card.image_format', '1:1')?>">
     <?php if ($image === 'data:,'): ?>
         <?php // Segnaposto del template JS: checkout.js lo sostituisce con la foto fatta da `__ri()`. ?>
         <img src="data:," alt="" class="skeleton bg bg-<?=$fit?>" data-line-image>

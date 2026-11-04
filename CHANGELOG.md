@@ -7,6 +7,8 @@ versionamento semantico.
 
 ### Corretto
 
+- Checkout: la foto delle righe tiene sempre il formato del config
+  (`catalog.card.image_format`), anche quando nome e scelte allungano la riga.
 - **Più coupon nel carrello e nel checkout.** Il riquadro del coupon nascondeva
   l'input dopo il primo codice, quindi non se ne poteva aggiungere un secondo
   anche se cumulabile. Ora l'input resta, il riquadro elenca i codici applicati

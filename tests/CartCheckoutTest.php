@@ -749,8 +749,9 @@ check('carrello, mini carrello, checkout e area cliente usano la stessa miniatur
         }
     }
 
+    // `align-self` tiene il formato del config anche quando il testo allunga la riga.
     return str_contains($thumb, 'class="wi-thumb"') && str_contains($thumb, 'data-line-image') && str_contains($thumb, 'data-line-quantity')
-        && !str_contains($css, '--wi-thumb-size');
+        && str_contains($thumb, 'align-self: flex-start') && !str_contains($css, '--wi-thumb-size');
 });
 
 check('il carrello ha lo stepper −/+, «Rimuovi» col cestino, la foto quadrata comune e il codice sconto in un riquadro a parte', function () use ($root): bool {
