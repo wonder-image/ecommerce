@@ -290,6 +290,24 @@ check('il bottone della selezione va nell\'intestazione, anche senza titolo; sen
         && !str_contains(ProductList::make($products)->action('Vedi', '')->render('grid'), 'Vedi');
 });
 
+check('nello swiper le frecce vengono prima del bottone, col colore di catalog.action.button', function () use ($products) {
+    Ecommerce::forgetConfig();
+    $config = Ecommerce::config();
+    $config['catalog']['action']['button'] = 'primary-o';
+    (new ReflectionProperty(Ecommerce::class, 'config'))->setValue(null, $config);
+    $html = ProductList::make($products)->action('Vedi tutti', '/prodotti/')->render('swiper');
+    Ecommerce::forgetConfig();
+
+    $next = strpos($html, 'data-product-list-next');
+    $link = strpos($html, 'href="/prodotti/"');
+
+    return $next !== false && $link !== false && $next < $link
+        && str_contains($html, 'w-p-100')
+        && preg_match('/<a href="\/prodotti\/"[^>]*class="btn btn-primary-o btn-sm"/', $html) === 1
+        // Senza bottone la riga non si allarga da telefono.
+        && !str_contains(ProductList::make($products)->render('swiper'), 'w-p-100');
+});
+
 check('formato delle foto e descrizione breve della card vengono dal config', function () use ($products) {
     $defaults = ProductList::make($products)->renderGrid();
 
