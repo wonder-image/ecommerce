@@ -112,7 +112,9 @@ final class CartController
                 $itemId,
                 self::number($_POST['quantity'] ?? 0)
             ),
-            (string) __t('ecommerce.cart.updated')
+            (string) __t('ecommerce.cart.updated'),
+            event: self::changed($itemId),
+            later: true
         );
     }
 
@@ -120,7 +122,20 @@ final class CartController
     {
         self::mutate(
             static fn (int $cartId): array => Cart::remove($cartId, $itemId),
-            (string) __t('ecommerce.cart.removed')
+            (string) __t('ecommerce.cart.removed'),
+            event: self::changed($itemId),
+            later: true
+        );
+    }
+
+    /** L'evento della riga cambiata, dal carrello prima e dopo. */
+    private static function changed(int $itemId): callable
+    {
+        return static fn (array $cart, array $before): ?array => CartPresenter::changeEvent(
+            $before,
+            $cart,
+            $itemId,
+            (string) ($cart['order']['currency'] ?? '') ?: (string) Ecommerce::config('catalog.currency', 'EUR')
         );
     }
 
@@ -166,7 +181,11 @@ final class CartController
     }
 
     /** @param (callable(array): ?array)|null $event l'evento GTM, dal carrello che il server ha appena scritto */
-    private static function mutate(callable $mutation, string $notice, bool $createCart = false, ?callable $event = null): never
+    /**
+     * `$event($dopo, $prima)` dà l'evento GTM: col JSON va nella risposta, con
+     * `$later` aspetta in sessione la pagina del redirect (carrello).
+     */
+    private static function mutate(callable $mutation, string $notice, bool $createCart = false, ?callable $event = null, bool $later = false): never
     {
         self::requirePost();
         $wantsJson = self::wantsJson();
@@ -175,6 +194,7 @@ final class CartController
 
         $errors = [];
         $cart = null;
+        $current = [];
 
         try {
             $current = CartSession::current($createCart);
@@ -190,10 +210,14 @@ final class CartController
             $written = is_array($cart);
             $cart = $written ? $cart : CartSession::current(false);
             $payload = self::payload($cart, $errors === [], $errors === [] ? $notice : '', $errors);
-            if ($errors === [] && $written && $event !== null && ($pushed = $event($cart)) !== null) {
+            if ($errors === [] && $written && $event !== null && ($pushed = $event($cart, $current)) !== null) {
                 $payload['event'] = $pushed;
             }
             self::json($payload);
+        }
+
+        if ($errors === [] && $later && is_array($cart) && $event !== null && ($pushed = $event($cart, $current)) !== null) {
+            SubscriptionsController::pushEvent($pushed);
         }
 
         if ($errors === []) {

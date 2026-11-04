@@ -252,16 +252,61 @@ final class CartPresenter
             return null;
         }
 
+        return self::lineEvent('add_to_cart', $line, $quantity, $currency);
+    }
+
+    /**
+     * L'evento GTM di una riga cambiata dal carrello: `remove_from_cart` se la
+     * quantità scende (riga tolta compresa), `add_to_cart` se sale. Confronta
+     * il carrello prima e dopo; null se la riga non c'era o non è cambiata.
+     *
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $after
+     * @return array<string, mixed>|null
+     */
+    public static function changeEvent(array $before, array $after, int $itemId, string $currency = 'EUR'): ?array
+    {
+        $old = self::line($before, $itemId);
+        if ($old === null) {
+            return null;
+        }
+
+        $new = self::line($after, $itemId);
+        $delta = round((float) ($new['quantity'] ?? 0) - (float) ($old['quantity'] ?? 0), 3);
+
+        if ($delta === 0.0) {
+            return null;
+        }
+
+        return $delta < 0
+            ? self::lineEvent('remove_from_cart', $old, -$delta, $currency)
+            : self::lineEvent('add_to_cart', $new ?? $old, $delta, $currency);
+    }
+
+    /** La riga principale con quell'id. @param array<string, mixed> $cart @return array<string, mixed>|null */
+    private static function line(array $cart, int $itemId): ?array
+    {
+        foreach ((array) ($cart['items'] ?? []) as $item) {
+            if (is_array($item) && (int) ($item['id'] ?? 0) === $itemId && (int) ($item['parent_item_id'] ?? 0) === 0) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    /** L'evento GA4 di una riga: prezzo unitario del server, `item_id` = prodotto. @param array<string, mixed> $line @return array<string, mixed> */
+    private static function lineEvent(string $event, array $line, float $quantity, string $currency): array
+    {
         $price = round((float) ($line['unit_price'] ?? 0), 2);
-        $currency = strtoupper($currency) ?: 'EUR';
 
         return [
-            'event' => 'add_to_cart',
+            'event' => $event,
             'ecommerce' => [
-                'currency' => $currency,
+                'currency' => strtoupper($currency) ?: 'EUR',
                 'value' => round($price * $quantity, 2),
                 'items' => [[
-                    'item_id' => (string) $productId,
+                    'item_id' => (string) (int) ($line['product_id'] ?? 0),
                     'item_name' => self::name((string) ($line['name'] ?? '')),
                     'price' => $price,
                     'quantity' => $quantity,

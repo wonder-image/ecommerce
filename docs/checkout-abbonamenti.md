@@ -104,7 +104,8 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
    `/abbonamenti/riepilogo/` fa 301 a `/checkout/`.
 2. **schema.org**: nessun JSON-LD (pagine private).
 3. **Breadcrumb**: `$SEO->breadcrumb = []`; nessun percorso visibile nuovo.
-4. **dataLayer**: `remove_from_cart` per il servizio tolto: dal JS del mini
+4. **dataLayer**: `remove_from_cart` per il servizio o il prodotto tolto (per il
+   prodotto anche la quantità calata; alzata manda `add_to_cart`): dal JS del mini
    carrello alla risposta del server, dalla sessione alla pagina del carrello
    (`page.type = cart`) o del checkout dopo il redirect. `begin_checkout`, `add_payment_info` e `purchase` con
    **tutti** gli item: prodotti (`item_id` = sku) e servizi (`item_id` = codice

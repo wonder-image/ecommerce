@@ -22,6 +22,11 @@ cliente. Un semplice GET su `/cart/` non crea né cookie né righe nel database.
   `stepper` (−/+), `fields` e `id` (vuoto se il form si ripete, come nelle card).
   Il componente scrive il campo CSRF `_csrf` e l'id del form GTM.
 - `/cart/`: riepilogo, modifica quantità e rimozione, nel layout del negozio.
+  Togliere una riga o calarne la quantità manda `remove_from_cart`, alzarla
+  `add_to_cart` (`CartPresenter::changeEvent()`, dal carrello prima e dopo,
+  `item_id` = id del prodotto, prezzo unitario del server): dal mini carrello
+  il JS lo spinge alla risposta JSON, dalla pagina aspetta in sessione il
+  redirect al carrello.
 - `/checkout/`: una pagina sola con riepilogo a destra (vedi sotto).
 - `/checkout/completed/`: conferma legata alla sessione che ha creato l'ordine.
 

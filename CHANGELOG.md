@@ -7,6 +7,11 @@ versionamento semantico.
 
 ### Corretto
 
+- Carrello e mini carrello, prodotti: togliere una riga o calarne la
+  quantità manda `remove_from_cart`, alzarla `add_to_cart`
+  (`CartPresenter::changeEvent()`, coi dati del server). Prima non partiva
+  niente. Dal mini carrello lo spinge il JS alla risposta; dalla pagina del
+  carrello parte dalla sessione dopo il redirect.
 - Carrello e mini carrello: tornano i servizi, ciascuno col suo «Rimuovi»
   (`POST /carrello/servizi/{index}/remove/`, rotta `ecommerce.cart.service_remove`,
   con conferma che avvisa delle righe figlie). Il totale diventa «Totale di oggi»
