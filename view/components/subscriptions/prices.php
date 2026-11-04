@@ -1,8 +1,8 @@
 <?php
 
 /**
- * I prezzi ricorrenti di un abbonamento, ognuno col suo «Aggiungi»: la
- * pagina degli abbonamenti e la scheda del prodotto li mostrano uguali.
+ * I prezzi ricorrenti di un abbonamento, ognuno col suo «Aggiungi», nella
+ * pagina degli abbonamenti. La scheda del prodotto usa invece `options.php`.
  *
  * Con `direct` vero il bottone manda subito il POST di aggiunta (servizio
  * senza personalizzazioni né madre); se no è un link alla configurazione.
