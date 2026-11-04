@@ -46,7 +46,10 @@ voce del menu dell'account non c'è.
   (componente `components/subscriptions/options.php`, form
   `add_to_cart_subscription`): i prezzi sono righe `wi-choice` con un radio
   `price`, il prezzo in alto segue la scelta e c'è un solo «Aggiungi al
-  carrello». Con `addsDirectly()` il form è un `POST` di aggiunta, se no un
+  carrello». Il periodo si legge «Pagamento mensile», «Pagamento annuale» o
+  «Pagamento ogni 3 mesi» (`SubscriptionView::billing()`, testi
+  `ecommerce.subscriptions.billing.*`); la pagina degli abbonamenti resta
+  con «al mese». Con `addsDirectly()` il form è un `POST` di aggiunta, se no un
   `GET` alla configurazione. Il server legge il `price` scelto
   (`chosenPrice()`), quindi il form funziona anche senza JS: la
   configurazione con `?price=` torna all'URL pulito del prezzo.

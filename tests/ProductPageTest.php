@@ -404,6 +404,9 @@ check('la scheda di un abbonamento: i prezzi sono opzioni con un solo «Aggiungi
         foreach (['options', 'signup_required', 'signup_link', 'signup_or', 'login_link', 'login_alert_title', 'login_alert'] as $chiave) {
             $testi = $testi && is_string($json['subscriptions'][$chiave] ?? null);
         }
+        foreach (['month', 'months', 'year', 'years'] as $unita) {
+            $testi = $testi && is_string($json['subscriptions']['billing'][$unita] ?? null);
+        }
     }
 
     return str_contains($view, "if (\$subscription !== null)")
@@ -416,6 +419,8 @@ check('la scheda di un abbonamento: i prezzi sono opzioni con un solo «Aggiungi
         && str_contains($opzioni, 'id="add_to_cart_subscription"')
         && str_contains($opzioni, 'data-subscription-login-alert')
         && str_contains($opzioni, 'alertContainer')
+        && str_contains($opzioni, 'SubscriptionView::billing(')
+        && !str_contains($opzioni, 'SubscriptionView::every(')
         && str_contains($controller, 'self::chosenPrice(')
         && $testi
         && substr_count($view, '<h1') === 1;

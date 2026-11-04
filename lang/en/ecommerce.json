@@ -381,6 +381,12 @@
             "year": "per year",
             "years": "every {{count}} years"
         },
+        "billing": {
+            "month": "Monthly payment",
+            "months": "Payment every {{count}} months",
+            "year": "Yearly payment",
+            "years": "Payment every {{count}} years"
+        },
         "per": {
             "month": "{{price}}/month",
             "months": "{{price}}/{{count}} months",

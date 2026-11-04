@@ -38,7 +38,7 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
 <div class="d-grid col-1 gap-3" data-subscription-options>
     <p class="subtitle fw-600 mt-2">
         <span data-subscription-price><?=e(CartPresenter::money((float) $checked['amount'], $currency))?></span>
-        <span class="text-small fw-400" data-subscription-every><?=e(SubscriptionView::every($checked['unit'], $checked['count']))?></span>
+        <span class="text-small fw-400" data-subscription-every><?=e(SubscriptionView::billing($checked['unit'], $checked['count']))?></span>
         <s class="text fw-400 tx-dark ml-2" data-subscription-regular<?=$checked['regular'] !== null ? '' : ' hidden'?>><?=$checked['regular'] !== null ? e(CartPresenter::money((float) $checked['regular'], $currency)) : ''?></s>
     </p>
 
@@ -53,7 +53,7 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
             <div class="wi-choice-group__list">
                 <?php foreach ($prices as $i => $price): ?>
                     <?php
-                    $details = [SubscriptionView::every($price['unit'], $price['count'])];
+                    $details = [SubscriptionView::billing($price['unit'], $price['count'])];
                     if ($price['one_time'] > 0) $details[] = (string) __t('ecommerce.subscriptions.one_time', ['price' => CartPresenter::money((float) $price['one_time'], $currency)]);
                     if ($price['trial_days'] > 0) $details[] = (string) __t('ecommerce.subscriptions.trial', ['days' => $price['trial_days']]);
                     if ($price['commitment_months'] > 0) $details[] = (string) __t('ecommerce.subscriptions.commitment', ['months' => $price['commitment_months']]);
@@ -62,7 +62,7 @@ $url = static fn (array $price): string => $direct ? SubscriptionsController::ad
                         <input type="radio" name="price" value="<?=e((string) $price['code'])?>" required<?=$i === 0 ? ' checked' : ''?>
                                data-action="<?=e($url($price))?>"
                                data-amount="<?=e(CartPresenter::money((float) $price['amount'], $currency))?>"
-                               data-every="<?=e(SubscriptionView::every($price['unit'], $price['count']))?>"
+                               data-every="<?=e(SubscriptionView::billing($price['unit'], $price['count']))?>"
                                data-regular="<?=$price['regular'] !== null ? e(CartPresenter::money((float) $price['regular'], $currency)) : ''?>">
                         <span class="wi-choice__body">
                             <span class="wi-choice__title"><?=e((string) $price['name'])?></span>

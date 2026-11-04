@@ -439,6 +439,12 @@
             "year": "all'anno",
             "years": "ogni {{count}} anni"
         },
+        "billing": {
+            "month": "Pagamento mensile",
+            "months": "Pagamento ogni {{count}} mesi",
+            "year": "Pagamento annuale",
+            "years": "Pagamento ogni {{count}} anni"
+        },
         "per": {
             "month": "{{price}}/Mese",
             "months": "{{price}}/{{count}} Mesi",
