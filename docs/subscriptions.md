@@ -21,7 +21,7 @@ voce del menu dell'account non c'è.
 | Rotta | Nome | Cosa fa |
 |---|---|---|
 | `GET /abbonamenti/` | `ecommerce.subscriptions.plans` | prodotti abbonamento visibili (anche online), con i prezzi attivi; foto e nome portano alla scheda |
-| `GET /prodotto/{slug}/` | `ecommerce.catalog.product` | la scheda del prodotto abbonamento: foto, descrizione, limiti e i prezzi ricorrenti con «Aggiungi» al posto di quantità e «Aggiungi al carrello» |
+| `GET /prodotto/{slug}/` | `ecommerce.catalog.product` | la scheda del prodotto abbonamento: foto, descrizione, limiti, i prezzi ricorrenti come opzioni (radio) e un solo «Aggiungi al carrello» |
 | `GET /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.configure` | account obbligatorio; quantità, personalizzazioni e servizio a cui si collega |
 | `POST /abbonamenti/{ppr_…}/` | `ecommerce.subscriptions.add` | aggiunge il servizio alla selezione e manda al checkout |
 | `GET /abbonamenti/riepilogo/` | `ecommerce.subscriptions.summary` | 301 a `/checkout/`: i servizi si pagano lì, insieme ai prodotti (vedi `checkout-abbonamenti.md`) |
@@ -37,11 +37,23 @@ voce del menu dell'account non c'è.
 | `POST /account/abbonamenti/{sub_…}/disdici/` | `account.subscriptions.cancel` | disdetta |
 | `POST /account/abbonamenti/{sub_…}/carta/` | `account.subscriptions.card` | portale di Stripe |
 
-- «Aggiungi» (pagina degli abbonamenti e scheda, componente
+- «Aggiungi» (pagina degli abbonamenti, componente
   `components/subscriptions/prices.php`) manda subito il `POST` quando il
   servizio non ha personalizzazioni né madre
   (`SubscriptionsController::addsDirectly()`); altrimenti porta alla
   configurazione.
+- La scheda del prodotto abbonamento è allineata a quella dei prodotti
+  (componente `components/subscriptions/options.php`, form
+  `add_to_cart_subscription`): i prezzi sono righe `wi-choice` con un radio
+  `price`, il prezzo in alto segue la scelta e c'è un solo «Aggiungi al
+  carrello». Con `addsDirectly()` il form è un `POST` di aggiunta, se no un
+  `GET` alla configurazione. Il server legge il `price` scelto
+  (`chosenPrice()`), quindi il form funziona anche senza JS: la
+  configurazione con `?price=` torna all'URL pulito del prezzo.
+- Chi non ha fatto l'accesso legge che serve un account, coi link a
+  registrazione e login (`?continue=` alla scheda); «Aggiungi al carrello»
+  mostra un alert della lib e il form non parte. Il server resta la guardia:
+  `requireLogin()` manda comunque al login.
 - Nel catalogo (elenchi, ricerca, categorie, tag) la card di un abbonamento
   mostra il prezzo più basso, senza il periodo, e porta alla scheda: non si
   aggiunge dalla card. L'elenco per varianti, i filtri e l'ordinamento per

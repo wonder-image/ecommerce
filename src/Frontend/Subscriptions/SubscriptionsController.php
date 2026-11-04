@@ -64,8 +64,8 @@ final class SubscriptionsController
 
         match ($action) {
             'plans' => self::plans(),
-            'configure' => self::configure((string) ($parameters['price'] ?? '')),
-            'add' => self::add((string) ($parameters['price'] ?? '')),
+            'configure' => self::configure(self::chosenPrice((string) ($parameters['price'] ?? ''), $_GET)),
+            'add' => self::add(self::chosenPrice((string) ($parameters['price'] ?? ''), $_POST)),
             'summary' => self::summary(),
             'start' => self::start(),
             'remove' => self::remove(),
@@ -105,6 +105,13 @@ final class SubscriptionsController
     private static function configure(string $code): void
     {
         $url = self::configureUrl($code);
+
+        // Il form della scheda senza JS: il prezzo scelto arriva come ?price=,
+        // e si torna all'URL pulito del prezzo.
+        if (isset($_GET['price'])) {
+            self::redirect($url);
+        }
+
         self::requireLogin($url);
         self::requireRoom($code);
         $found = PlanCatalog::find($code, self::configureUrl(...));
@@ -430,6 +437,19 @@ final class SubscriptionsController
         }
 
         return $parents;
+    }
+
+    /**
+     * Il prezzo scelto fra le opzioni della scheda prodotto (`price`) vale più
+     * di quello nell'URL: senza JS il form parte dall'URL del primo prezzo.
+     *
+     * @param array<string, mixed> $request
+     */
+    private static function chosenPrice(string $fromPath, array $request): string
+    {
+        $chosen = $request['price'] ?? null;
+
+        return is_string($chosen) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $chosen) === 1 ? $chosen : $fromPath;
     }
 
     public static function configureUrl(string $code): string

@@ -6,6 +6,7 @@ use Wonder\Elements\Components\Breadcrumb;
 use Wonder\App\ResourceSchema\FormField;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ImageFormat;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductDetail;
 use Wonder\Plugin\Ecommerce\Frontend\Catalog\ProductList;
@@ -23,7 +24,7 @@ if (!$product instanceof ProductDetail) {
 }
 
 $data = $product->data();
-// Un prodotto abbonamento: prezzi ricorrenti con «Aggiungi» al posto del carrello.
+// Un prodotto abbonamento: i prezzi ricorrenti sono le opzioni d'acquisto.
 $subscription = $data['subscription'] ?? null;
 $sheet = $data['attributes'];
 $SEO->schemaOrg = $product->schemaOrg();
@@ -235,7 +236,7 @@ Ecommerce::layout('shop');
         <?php endif; ?>
 
         <?php if ($subscription !== null): ?>
-            <!-- Abbonamento: i limiti e un «Aggiungi» per ogni prezzo ricorrente -->
+            <!-- Abbonamento: i limiti, i prezzi ricorrenti come opzioni e un solo «Aggiungi al carrello» -->
             <?php if ($subscription['features'] !== []): ?>
                 <ul class="text-small d-flex d-column gap-1 mt-2">
                     <?php foreach ($subscription['features'] as $feature): ?>
@@ -243,25 +244,18 @@ Ecommerce::layout('shop');
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
-            <div class="mt-4" data-subscription-product>
-                <?=View::component(Ecommerce::viewPath('components/subscriptions/prices.php'), [
+            <div data-subscription-product>
+                <?=View::component(Ecommerce::viewPath('components/subscriptions/options.php'), [
                     'plan' => $subscription,
                     'currency' => $data['currency'],
                     'include_tax' => (bool) $data['prices_include_tax'],
-                    'list_name' => '',
-                    'index' => 0,
                     'direct' => SubscriptionsController::addsDirectly((int) $data['id']),
+                    'authenticated' => CartSession::authenticated(),
+                    // Login e registrazione tornano alla scheda.
+                    'login_url' => __r('ecommerce.auth.login').'?continue='.rawurlencode((string) $data['url']),
+                    'signup_url' => __r('ecommerce.auth.signup.request').'?continue='.rawurlencode((string) $data['url']),
                 ])?>
             </div>
-            <script>
-                document.querySelector('[data-subscription-product]').addEventListener('click', function (event) {
-                    var link = event.target.closest('[data-select-item]');
-                    if (!link) { return; }
-                    window.dataLayer = window.dataLayer || [];
-                    window.dataLayer.push({ ecommerce: null });
-                    window.dataLayer.push(JSON.parse(link.getAttribute('data-select-item')));
-                });
-            </script>
         <?php else: ?>
         <!-- Acquisto: opzioni e «Aggiungi al carrello» -->
         <div class="<?=$bundleGroups !== [] || $sheet['files'] !== [] ? 'mt-2' : 'mt-6'?>">

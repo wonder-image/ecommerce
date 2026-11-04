@@ -393,16 +393,31 @@ check('un prodotto abbonamento: un Offer per prezzo ricorrente con lo sku ppr_, 
         && $ids === ['ppr_mese123', 'ppr_anno123'] && $evento['ecommerce']['value'] === 19.9;
 });
 
-check('la scheda di un abbonamento: prezzi ricorrenti con «Aggiungi» al posto di quantità e carrello', function () {
-    $view = (string) file_get_contents(dirname(__DIR__).'/view/pages/frontend/product.php');
-    $prezzi = (string) file_get_contents(dirname(__DIR__).'/view/components/subscriptions/prices.php');
+check('la scheda di un abbonamento: i prezzi sono opzioni con un solo «Aggiungi al carrello», registrazione e alert per chi non è entrato', function () {
+    $root = dirname(__DIR__);
+    $view = (string) file_get_contents($root.'/view/pages/frontend/product.php');
+    $opzioni = (string) file_get_contents($root.'/view/components/subscriptions/options.php');
+    $controller = (string) file_get_contents($root.'/src/Frontend/Subscriptions/SubscriptionsController.php');
+    $testi = true;
+    foreach (['it', 'en'] as $lingua) {
+        $json = json_decode((string) file_get_contents($root.'/lang/'.$lingua.'/ecommerce.json'), true);
+        foreach (['options', 'signup_required', 'signup_link', 'signup_or', 'login_link', 'login_alert_title', 'login_alert'] as $chiave) {
+            $testi = $testi && is_string($json['subscriptions'][$chiave] ?? null);
+        }
+    }
 
     return str_contains($view, "if (\$subscription !== null)")
-        && str_contains($view, "components/subscriptions/prices.php")
-        && str_contains($view, 'data-subscription-product')
-        && str_contains($view, 'SubscriptionsController::addsDirectly(')
-        && str_contains($prezzi, 'SubscriptionsController::addUrl(')
-        && str_contains($prezzi, 'data-select-item=')
+        && str_contains($view, 'components/subscriptions/options.php')
+        && !str_contains($view, 'components/subscriptions/prices.php')
+        && str_contains($view, 'CartSession::authenticated()')
+        && str_contains($view, "__r('ecommerce.auth.signup.request')")
+        && substr_count($opzioni, 'type="submit"') === 1
+        && str_contains($opzioni, 'type="radio" name="price"')
+        && str_contains($opzioni, 'id="add_to_cart_subscription"')
+        && str_contains($opzioni, 'data-subscription-login-alert')
+        && str_contains($opzioni, 'alertContainer')
+        && str_contains($controller, 'self::chosenPrice(')
+        && $testi
         && substr_count($view, '<h1') === 1;
 });
 

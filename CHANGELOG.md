@@ -12,9 +12,11 @@ versionamento semantico.
   legami sono `product_model_id`; nel codice del modulo non resta `plan_id`
   né `Plan::` (`SubscriptionModels` del gestionale al loro posto).
   - Ha foto, tag, categorie, ricerca e scheda `/prodotto/{slug}/` come gli altri.
-    Sulla scheda, al posto di quantità e «Aggiungi al carrello», i prezzi
-    ricorrenti con «Aggiungi» (componente `components/subscriptions/prices.php`,
-    lo stesso della pagina `/abbonamenti/`).
+    La scheda è allineata a quella dei prodotti: i prezzi ricorrenti sono
+    opzioni (radio) con un solo «Aggiungi al carrello» (componente
+    `components/subscriptions/options.php`, form `add_to_cart_subscription`).
+    Chi non ha fatto l'accesso legge che serve un account, col link alla
+    registrazione, e al clic vede un alert; il server rimanda comunque al login.
   - JSON-LD della scheda: `Product` con un `Offer` per prezzo e
     `UnitPriceSpecification`; `view_product` con un item per prezzo.
   - `/abbonamenti/` elenca i prodotti abbonamento, con foto e link alla scheda.
