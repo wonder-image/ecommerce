@@ -72,7 +72,9 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
 - **CheckoutController::index**: con abbonamenti nel carrello login
   obbligatorio (niente ospite, niente express checkout); senza prodotti la
   sezione Consegna sparisce (restano nome e telefono dentro Fatturazione);
-  metodi di pagamento: solo quelli online di Stripe.
+  metodi di pagamento: solo la carta di Stripe (con Link), filtrata da
+  `CheckoutSubscriptions::paymentOptions()`. Klarna, PayPal, Satispay, i
+  wallet e i metodi manuali spariscono perché non fanno addebiti ricorrenti.
 - **Riepilogo laterale** (`components/checkout/aside.php`, `lines.php`,
   `totals.php`): righe abbonamento con «ogni mese», prova, vincolo e una
   tantum; totale «Paghi oggi» = ordine + primo addebito; sotto, «Poi

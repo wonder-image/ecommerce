@@ -100,7 +100,9 @@ versionamento semantico.
   dell'abbonamento. Senza prodotti la consegna sparisce. Il riepilogo mostra
   il primo addebito dei servizi, il totale di oggi e quanto si paga dopo; il
   coupon vale dove è valido. `/abbonamenti/riepilogo/` fa 301 al checkout e la
-  sua vista non c'è più. Richiede `OnlineSubscriptions::startInPage` del
+  sua vista non c'è più. Con un servizio nel carrello restano solo i metodi
+  con la carta: Klarna, PayPal e gli altri che non fanno addebiti ricorrenti
+  spariscono. Richiede `OnlineSubscriptions::startInPage` del
   gestionale.
 - **Una tantum degli abbonamenti (#21).** Con `one_time_price` del gestionale la
   pagina dei piani mostra «+ X € una tantum» accanto al canone e il JSON-LD

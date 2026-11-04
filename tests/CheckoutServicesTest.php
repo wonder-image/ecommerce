@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 require __DIR__.'/harness.php';
 
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptions;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSubscriptionStart;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionTracking;
 
@@ -107,6 +108,18 @@ check('le righe dei servizi nel checkout non hanno il «Togli»', function () us
         .file_get_contents($root.'/src/Frontend/Checkout/CheckoutSubscriptions.php');
 
     return !str_contains($sorgenti, 'data-line-remove') && !str_contains($sorgenti, 'remove_html');
+});
+
+check('con un servizio restano solo le opzioni con la carta: via Klarna, PayPal, wallet e manuali', function (): bool {
+    $opzioni = CheckoutSubscriptions::paymentOptions([
+        ['id' => '1', 'provider' => 'stripe', 'payment_method_types' => ['card']],
+        ['id' => '1:klarna', 'provider' => 'stripe', 'payment_method_types' => ['klarna']],
+        ['id' => '1:paypal', 'provider' => 'stripe', 'payment_method_types' => ['paypal']],
+        ['id' => '1:link', 'provider' => 'stripe', 'payment_method_types' => []],
+        ['id' => '2', 'provider' => 'bank_transfer', 'payment_method_types' => []],
+    ]);
+
+    return array_column($opzioni, 'id') === ['1'] && $opzioni[0]['payment_method_types'] === ['card', 'link'];
 });
 
 summary();

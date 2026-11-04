@@ -277,13 +277,7 @@ final class CheckoutSubscriptions
         }
 
         // L'abbonamento si paga solo con la carta dentro la pagina: niente wallet, niente manuali.
-        $options = [];
-
-        foreach ((array) ($preview['payment_methods']['options'] ?? []) as $option) {
-            if (($option['provider'] ?? '') === 'stripe' && !CheckoutRules::wallet((array) $option)) {
-                $options[] = ['payment_method_types' => self::METHODS] + (array) $option;
-            }
-        }
+        $options = self::paymentOptions((array) ($preview['payment_methods']['options'] ?? []));
 
         $preview['payment_methods']['options'] = $options;
 
@@ -298,6 +292,28 @@ final class CheckoutSubscriptions
         if ($options === [] && $error === '') {
             $preview['subscriptions']['error'] = (string) __t('ecommerce.subscriptions.error');
         }
+    }
+
+    /**
+     * Metodi di pagamento con un servizio nel carrello: solo la carta Stripe dentro la pagina,
+     * perché gli altri (Klarna, PayPal, wallet, manuali) non fanno gli addebiti ricorrenti.
+     *
+     * @param list<array<string, mixed>> $options
+     * @return list<array<string, mixed>>
+     */
+    public static function paymentOptions(array $options): array
+    {
+        $carte = [];
+
+        foreach ($options as $option) {
+            $option = (array) $option;
+            $carta = in_array('card', (array) ($option['payment_method_types'] ?? []), true);
+            if (($option['provider'] ?? '') === 'stripe' && !CheckoutRules::wallet($option) && $carta) {
+                $carte[] = ['payment_method_types' => self::METHODS] + $option;
+            }
+        }
+
+        return $carte;
     }
 
     /**
