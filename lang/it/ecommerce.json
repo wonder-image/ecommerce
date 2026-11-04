@@ -450,6 +450,7 @@
             "year": "{{price}}/Anno",
             "years": "{{price}}/{{count}} Anni"
         },
+        "from": "Da {{price}}",
         "status": {
             "pending": "In attesa",
             "trialing": "In prova",

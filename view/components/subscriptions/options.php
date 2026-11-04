@@ -12,7 +12,7 @@
  *
  * Il radio `price` porta il codice del prezzo: il server lo legge anche
  * senza JS, lo script sposta solo `action` sul prezzo scelto e aggiorna il
- * prezzo in alto.
+ * prezzo col periodo sotto il nome, che stampa la pagina.
  *
  * Chi non ha fatto l'accesso legge che serve un account, col link alla
  * registrazione; se preme «Aggiungi al carrello» vede un alert e il form
@@ -45,24 +45,11 @@ $stepper = (bool) ($stepper ?? false);
 $fields = (array) ($form['fields'] ?? []);
 $missing = (array) ($form['missing_parents'] ?? []);
 $blocked = (bool) ($form['needs_parent'] ?? false) && ($fields['parent'] ?? null) === null;
-$chosen = (string) ($form['price'] ?? '');
-$checked = $prices[0];
-
-foreach ($prices as $price) {
-    if ($chosen !== '' && $price['code'] === $chosen) {
-        $checked = $price;
-    }
-}
+$checked = SubscriptionView::chosen($prices, (string) ($form['price'] ?? ''));
 
 $url = static fn (array $price): string => SubscriptionsController::addUrl((string) $price['code']);
 ?>
 <div class="d-grid col-1 gap-3" data-subscription-options>
-    <p class="subtitle fw-600 mt-2">
-        <span data-subscription-price><?=e(CartPresenter::money((float) $checked['amount'], $currency))?></span>
-        <span class="text-small fw-400" data-subscription-every><?=e(SubscriptionView::billing($checked['unit'], $checked['count']))?></span>
-        <s class="text fw-400 tx-dark ml-2" data-subscription-regular<?=$checked['regular'] !== null ? '' : ' hidden'?>><?=$checked['regular'] !== null ? e(CartPresenter::money((float) $checked['regular'], $currency)) : ''?></s>
-    </p>
-
     <form id="add_to_cart_subscription" method="post" action="<?=e($url($checked))?>" data-subscription-form data-authenticated="<?=$authenticated ? 'true' : 'false'?>">
         <?=Csrf::field()?>
         <?php if (!$stepper): ?><?=FormField::key('quantity')->hidden()->value('1')?><?php endif; ?>
@@ -80,9 +67,8 @@ $url = static fn (array $price): string => SubscriptionsController::addUrl((stri
                     <label class="wi-choice">
                         <input type="radio" name="price" value="<?=e((string) $price['code'])?>" required<?=$price['code'] === $checked['code'] ? ' checked' : ''?>
                                data-action="<?=e($url($price))?>"
-                               data-amount="<?=e(CartPresenter::money((float) $price['amount'], $currency))?>"
-                               data-every="<?=e(SubscriptionView::billing($price['unit'], $price['count']))?>"
-                               data-regular="<?=$price['regular'] !== null ? e(CartPresenter::money((float) $price['regular'], $currency)) : ''?>">
+                               data-per="<?=e((string) SubscriptionView::pricePer($price, $currency))?>"
+                               data-regular="<?=e((string) SubscriptionView::pricePer($price, $currency, 'product', true))?>">
                         <span class="wi-choice__body">
                             <span class="wi-choice__title"><?=e((string) $price['name'])?></span>
                             <span class="wi-choice__text"><?=e(implode(' · ', array_filter($details, 'strlen')))?></span>
@@ -136,14 +122,16 @@ $url = static fn (array $price): string => SubscriptionsController::addUrl((stri
 (function () {
     var form = document.getElementById('add_to_cart_subscription');
     if (!form) { return; }
-    var box = form.closest('[data-subscription-options]');
+    // Il prezzo sotto il nome sta nella pagina, fuori dal componente.
+    var price = document.querySelector('[data-subscription-price]');
+    var regular = document.querySelector('[data-subscription-regular]');
     var show = function (radio) {
         form.action = radio.dataset.action;
-        box.querySelector('[data-subscription-price]').textContent = radio.dataset.amount;
-        box.querySelector('[data-subscription-every]').textContent = radio.dataset.every;
-        var regular = box.querySelector('[data-subscription-regular]');
-        regular.textContent = radio.dataset.regular;
-        regular.hidden = radio.dataset.regular === '';
+        if (price) { price.textContent = radio.dataset.per; }
+        if (regular) {
+            regular.textContent = radio.dataset.regular;
+            regular.hidden = radio.dataset.regular === '';
+        }
     };
     var checked = form.querySelector('input[name="price"]:checked');
     if (checked) { show(checked); }
