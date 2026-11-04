@@ -122,4 +122,19 @@ check('con un servizio restano solo le opzioni con la carta: via Klarna, PayPal,
     return array_column($opzioni, 'id') === ['1'] && $opzioni[0]['payment_method_types'] === ['card', 'link'];
 });
 
+check('riga del servizio: senza «cad.» e senza badge se è uno solo, il «poi» sotto il totale', function () use ($root): bool {
+    $riga = ['unit_price' => 9.9, 'quantity' => 1, 'customization' => [], 'parent' => '',
+        'price' => ['unit' => 'month', 'count' => 1, 'trial_days' => 0, 'commitment_months' => 0]];
+    $una = CheckoutSubscriptions::parts($riga, 0, 'EUR');
+    $due = CheckoutSubscriptions::parts(['quantity' => 2] + $riga, 0, 'EUR');
+    $prezzo = $riga['price'];
+
+    return !str_contains($una[0], 'summary.unit') && str_contains($una[0], '9,90')
+        && str_contains($due[0], 'summary.unit')
+        && CheckoutSubscriptions::then(9.9, $prezzo, 0, 'EUR') === 'ecommerce.subscriptions.summary.then'
+        && CheckoutSubscriptions::then(9.9, $prezzo, 14, 'EUR') === 'ecommerce.subscriptions.summary.then_trial'
+        && CheckoutSubscriptions::then(9.9, null, 0, 'EUR') === ''
+        && str_contains(file_get_contents($root.'/src/Frontend/Checkout/CheckoutSubscriptions.php'), "\$entry['plan']['name'] : \$item['price_code']");
+});
+
 summary();

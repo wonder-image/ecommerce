@@ -76,13 +76,14 @@ final class CheckoutSubscriptions
 
             $rows[] = [
                 'index' => $index,
-                'name' => $entry !== null ? (string) $entry['price']['full_name'] : $item['price_code'],
+                // Il nome del piano: il periodo lo dice già il prezzo sotto («9,90 €/Mese»).
+                'name' => $entry !== null ? (string) $entry['plan']['name'] : $item['price_code'],
                 'price' => $entry['price'] ?? null,
                 'quantity' => $item['quantity'],
                 'customization' => is_array($line) ? Customizations::lines($line) : [],
                 'unit_price' => $unit,
                 'line_total' => $unit !== null ? round($unit * $item['quantity'], 2) : null,
-                'parent' => $parentEntry !== null ? (string) $parentEntry['price']['full_name'] : '',
+                'parent' => $parentEntry !== null ? (string) $parentEntry['plan']['name'] : '',
                 'children' => count(array_filter($items, static fn (array $other): bool => $other['parent'] === $index)),
                 'tracking' => $entry !== null && $unit !== null
                     ? SubscriptionTracking::item($entry['price'], (string) $entry['plan']['name'], $unit, $item['quantity'], $index)
@@ -241,7 +242,8 @@ final class CheckoutSubscriptions
                 'index' => $row['index'],
                 'name' => $row['name'],
                 'quantity' => $row['quantity'],
-                'quantity_display' => CartPresenter::quantity($row['quantity']),
+                // Un servizio si compra una volta sola: il badge resta solo per le quantità vere.
+                'quantity_display' => $row['quantity'] > 1 ? CartPresenter::quantity($row['quantity']) : '',
                 'line_total' => $total,
                 'line_total_display' => $row['line_total'] !== null ? CartPresenter::money($total, $currency) : '',
                 'parts' => self::parts($row, (float) ($oneTime[$row['index']] ?? 0), $currency),
@@ -265,8 +267,8 @@ final class CheckoutSubscriptions
         ];
         $preview['display']['subscriptions_first_charge'] = CartPresenter::money($first, $currency);
         $preview['display']['today_total'] = CartPresenter::money($today, $currency);
-        $preview['display']['subscriptions_then'] = $charge !== null && $charge['after_trial'] !== null
-            ? (string) __t('ecommerce.subscriptions.summary.after_trial', ['price' => CartPresenter::money($charge['after_trial'], $currency)])
+        $preview['display']['subscriptions_then'] = $result !== null
+            ? self::then((float) ($amounts['total'] ?? 0), self::catalog()[$items[0]['price_code']]['price'] ?? null, $trial, $currency)
             : '';
         $preview['display']['discount_saved'] = CartPresenter::money(abs((float) ($preview['order']['discount_total'] ?? 0)) + $discount, $currency);
 
@@ -329,8 +331,10 @@ final class CheckoutSubscriptions
         $parts = [];
 
         if ($row['unit_price'] !== null && $price !== null) {
-            $parts[] = __t('ecommerce.subscriptions.summary.unit', ['price' => CartPresenter::money($row['unit_price'], $currency)])
-                .' '.SubscriptionView::every($price['unit'], $price['count']);
+            $money = CartPresenter::money($row['unit_price'], $currency);
+            $parts[] = $row['quantity'] > 1
+                ? __t('ecommerce.subscriptions.summary.unit', ['price' => $money]).' '.SubscriptionView::every($price['unit'], $price['count'])
+                : SubscriptionView::per($money, $price['unit'], $price['count']);
         }
 
         if ($oneTime > 0) {
@@ -354,6 +358,25 @@ final class CheckoutSubscriptions
         }
 
         return array_values(array_map('strval', $parts));
+    }
+
+    /**
+     * La riga sotto il totale, come quella di Stripe Checkout: «Poi 9,90 €/Mese»,
+     * con la prova «Poi 9,90 €/Mese dal 18/11/2026». Vuota senza prezzo.
+     *
+     * @param array<string, mixed>|null $price il prezzo del primo servizio, per il periodo
+     */
+    public static function then(float $recurring, ?array $price, int $trial, string $currency): string
+    {
+        if ($price === null || $recurring <= 0) {
+            return '';
+        }
+
+        $per = SubscriptionView::per(CartPresenter::money($recurring, $currency), (string) $price['unit'], (int) $price['count']);
+
+        return $trial > 0
+            ? (string) __t('ecommerce.subscriptions.summary.then_trial', ['price' => $per, 'date' => date('d/m/Y', strtotime('+'.$trial.' days'))])
+            : (string) __t('ecommerce.subscriptions.summary.then', ['price' => $per]);
     }
 
     /**

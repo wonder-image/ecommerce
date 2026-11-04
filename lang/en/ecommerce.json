@@ -370,6 +370,12 @@
             "year": "per year",
             "years": "every {{count}} years"
         },
+        "per": {
+            "month": "{{price}}/month",
+            "months": "{{price}}/{{count}} months",
+            "year": "{{price}}/year",
+            "years": "{{price}}/{{count}} years"
+        },
         "status": {
             "pending": "Pending",
             "trialing": "Trial",
@@ -415,6 +421,8 @@
             "tax_included": "of which VAT",
             "total": "Total",
             "after_trial": "At the end of the trial you pay {{price}} for the subscription.",
+            "then": "Then {{price}}",
+            "then_trial": "Then {{price}} starting {{date}}",
             "coupon": "Discount code (optional)",
             "apply": "Apply",
             "stripe": "Payment happens on Stripe's secure page; then you come back here.",

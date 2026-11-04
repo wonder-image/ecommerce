@@ -428,6 +428,12 @@
             "year": "all'anno",
             "years": "ogni {{count}} anni"
         },
+        "per": {
+            "month": "{{price}}/Mese",
+            "months": "{{price}}/{{count}} Mesi",
+            "year": "{{price}}/Anno",
+            "years": "{{price}}/{{count}} Anni"
+        },
         "status": {
             "pending": "In attesa",
             "trialing": "In prova",
@@ -473,6 +479,8 @@
             "tax_included": "di cui IVA",
             "total": "Totale",
             "after_trial": "Alla fine della prova paghi {{price}} di canone.",
+            "then": "Poi {{price}}",
+            "then_trial": "Poi {{price}} dal {{date}}",
             "coupon": "Codice sconto (facoltativo)",
             "apply": "Applica",
             "stripe": "Il pagamento avviene sulla pagina sicura di Stripe; poi torni qui.",

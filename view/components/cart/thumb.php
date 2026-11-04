@@ -11,7 +11,7 @@ use Wonder\Plugin\Gestionale\Models\Catalog\Product;
  *
  * $image    il file della foto ('' = riquadro vuoto, 'data:,' = segnaposto del template JS)
  * $url      se c'è, la foto porta alla scheda (fuori dal tab: il link vero è il nome)
- * $quantity se c'è, il badge della quantità nell'angolo
+ * $quantity se c'è, il badge della quantità nell'angolo (vuoto = nascosto, per il template JS)
  */
 
 $size = 72;
@@ -28,5 +28,5 @@ $attributes = $url !== '' ? ' href="'.e($url).'" tabindex="-1" aria-hidden="true
     <?php elseif ($image !== ''): ?>
         <?=ImageFormat::fit(Product::image($image, Product::IMAGE_THUMB)->displaySizes($size.'px'), 'catalog.card.image_fit')?>
     <?php endif; ?>
-    <?php if (isset($quantity)): ?><span class="badge badge-dark" data-line-quantity><?=e((string) $quantity)?></span><?php endif; ?>
+    <?php if (isset($quantity)): ?><span class="badge badge-dark" data-line-quantity<?=(string) $quantity === '' ? ' hidden' : ''?>><?=e((string) $quantity)?></span><?php endif; ?>
 </<?=$tag?>>

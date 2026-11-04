@@ -261,7 +261,12 @@ class Checkout {
             image?.remove();
         }
 
-        this.text(node, '[data-line-quantity]', item.quantity_display);
+        const badge = this.text(node, '[data-line-quantity]', item.quantity_display);
+
+        // Un servizio senza quantità non ha il badge.
+        if (badge) {
+            badge.hidden = !item.quantity_display;
+        }
         this.text(node, '[data-line-name]', item.name);
         this.text(node, '[data-line-total]', item.line_total_display);
 
