@@ -378,7 +378,18 @@ final class CheckoutRules
         return array_values(array_filter(
             self::CONSENTS,
             static fn (string $type): bool => !in_array(ConsentDictionary::consentTypeFromDocumentType($type), $accepted, true)
-                && sqlSelect('legal_documents', ['doc_type' => $type, 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC')->exists
+                && self::documentId($type) > 0
         ));
+    }
+
+    /**
+     * L'id del testo attivo del documento nella lingua della pagina, 0 se
+     * non c'è: lo stesso che il modulo della pagina posta in `<tipo>_id`.
+     */
+    public static function documentId(string $type): int
+    {
+        $document = sqlSelect('legal_documents', ['doc_type' => $type, 'language_code' => __l(), 'active' => 'true'], 1, 'published_at DESC, id', 'DESC');
+
+        return $document->exists ? (int) $document->id : 0;
     }
 }

@@ -92,8 +92,10 @@ final class ExpressAddress
         $post = array_merge($post, $billing === null ? ['same_as_shipping' => '1'] : ['same_as_shipping' => '0'] + $billing);
 
         // Il foglio del wallet non mostra caselle: chi paga accetta le condizioni scritte sopra il bottone.
+        // Con l'id del testo accettato, come il campo nascosto della pagina: senza, il consenso non si registra.
         foreach ($asked as $document) {
             $post['accept_'.$document] = '1';
+            $post[$document.'_id'] = (string) CheckoutRules::documentId($document);
         }
 
         return $post;
