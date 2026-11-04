@@ -7,6 +7,10 @@ versionamento semantico.
 
 ### Corretto
 
+- Checkout, righe dei servizi: nome del piano senza il periodo («Pro», non
+  «Pro — Mensile»), sotto «24,90 €/Mese» senza «cad.» né badge della quantità
+  quando è uno solo; sotto il totale, come Stripe Checkout, «Poi 24,90 €/Mese»
+  (con la prova, «… dal» giorno del primo addebito).
 - Checkout: la foto delle righe tiene sempre il formato del config
   (`catalog.card.image_format`), anche quando nome e scelte allungano la riga.
 - **Più coupon nel carrello e nel checkout.** Il riquadro del coupon nascondeva

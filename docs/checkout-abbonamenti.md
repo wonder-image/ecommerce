@@ -76,9 +76,14 @@ Senza abbonamenti nel carrello il checkout resta esattamente com'è (PaymentInte
   `CheckoutSubscriptions::paymentOptions()`. Klarna, PayPal, Satispay, i
   wallet e i metodi manuali spariscono perché non fanno addebiti ricorrenti.
 - **Riepilogo laterale** (`components/checkout/aside.php`, `lines.php`,
-  `totals.php`): righe abbonamento con «ogni mese», prova, vincolo e una
-  tantum; totale «Paghi oggi» = ordine + primo addebito; sotto, «Poi
-  X ogni mese».
+  `totals.php`): la riga abbonamento ha il nome del piano (senza il
+  periodo) e sotto il prezzo col periodo, «9,90 €/Mese»
+  (`SubscriptionView::per()`), poi prova, vincolo e una tantum. Badge della
+  quantità e «cad.» solo con quantità maggiore di 1. Totale «Totale di oggi»
+  = ordine + primo addebito; sotto, come Stripe Checkout, «Poi 9,90 €/Mese»
+  o con la prova «Poi 9,90 €/Mese dal 18/11/2026»
+  (`CheckoutSubscriptions::then()`, chiavi `subscriptions.per.*`,
+  `subscriptions.summary.then` e `then_trial`).
 - **Coupon**: un solo campo. Il codice si prova sull'ordine e
   sull'abbonamento; vale dove è valido, l'errore esce solo se non vale da
   nessuna parte.
