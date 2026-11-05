@@ -48,7 +48,7 @@ final class ProductListing
     }
 
     /**
-     * @param array<string, mixed>|null $priceList il listino del cliente (CustomerPriceList::current());
+     * @param array<string, mixed>|null $priceList i listini del cliente e del canale online (CustomerPriceList::current());
      *        null per le pagine condivise come il feed, che restano sul prezzo di catalogo
      */
     public static function cards(CatalogFilter $filter, string $limit, ?array $priceList = null): array
@@ -255,9 +255,9 @@ final class ProductListing
         if ($variants === [] || $products === []) return null;
 
         $taxCategoryId = (int) ($model['tax_category_id'] ?? 0);
-        // Col listino del cliente vale il suo prezzo da 1 pezzo, come nel carrello.
+        // Col listino (del cliente o del canale) vale il suo prezzo da 1 pezzo, come nel carrello.
         $prices = array_map(static function (array $product) use ($priceList, $taxCategoryId): float {
-            $listed = CustomerPriceList::price($priceList, (int) ($product['id'] ?? 0), $taxCategoryId);
+            $listed = CustomerPriceList::price($priceList, (int) ($product['id'] ?? 0), $taxCategoryId, 1.0, (float) ($product['price'] ?? 0));
 
             return $listed > 0 ? $listed : self::effectivePrice($product);
         }, $products);
