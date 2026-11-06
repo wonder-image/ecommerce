@@ -7,6 +7,12 @@ versionamento semantico.
 
 ### Cambiato
 
+- **Listino del canale Sito e regola in percentuale (wonder-image/gestionale#162).**
+  `CustomerPriceList` risolve i prezzi con `PriceLists::resolve()`: prima il
+  listino del cliente, poi quello assegnato al canale `online` (vale anche per
+  gli ospiti), poi il prezzo di catalogo. I listini con regola «Ricarico» o
+  «Sconto» in percentuale prezzano anche i prodotti senza riga. Richiede il
+  gestionale con i listini per canale: va unito dopo quella PR.
 - **Niente più funzionalità «Abbonamenti online».** Pagine dei piani,
   abbonamenti nel checkout e voce dell'area cliente si accendono con
   *Abbonamenti* e *Vendita online* del gestionale

@@ -112,18 +112,24 @@ final class CheckoutSnapshot
 
         ksort($products);
 
-        // Listino del contatto adesso: cambiato dal backend, l'anteprima si rifà.
-        $priceList = PriceLists::load(PriceLists::forContact((int) ($order['customer_id'] ?? 0)), $now, (string) ($order['currency'] ?? 'EUR'));
+        // Listini del contatto e del canale adesso: cambiati dal backend, l'anteprima si rifà.
+        $priceLists = PriceLists::loadAll(
+            PriceLists::candidates(PriceLists::forContact((int) ($order['customer_id'] ?? 0)), $channel),
+            $now,
+            (string) ($order['currency'] ?? 'EUR')
+        );
 
         $json = json_encode(self::sorted([
             'order' => array_diff_key($order, array_flip(self::VOLATILE)),
             'items' => $lines,
             'products' => $products,
-            'price_list' => $priceList === null ? null : [
-                'id' => (int) $priceList['id'],
-                'prices_include_tax' => (bool) $priceList['prices_include_tax'],
-                'items' => array_intersect_key((array) $priceList['items'], $products),
-            ],
+            'price_lists' => array_map(static fn (array $list): array => [
+                'id' => (int) $list['id'],
+                'prices_include_tax' => (bool) $list['prices_include_tax'],
+                'rule' => (string) ($list['rule'] ?? 'none'),
+                'percent' => (float) ($list['percent'] ?? 0),
+                'items' => array_intersect_key((array) $list['items'], $products),
+            ], $priceLists),
             'post' => $post,
             'lang' => function_exists('__l') ? (string) \__l() : '',
         ]), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
