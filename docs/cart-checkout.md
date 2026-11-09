@@ -236,6 +236,35 @@ frena chi prova molte email diverse: il freno vero all'enumerazione è
 `checkout.guest_order_limit` per IP, insieme a reCAPTCHA. Non spegnere quel
 limite (`0`) senza reCAPTCHA attivo.
 
+## Acquista come (aziende)
+
+Con la funzionalità `company_accounts` del gestionale (richiede `online_sales`)
+e i legami persona–azienda di customer-account, chi è entrato e ha accesso
+`buyer` o `admin` a una o più aziende vede nei Contatti la scelta **Acquista
+come**: per sé o per una delle aziende (`CheckoutCompany::options()`, solo
+aziende attive e non cancellate). Il campo è `company_id`; il blocco della
+fatturazione personale si nasconde con `data-checkout-toggle="company_id:off"`.
+
+Con un'azienda `CheckoutRules::post()` passa il POST a
+`CheckoutCompany::apply()`, che:
+
+- accetta solo un'azienda fra quelle offerte, altrimenti vale «per sé»;
+- sovrascrive la fatturazione con quella dell'azienda, anche i campi vuoti,
+  tranne il cellulare (`billing()`); nome e cognome sono del referente;
+- mette `invoice=1`, `billing_type=business`, `same_as_shipping=0`,
+  `company_id` e `referent_name`.
+
+Se all'azienda manca un dato di fatturazione obbligatorio `paymentErrors()`
+risponde `company_billing`: il messaggio rimanda alla scheda «La mia azienda».
+Con un'azienda `AccountAddress::rememberBilling()` non scrive nulla sulla
+scheda della persona. Il listino è quello dell'azienda
+(`CustomerPriceList` legge `CartSession::companyId()`) e si preseleziona il suo
+metodo di pagamento; online non si scrive `payment_term_id`.
+
+Restano «per sé»: il checkout Express (`company_id` sempre 0) e i carrelli con
+abbonamenti, che nascono per la persona. Senza la funzionalità il checkout è
+quello di prima e il POST senza la chiave `company_id` non cambia.
+
 ## CSRF
 
 Moduli e richieste del negozio usano `Wonder\Http\Csrf` del core.

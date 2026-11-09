@@ -25,7 +25,7 @@ final class CheckoutPlacement
     private const ORDER_LIMIT = 5;
     private const ORDER_WINDOW = 900;
 
-    private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note'];
+    private const CART_KEYS = ['email', 'phone', 'fulfillment_type', 'shipping_method_id', 'location_id', 'payment_method_id', 'customer_note', 'company_id', 'referent_name'];
 
     /**
      * @param array<string, mixed> $post Già passato da CheckoutRules::post.

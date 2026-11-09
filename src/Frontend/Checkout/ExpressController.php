@@ -160,7 +160,8 @@ final class ExpressController
         $asked = CheckoutRules::askedConsents((int) ($user->id ?? 0));
 
         try {
-            $post = CheckoutRules::post(ExpressAddress::post(is_array($wallet) ? $wallet : [], $contact, $method['id'], $type, $asked), $user);
+            // La barra rapida compra sempre per sé: niente «Acquista come».
+            $post = CheckoutRules::post(['company_id' => 0] + ExpressAddress::post(is_array($wallet) ? $wallet : [], $contact, $method['id'], $type, $asked), $user);
             $placed = CheckoutPlacement::place($cartId, $post, $user, ['json' => true, 'expected_total' => $_POST['expected_total'] ?? null, 'express' => true]);
         } catch (CheckoutRejected $error) {
             if ($error->totalChanged()) {

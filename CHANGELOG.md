@@ -164,6 +164,21 @@ versionamento semantico.
 
 ### Aggiunto
 
+- **Comprare per un'azienda (wonder-image/gestionale#77).** Con la
+  funzionalità `company_accounts` il checkout ha «Acquista come»: chi ha
+  accesso «Ordina» o «Gestisce l'azienda» compra per l'azienda, con la sua
+  fatturazione (sempre fattura da società), il suo listino e il suo metodo di
+  pagamento proposto; l'ordine porta `company_id` e `referent_name`. Nuovo
+  `CheckoutCompany`; errore `company_billing` se all'azienda manca la
+  fatturazione; `rememberBilling` non tocca la persona quando compra per
+  un'azienda. Express e abbonamenti restano per sé. Nell'area cliente chi
+  gestisce un'azienda vede ordini (con «Azienda» e «Ordinato da») e
+  abbonamenti (in sola lettura, «Intestato a») fatti per l'azienda, e ha la
+  scheda «La mia azienda» (`account.company`) con la fatturazione modificabile
+  e le persone in sola lettura. Richiede customer-account con `companies` e i
+  legami con `access`, e il gestionale con `company_accounts`: va unito dopo
+  wonder-image/customer-account#9 e wonder-image/gestionale#171.
+
 - **Abbonamenti nel checkout dei prodotti.** I servizi scelti finiscono nel
   checkout, accanto ai prodotti, e si pagano con un solo pagamento e la carta
   dentro la pagina (Payment Element): l'ordine entra nella prima fattura

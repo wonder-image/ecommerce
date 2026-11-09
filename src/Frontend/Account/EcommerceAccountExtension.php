@@ -8,6 +8,7 @@ use Wonder\Http\Route;
 use Wonder\Plugin\CustomerAccount\Account\CustomerContact;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutCompany;
 use Wonder\Plugin\Ecommerce\Frontend\StoreFont;
 use Wonder\Plugin\Ecommerce\Frontend\StoreStyle;
 use Wonder\Plugin\Gestionale\Gestionale;
@@ -39,6 +40,9 @@ final class EcommerceAccountExtension extends BaseAccountExtension
             Route::post('/abbonamenti/{code}/righe/{item}/cambia/', $handler, ['account_action' => 'subscriptions.item.change'])->name('subscriptions.item.change')->where('item', '[0-9]+');
             Route::post('/abbonamenti/{code}/disdici/', $handler, ['account_action' => 'subscriptions.cancel'])->name('subscriptions.cancel');
             Route::post('/abbonamenti/{code}/carta/', $handler, ['account_action' => 'subscriptions.card'])->name('subscriptions.card');
+            // «La mia azienda» (`company_accounts`): solo per chi ne è amministratore, altrimenti 404.
+            Route::get('/azienda/', $handler, ['account_action' => 'company'])->name('company');
+            Route::post('/azienda/', $handler, ['account_action' => 'company']);
         });
     }
 
@@ -48,6 +52,10 @@ final class EcommerceAccountExtension extends BaseAccountExtension
         $own = ['orders' => ['label' => (string) __t('ecommerce.account.orders.title'), 'href' => Route::url('account.orders'), 'icon' => 'bi bi-bag']];
         if (OnlineSubscriptions::enabled()) {
             $own['subscriptions'] = ['label' => (string) __t('ecommerce.account.subscriptions.title'), 'href' => Route::url('account.subscriptions'), 'icon' => 'bi bi-arrow-repeat'];
+        }
+        $contactId = (int) (CustomerContact::forUser((int) ($user->id ?? 0))['id'] ?? 0);
+        if (CheckoutCompany::adminIds($contactId) !== []) {
+            $own['company'] = ['label' => (string) __t('ecommerce.account.company.title'), 'href' => Route::url('account.company'), 'icon' => 'bi bi-building'];
         }
         if (Gestionale::feature('coupons')) {
             $own['coupons'] = ['label' => (string) __t('ecommerce.account.coupons.title'), 'href' => Route::url('account.coupons'), 'icon' => 'bi bi-ticket-perforated'];
@@ -76,7 +84,7 @@ final class EcommerceAccountExtension extends BaseAccountExtension
         OrderClaim::run();
         $contactId = (int) (CustomerContact::forUser((int) ($user->id ?? 0))['id'] ?? 0);
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
-        $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(AccountOrder::condition($contactId), 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
+        $last = $contactId > 0 ? EcommerceAccountController::rows(Order::find(AccountOrder::condition($contactId, CheckoutCompany::adminIds($contactId)), 1, 'ordered_at DESC, id', 'DESC'))[0] ?? null : null;
         $label = (string) __t('ecommerce.account.orders.last');
 
         $rows[] = $last !== null

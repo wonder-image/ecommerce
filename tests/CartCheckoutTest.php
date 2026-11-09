@@ -426,7 +426,7 @@ check('place passa dalle regole: POST pulito, errori insieme, solo i metodi offe
     $place = substr($c, (int) strpos($c, 'private static function place('))
         .(string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutPlacement.php');
 
-    return str_contains($place, 'CheckoutRules::post($_POST, CartSession::user())')
+    return str_contains($place, 'CheckoutRules::post(self::formPost(), CartSession::user())')
         && str_contains($place, 'CheckoutRules::deliveryErrors(')
         && str_contains($place, 'CheckoutRules::paymentErrors(')
         && str_contains($place, 'CheckoutRules::method(')
@@ -437,7 +437,7 @@ check('place passa dalle regole: POST pulito, errori insieme, solo i metodi offe
 check('il riepilogo usa lo stesso POST della pagina', function (): bool {
     $c = (string) file_get_contents(dirname(__DIR__).'/src/Frontend/Checkout/CheckoutController.php');
 
-    return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user())');
+    return str_contains($c, 'CheckoutSummary::payload($cartId, CheckoutRules::post(self::formPost(), CartSession::user()), CartSession::user())');
 });
 
 check('la pagina unica ha le sezioni nell\'ordine giusto e il bottone nel form', function (): bool {

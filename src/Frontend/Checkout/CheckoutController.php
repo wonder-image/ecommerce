@@ -136,6 +136,8 @@ final class CheckoutController
             ), $values),
             'invoice_fields' => self::fields(CheckoutFields::pick($billing, CheckoutFields::INVOICE), $values),
             'consents' => CheckoutRules::askedConsents((int) ($user->id ?? 0)),
+            // «Acquista come»: con i servizi si compra per sé.
+            'companies' => $services ? [] : CheckoutCompany::options(CheckoutCompany::contactId()),
             // La barra rapida paga solo l'ordine: con i servizi resta spenta.
             'express' => $services ? [] : ExpressCheckout::buttons((array) ($cart['order'] ?? [])),
             'products' => $products,
@@ -168,18 +170,30 @@ final class CheckoutController
     private static function pageValues(array $cart, array $formState): array
     {
         if ($formState !== []) {
-            return self::defaults($formState);
+            return self::defaults($formState) + ['company_id' => '0'];
         }
 
         $order = (array) ($cart['order'] ?? []);
         $fromCart = array_filter(CheckoutPlacement::fromCart($order), static fn (string $v): bool => $v !== '' && $v !== '0');
+        $company = CheckoutCompany::find(CheckoutCompany::contactId(), CheckoutCompany::ofOrder($order));
+        if ($company === null) {
+            unset($fromCart['company_id'], $fromCart['referent_name']);
+        } else {
+            // La fatturazione del carrello è dell'azienda: «Per me» riparte da quella della persona.
+            $fromCart = array_filter($fromCart, static fn (string $key): bool => !str_starts_with($key, 'billing_') && !in_array($key, ['invoice', 'same_as_shipping'], true), ARRAY_FILTER_USE_KEY);
+            // Il metodo di pagamento dell'azienda, se il carrello non ne ha uno: l'anteprima lo tiene solo se è offerto.
+            $method = (int) ($company['company']['payment_method_id'] ?? 0);
+            if (!isset($fromCart['payment_method_id']) && $method > 0) {
+                $fromCart['payment_method_id'] = (string) $method;
+            }
+        }
 
         // Senza il POST le scelte della fatturazione si rileggono dal carrello: ricaricando restano quelle fatte.
         // Un carrello senza fatturazione le prende da quella salvata nella scheda del cliente.
         $values = $fromCart + self::defaults([]);
-        $source = trim((string) ($order['billing_street'] ?? '')) !== '' ? $order : $values + $order;
+        $source = $company === null && trim((string) ($order['billing_street'] ?? '')) !== '' ? $order : $values + $order;
 
-        return CheckoutRules::choices($source) + $values;
+        return CheckoutRules::choices($source) + $values + ['company_id' => '0'];
     }
 
 
@@ -203,7 +217,7 @@ final class CheckoutController
             self::leave(self::loginUrl(), $json, 401);
         }
 
-        $post = CheckoutRules::post($_POST, CartSession::user());
+        $post = CheckoutRules::post(self::formPost(), CartSession::user());
         $user = CartSession::user();
 
         try {
@@ -300,7 +314,7 @@ final class CheckoutController
         CheckoutSnapshot::forget();
 
         try {
-            self::json(['success' => true] + CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user()));
+            self::json(['success' => true] + CheckoutSummary::payload($cartId, CheckoutRules::post(self::formPost(), CartSession::user()), CartSession::user()));
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.summary');
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
@@ -624,7 +638,7 @@ final class CheckoutController
         }
 
         try {
-            $payload = CheckoutSummary::payload($cartId, CheckoutRules::post($_POST, CartSession::user()), CartSession::user());
+            $payload = CheckoutSummary::payload($cartId, CheckoutRules::post(self::formPost(), CartSession::user()), CartSession::user());
         } catch (Throwable $error) {
             Errors::internal($error, 'ecommerce.checkout.reopen');
             self::json(['success' => false, 'error' => (string) __t('ecommerce.checkout.summary_error')], 500);
@@ -714,6 +728,17 @@ final class CheckoutController
         if ($names !== []) {
             FlashMessage::info(self::removedNotice($names), (string) __t('ecommerce.checkout.notice_title'));
         }
+    }
+
+    /**
+     * Il POST del modulo: senza la scelta «Acquista come» (nessuna azienda
+     * offerta) si compra per sé, così sul carrello non resta un'azienda vecchia.
+     *
+     * @return array<string, mixed>
+     */
+    private static function formPost(): array
+    {
+        return $_POST + ['company_id' => 0];
     }
 
     /** @return array<string, string> */
@@ -862,7 +887,7 @@ final class CheckoutController
         if (!Csrf::verify()) {
             if ($remember) {
                 self::rememberErrors([], Csrf::oldInput(
-                    CheckoutRules::rememberedPost(CheckoutRules::post($_POST, CartSession::user()), $_POST),
+                    CheckoutRules::rememberedPost(CheckoutRules::post(self::formPost(), CartSession::user()), $_POST),
                     self::SECRET_FIELDS
                 ));
             }

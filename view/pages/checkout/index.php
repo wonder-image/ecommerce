@@ -7,6 +7,7 @@ use Wonder\Elements\Components\Choice;
 use Wonder\Elements\Components\ChoiceGroup;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutCompany;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutFields;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutRules;
 use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutSummary;
@@ -49,6 +50,9 @@ $same = (string) ($values['same_as_shipping'] ?? '1') !== '0';
 $invoice = !empty($values['invoice']);
 // Aprendo «Mi serve fattura» parte «Azienda»; con la fattura già chiesta vale la scelta fatta.
 $business = !$invoice || ($values['billing_type'] ?? 'business') === 'business';
+// «Acquista come»: con un'azienda la fatturazione è la sua e il blocco della persona si chiude.
+$companies = (array) ($companies ?? []);
+$companyId = CheckoutCompany::resolve(0, $values['company_id'] ?? 0, $companies);
 $shippingNotice = $shippingOptions !== [] ? '' : ($addressComplete ? 'no_shipping' : 'shipping_methods_pending');
 
 $order = ($summary['order'] ?? null) !== null ? $summary['order'] + ['fulfillment_type' => $fulfillment] : $order;
@@ -208,6 +212,20 @@ View::head(DataLayer::script([
 
         <div id="fatturazione" class="w-100">
             <h2 class="subtitle mb-3"><?=e(__t('ecommerce.checkout.billing'))?></h2>
+            <?php if ($companies !== []): ?>
+                <div class="w-100 mb-4">
+                    <p class="text mb-2"><?=e(__t('ecommerce.checkout.company.buy_as'))?></p>
+                    <?=ChoiceGroup::make()->variant('list')->choices(
+                        Choice::make('company_id', '0')->type('radio')->icon('person')->title((string) __t('ecommerce.checkout.company.me'))->checked($companyId === 0),
+                        ...array_map(static fn (array $option) => Choice::make('company_id', (string) $option['id'])->type('radio')->icon('shop')
+                            ->title($option['name'])
+                            ->text(CheckoutCompany::summary((array) $option['company']))
+                            ->panel((string) __t('ecommerce.checkout.company.billing_note'))
+                            ->checked($companyId === (int) $option['id']), $companies)
+                    )->addClass('w-100')?>
+                </div>
+            <?php endif; ?>
+            <div class="w-100" data-checkout-toggle="<?=$companies !== [] ? 'company_id:off' : ''?>"<?=$companyId > 0 ? ' hidden' : ''?>>
             <?php if (!$products): ?><?=FormField::key('same_as_shipping')->hidden()->value('0')?><?php endif; ?>
             <?php if ($shipping): ?>
                 <div class="w-100 mb-4" data-checkout-toggle="fulfillment_type:shipping"<?=$pickup ? ' hidden' : ''?>>
@@ -238,6 +256,7 @@ View::head(DataLayer::script([
                         <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
+            </div>
             </div>
         </div>
 

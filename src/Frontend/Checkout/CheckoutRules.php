@@ -137,6 +137,9 @@ final class CheckoutRules
             [$post['payment_method_id'], $post['stripe_method_type']] = self::splitPayment($post['payment_method_id']);
         }
 
+        // «Acquista come»: con un'azienda la fatturazione è la sua.
+        $post = CheckoutCompany::apply($post);
+
         return array_merge($post, self::billing($post, $post));
     }
 
@@ -345,6 +348,11 @@ final class CheckoutRules
                     break;
                 }
             }
+        }
+
+        // La fatturazione dell'azienda non si corregge qui: la completa un suo amministratore.
+        if ((int) ($post['company_id'] ?? 0) > 0 && array_intersect($errors, ['billing', 'invoice']) !== []) {
+            $errors = [...array_values(array_diff($errors, ['billing', 'invoice'])), 'company_billing'];
         }
 
         foreach ($asked as $type) {

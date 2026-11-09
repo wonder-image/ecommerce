@@ -15,7 +15,13 @@ final class CheckoutForm
     {
         $consegna = self::text($post['fulfillment_type'] ?? '');
 
-        return [
+        // «Acquista come»: senza la chiave il gestionale lascia l'azienda che c'era.
+        $buyer = array_key_exists('company_id', $post) ? [
+            'company_id' => self::id($post['company_id']),
+            'referent_name' => self::id($post['company_id']) > 0 ? self::text($post['referent_name'] ?? '') : '',
+        ] : [];
+
+        return $buyer + [
             'email' => self::text($post['email'] ?? ($user->email ?? '')),
             'phone' => self::text($post['phone'] ?? ($user->phone ?? '')),
             'payment_method_id' => self::id($post['payment_method_id'] ?? 0),
