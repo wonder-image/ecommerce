@@ -180,6 +180,12 @@
         "redirect_panel": "After clicking “Pay now”, you will be redirected to {{name}} to complete your purchase securely",
         "wallet_panel": "After submitting, {{name}} will open so you can complete your purchase securely",
         "invoice": "I need an invoice",
+        "company": {
+            "buy_as": "Buy as",
+            "me": "For myself",
+            "vat": "VAT {{pi}}",
+            "billing_note": "The invoice goes to the company with its billing details: a company admin changes them under «My company» in the account."
+        },
         "billing_private": "Private",
         "billing_business": "Business",
         "consents": "Consents",
@@ -203,7 +209,8 @@
             "consents": "Accept the required documents to place the order.",
             "too_many_coupons": "You have tried too many discount codes. Please try again in a few minutes.",
             "too_many_orders": "You have placed too many orders in a short time. Please try again in a few minutes.",
-            "account_exists": "To order with this email, sign in to your account or recover your password."
+            "account_exists": "To order with this email, sign in to your account or recover your password.",
+            "company_billing": "The company’s billing details are incomplete: a company admin fills them in under «My company» in the account."
         },
         "completed": {
             "title": "Order received",
@@ -249,6 +256,22 @@
         "back_login": "Back to sign in"
     },
     "account": {
+        "company": {
+            "title": "My company",
+            "edit_title": "{{name}} billing details",
+            "edit": "Edit",
+            "tax": "VAT and tax code",
+            "address": "Address",
+            "delivery": "SDI and PEC",
+            "people": "People",
+            "person": "Name",
+            "job_title": "Role",
+            "access": "Customer area",
+            "access_none": "No access",
+            "access_buyer": "Orders",
+            "access_admin": "Manages the company",
+            "people_note": "To add or remove people, or change their access, get in touch with us."
+        },
         "payment_methods": {
             "label": "Payment methods",
             "title": "Payment methods",
@@ -260,6 +283,8 @@
         "orders": {
             "title": "Orders",
             "date": "Date",
+            "company": "Company",
+            "ordered_by": "Ordered by",
             "last": "Last order",
             "empty": "You haven't placed any orders yet",
             "order": "Order",
@@ -317,6 +342,7 @@
             "title": "Subscriptions",
             "empty": "You have no subscriptions.",
             "discover": "Discover the plans",
+            "holder": "Held by",
             "amount": "Amount per period",
             "trial_end": "Trial ends",
             "renewal": "Next renewal",

@@ -126,6 +126,7 @@ password in un modal, fatturazione) e Indirizzi sono del core: vedi
 | `account.orders.show` | `/account/ordini/{code}/` | ecommerce |
 | `account.orders.proforma` | `/account/ordini/{code}/proforma/` | ecommerce, il PDF del proforma (`OrderProforma` del gestionale) |
 | `account.coupons` | `/account/coupon/` (`?pagina=N`) | ecommerce, solo con la funzionalità `coupons` accesa (404 se spenta) |
+| `account.company` | `/account/azienda/` (GET e POST) | ecommerce, «La mia azienda»: solo per chi gestisce almeno un'azienda (404 altrimenti) |
 
 Gli ordini sono quelli della scheda del cliente (`stage = order`, in qualsiasi stato; i
 carrelli no), dal più recente, a dieci per pagina. Il dettaglio si cerca per `code`:
@@ -139,6 +140,26 @@ riservati al cliente e in corso (`AccountCoupons::forCustomer()`, sopra
 `Coupons::reserved()` del gestionale), anche con tutti gli usi già spesi e quelli
 validi solo in negozio: l'elenco non dice «che può usare adesso». La paginazione è del core
 (`AccountPagination` e il componente `frontend.account.pagination`).
+
+Con la funzionalità `company_accounts` (vedi «Acquista come» in
+`cart-checkout.md`) chi ha accesso `admin` a un'azienda
+(`CheckoutCompany::adminIds()`) vede anche gli ordini e gli abbonamenti con il
+`company_id` di quell'azienda, fatti da chiunque: `AccountOrder::condition()` e
+`AccountSubscriptions::forCustomer()` ricevono gli id delle aziende e
+`AccountOrder::visible()` decide il dettaglio e la proforma. Le righe degli
+ordini aziendali aggiungono «Azienda» (`billing_business_name`) e «Ordinato da»
+(`referent_name`) con `AccountOrder::buyerColumns()`. Gli abbonamenti
+dell'azienda sottoscritti da altri sono in sola lettura, con «Intestato a»: le
+azioni aprono il portale Stripe di chi li ha sottoscritti e restano sue
+(`owned()` guarda solo `customer_id`).
+
+«La mia azienda» (`account.company`, voce `company` con l'icona
+`bi bi-building`, solo se `adminIds()` non è vuoto) mostra per ogni azienda la
+fatturazione, modificabile in un modal (`AccountAddressForm` con
+`Company::billing()`, salvataggio con `AccountBilling::saveCompany()` e CSRF), e
+le persone collegate con mansione e accesso, in sola lettura: si cambiano dal
+backend. `AccountCompany::present()` prepara i dati della vista
+`pages/account/company.php`.
 
 `EcommerceAccountExtension` usa cinque ganci di `BaseAccountExtension`:
 

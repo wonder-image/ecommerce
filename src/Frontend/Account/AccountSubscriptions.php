@@ -5,6 +5,8 @@ namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 use Closure;
 use Throwable;
 use Wonder\Http\Route;
+use Wonder\Plugin\CustomerAccount\Models\Company;
+use Wonder\Plugin\CustomerAccount\Models\Contact;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\SubscriptionView;
@@ -26,22 +28,34 @@ use Wonder\Plugin\Gestionale\Support\Subscriptions\SubscriptionItems;
  */
 final class AccountSubscriptions
 {
-    /** @return list<array<string, mixed>> */
-    public static function forCustomer(int $contactId): array
+    /**
+     * Quelli della persona più quelli delle aziende di cui è amministratore:
+     * questi ultimi in sola lettura, le azioni restano a chi li ha sottoscritti.
+     *
+     * @param list<int> $companyIds da `CheckoutCompany::adminIds()`
+     * @return list<array<string, mixed>>
+     */
+    public static function forCustomer(int $contactId, array $companyIds = []): array
     {
         if ($contactId <= 0) {
             return [];
         }
 
+        $owner = '`customer_id` = '.$contactId;
+        $companyIds = array_values(array_filter(array_map('intval', $companyIds), static fn (int $id): bool => $id > 0));
+        if ($companyIds !== []) {
+            $owner = '('.$owner.' OR `company_id` IN ('.implode(', ', $companyIds).'))';
+        }
+
         $rows = EcommerceAccountController::rows(Subscription::find(
-            '`customer_id` = '.$contactId." AND `status` <> 'pending' AND `deleted` = 'false'",
+            $owner." AND `status` <> 'pending' AND `deleted` = 'false'",
             null,
             'id',
             'DESC'
         ));
         $candidates = self::candidates();
 
-        return array_map(static fn (array $row): array => self::present($row, $candidates), $rows);
+        return array_map(static fn (array $row): array => self::present($row, $candidates, (int) $row['customer_id'] === $contactId), $rows);
     }
 
     /**
@@ -49,7 +63,7 @@ final class AccountSubscriptions
      * @param list<array{code: string, price_id: int, product_model_id: int, label: string}> $candidates i prezzi in vendita, da `candidates()`
      * @return array<string, mixed>
      */
-    public static function present(array $row, array $candidates): array
+    public static function present(array $row, array $candidates, bool $own = true): array
     {
         $price = PlanPrice::findById((int) $row['plan_price_id']);
         $plan = SubscriptionModels::ofPrice(is_array($price) ? $price : null);
@@ -57,7 +71,7 @@ final class AccountSubscriptions
         $live = in_array($status, Subscription::LIVE, true);
         $online = (string) ($row['provider'] ?? '') === 'stripe' && trim((string) ($row['provider_reference'] ?? '')) !== '';
         $renews = (string) ($row['auto_renew'] ?? 'true') === 'true';
-        $editable = self::editable($row);
+        $editable = $own && self::editable($row);
         $currency = (string) (($row['currency'] ?? '') ?: 'EUR');
         $code = (string) $row['code'];
         $items = self::items((int) $row['id']);
@@ -82,8 +96,9 @@ final class AccountSubscriptions
             'can_add' => $addOptions !== [],
             'add_options' => $addOptions,
             'add_url' => self::route('account.subscriptions.add', ['code' => $code]),
-            'can_cancel' => $live && $online && $renews,
-            'can_update_card' => $live && $online,
+            'can_cancel' => $own && $live && $online && $renews,
+            'can_update_card' => $own && $live && $online,
+            'holder' => $own ? '' : self::holder($row),
             'cancel_url' => self::route('account.subscriptions.cancel', ['code' => $code]),
             'card_url' => self::route('account.subscriptions.card', ['code' => $code]),
         ];
@@ -249,6 +264,16 @@ final class AccountSubscriptions
         $row = Subscription::find(['code' => $code, 'deleted' => 'false'], 1);
 
         return is_array($row) && (int) ($row['id'] ?? 0) > 0 && (int) $row['customer_id'] === $contactId ? $row : null;
+    }
+
+    /** «Azienda · persona» di un abbonamento di un'altra persona dell'azienda. @param array<string, mixed> $row */
+    private static function holder(array $row): string
+    {
+        $company = Company::findById((int) ($row['company_id'] ?? 0));
+        $person = Contact::findById((int) ($row['customer_id'] ?? 0));
+        $name = is_array($person) ? trim((string) ($person['name'] ?? '').' '.(string) ($person['surname'] ?? '')) : '';
+
+        return implode(' · ', array_filter([is_array($company) ? trim((string) ($company['business_name'] ?? '')) : '', $name]));
     }
 
     /** Fine del vincolo se dura ancora, altrimenti fine periodo. @param array<string, mixed> $row */

@@ -3,13 +3,19 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Account;
 
 use Throwable;
+use Wonder\Auth\Frontend\AccountAddressForm;
 use Wonder\Auth\Frontend\AccountController;
+use Wonder\Auth\Frontend\AccountModal;
 use Wonder\Auth\Frontend\AccountPagination;
 use Wonder\Http\Csrf;
 use Wonder\Http\Route;
+use Wonder\Plugin\CustomerAccount\Account\AccountBilling;
 use Wonder\Plugin\CustomerAccount\Account\Concerns\ManagesContact;
+use Wonder\Plugin\CustomerAccount\Models\Company;
+use Wonder\Plugin\CustomerAccount\Models\ContactRelation;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Auth\OrderClaim;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutCompany;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Sales\Order;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartPresenter;
@@ -67,6 +73,7 @@ class EcommerceAccountController extends AccountController
             'subscriptions.item.change' => $this->changeItem((string) ($parameters['code'] ?? ''), (int) ($parameters['item'] ?? 0)),
             'subscriptions.cancel' => $this->cancelSubscription((string) ($parameters['code'] ?? '')),
             'subscriptions.card' => $this->subscriptionCard((string) ($parameters['code'] ?? '')),
+            'company' => $this->company(),
             default => parent::handle($action, $parameters),
         };
     }
@@ -86,7 +93,7 @@ class EcommerceAccountController extends AccountController
     {
         $contact = $this->contact((int) $this->user()->id);
         $contactId = (int) ($contact['id'] ?? 0);
-        $condition = AccountOrder::condition($contactId);
+        $condition = AccountOrder::condition($contactId, CheckoutCompany::adminIds($contactId));
         // Senza scheda non si cerca: customer_id 0 sono gli ordini degli ospiti.
         $total = $contactId > 0 ? (int) (self::rows(Order::find($condition, null, null, null, 'COUNT(*) AS total'))[0]['total'] ?? 0) : 0;
         $pagination = AccountPagination::make($total, AccountPagination::requested());
@@ -142,11 +149,72 @@ class EcommerceAccountController extends AccountController
     {
         $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
         $order = $code !== '' && $contactId > 0 ? Order::find(['code' => $code, 'stage' => 'order'], 1) : null;
-        if (!is_array($order) || !isset($order['id']) || (int) ($order['customer_id'] ?? 0) !== $contactId || AccountOrder::hidden($order)) {
+        if (!is_array($order) || !isset($order['id']) || !AccountOrder::visible($order, $contactId, CheckoutCompany::adminIds($contactId))) {
             $this->notFound();
         }
 
         return $order;
+    }
+
+    /**
+     * «La mia azienda»: per ogni azienda di cui la persona è amministratore, la
+     * fatturazione da modificare e le persone legate, in sola lettura. Il POST
+     * salva un'azienda (`company`) e con errori riapre il suo modal.
+     */
+    protected function company(): void
+    {
+        $contactId = (int) ($this->contact((int) $this->user()->id)['id'] ?? 0);
+        $ids = CheckoutCompany::adminIds($contactId);
+        if ($ids === []) {
+            $this->notFound();
+        }
+
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
+            $this->requireCsrf();
+            $post = $this->post();
+            $companyId = (int) ($post['company'] ?? 0);
+            if (!in_array($companyId, $ids, true)) {
+                $this->notFound();
+            }
+            $result = AccountBilling::saveCompany($companyId, $post);
+            if ($result->success) {
+                CheckoutCompany::forget();
+                $this->flash((string) __t('account.saved'));
+                $this->redirect(Route::url('account.company'));
+            }
+            $this->renderCompany($contactId, $companyId, $result->messages, $post);
+            return;
+        }
+
+        $this->renderCompany($contactId, 0, [], []);
+    }
+
+    /** @param list<string> $errors già tradotti, per il modal di `$open` */
+    private function renderCompany(int $contactId, int $open, array $errors, array $values): void
+    {
+        $companies = [];
+        $modals = [];
+        foreach (CheckoutCompany::options($contactId) as $option) {
+            if ($option['access'] !== ContactRelation::ACCESS_ADMIN) {
+                continue;
+            }
+            $id = $option['id'];
+            $isOpen = $open === $id;
+            $companies[] = AccountCompany::present($option['company'], 'account-company-'.$id);
+            $modals[] = AccountModal::make(
+                'account-company-'.$id, (string) __t('ecommerce.account.company.edit_title', ['name' => $option['name']]),
+                AccountAddressForm::fields(Company::billing(), $isOpen ? $values : $option['company'], $isOpen),
+                Route::url('account.company'), ['company' => $id],
+                $isOpen ? $errors : [], $isOpen,
+            );
+        }
+
+        $this->page(Ecommerce::viewPath('pages/account/company.php'), 'company', [
+            'title' => (string) __t('ecommerce.account.company.title'),
+            'seo_url' => Route::url('account.company'),
+            'companies' => $companies,
+            'modals' => $modals,
+        ]);
     }
 
     /**
@@ -189,7 +257,7 @@ class EcommerceAccountController extends AccountController
             'title' => (string) __t('ecommerce.account.subscriptions.title'),
             'seo_url' => Route::url('account.subscriptions'),
             'errors' => [...$this->contactErrors($contact), ...($error !== '' ? [$error] : [])],
-            'subscriptions' => AccountSubscriptions::forCustomer((int) ($contact['id'] ?? 0)),
+            'subscriptions' => AccountSubscriptions::forCustomer((int) ($contact['id'] ?? 0), CheckoutCompany::adminIds((int) ($contact['id'] ?? 0))),
             'plans_url' => Route::url('ecommerce.subscriptions.plans'),
         ]);
     }

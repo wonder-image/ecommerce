@@ -3,8 +3,10 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Throwable;
+use Wonder\Plugin\CustomerAccount\Models\Company;
 use Wonder\Plugin\Ecommerce\Ecommerce;
 use Wonder\Plugin\Ecommerce\Frontend\Cart\CartSession;
+use Wonder\Plugin\Ecommerce\Frontend\Checkout\CheckoutCompany;
 use Wonder\Plugin\Ecommerce\Frontend\Subscriptions\PlanCatalog;
 use Wonder\Plugin\Gestionale\Models\Contacts\Contact;
 use Wonder\Plugin\Gestionale\Models\System\Setting;
@@ -48,8 +50,10 @@ final class CustomerPriceList
 
         try {
             $contactId = CartSession::customerId();
+            // Comprando per un'azienda vale il suo listino (gestionale#77).
+            $companyId = CheckoutCompany::ofOrder(['company_id' => CartSession::companyId()], $contactId);
             $lists = PriceLists::loadAll(
-                PriceLists::candidates(PriceLists::forContact($contactId), self::CHANNEL),
+                PriceLists::candidates(PriceLists::forDocument(['company_id' => $companyId, 'customer_id' => $contactId]), self::CHANNEL),
                 date('Y-m-d H:i:s'),
                 (string) Ecommerce::config('catalog.currency', 'EUR')
             );
@@ -61,11 +65,11 @@ final class CustomerPriceList
             self::$list = ['lists' => $lists];
 
             // Paese e tipo come li legge il carrello dalla fatturazione.
-            $contact = $contactId > 0 ? Contact::findById($contactId) : null;
-            $contact = is_array($contact) ? $contact : [];
+            $holder = $companyId > 0 ? Company::findById($companyId) : ($contactId > 0 ? Contact::findById($contactId) : null);
+            $holder = is_array($holder) ? $holder : [];
             self::$customer = [
-                'country' => strtoupper(trim((string) ($contact['country'] ?? ''))) ?: 'IT',
-                'type' => trim((string) ($contact['pi'] ?? '')) !== '' ? 'business' : 'private',
+                'country' => strtoupper(trim((string) ($holder['country'] ?? ''))) ?: 'IT',
+                'type' => $companyId > 0 ? 'business' : 'private',
             ];
         } catch (Throwable) {
             self::$list = null;

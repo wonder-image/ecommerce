@@ -35,6 +35,9 @@ $account_panel->layout(compact('title', 'active', 'navigation', 'errors', 'notic
                     <span class="wi-badge"><?=e($subscription['status_label'])?></span>
                 </div>
                 <dl class="d-grid col-3 col-p-1 gap-3 text-small">
+                    <?php if (($subscription['holder'] ?? '') !== ''): ?>
+                        <div><dt class="tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.holder'))?></dt><dd><?=e($subscription['holder'])?></dd></div>
+                    <?php endif; ?>
                     <div><dt class="tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.amount'))?></dt><dd><?=e($subscription['total'])?></dd></div>
                     <?php if ($subscription['trial_end'] !== ''): ?>
                         <div><dt class="tx-secondary"><?=e((string) __t('ecommerce.account.subscriptions.trial_end'))?></dt><dd><?=e($subscription['trial_end'])?></dd></div>

@@ -183,6 +183,18 @@ final class CartSession
         return is_array($row) && !empty($row['id']) ? $row : null;
     }
 
+    /**
+     * L'azienda per cui compra chi è entrato, letta dal suo carrello senza
+     * aprirlo: «Acquista come» del checkout. 0 per sé o per l'ospite.
+     */
+    public static function companyId(): int
+    {
+        $customerId = self::customerId();
+        $cart = $customerId > 0 ? self::customerCart($customerId) : null;
+
+        return max(0, (int) ($cart['company_id'] ?? 0));
+    }
+
     /** @return array<string, mixed>|null */
     private static function customerCart(int $customerId): ?array
     {

@@ -50,7 +50,8 @@ final class AccountAddress
 
     /**
      * La fatturazione dell'ordine nella scheda del cliente, con `AccountBilling` di customer-account.
-     * Senza «Mi serve la fattura» tipo e dati fiscali salvati restano; nome, cognome e cellulare
+     * Un ordine per un'azienda non scrive niente: la fatturazione era la sua, letta dalla sua scheda.
+     * Senza «Mi serve la fattura» il codice fiscale salvato resta; nome, cognome e cellulare
      * della scheda cambiano solo se il cliente ha scritto una fatturazione diversa dalla spedizione
      * (con «uguale» sarebbero quelli di chi riceve il pacco).
      *
@@ -59,24 +60,25 @@ final class AccountAddress
      */
     public static function rememberBilling(int $contactId, array $billing, array $post): bool
     {
-        if ($contactId <= 0 || trim((string) ($billing['billing_street'] ?? '')) === '') {
+        if ($contactId <= 0 || trim((string) ($billing['billing_street'] ?? '')) === '' || (int) ($post['company_id'] ?? 0) > 0) {
             return false;
         }
 
         $contact = Contact::findById($contactId);
         $contact = is_array($contact) ? $contact : [];
-        $own = ['type', 'business_name', 'cf', 'pi', 'sdi', 'pec'];
+        // Sulla persona resta solo il codice fiscale: i dati da società stanno sulle aziende.
+        $own = ['cf'];
         $person = ['name', 'surname', 'phone_prefix', 'phone'];
         $written = (string) ($post['same_as_shipping'] ?? '1') === '0';
         $values = [];
         foreach (array_keys(Contact::billing()->labels()) as $key) {
             $saved = trim((string) ($contact[$key] ?? ''));
             $value = trim((string) ($billing['billing_'.$key] ?? ''));
-            $keep = (in_array($key, $own, true) && empty($post['invoice']))
+            // Con la fattura a una società il codice fiscale è della società, non della persona.
+            $keep = (in_array($key, $own, true) && (empty($post['invoice']) || ($billing['billing_type'] ?? '') === 'business'))
                 || (in_array($key, $person, true) && !$written && $saved !== '');
             $values[$key] = $keep ? $saved : $value;
         }
-        $values['type'] = in_array($values['type'], ['private', 'business'], true) ? $values['type'] : 'private';
 
         $saved = AccountBilling::save($contactId, $values);
         if (!($saved->success ?? false)) {

@@ -47,7 +47,7 @@ class Checkout {
         }
 
         // Anche la fatturazione: le tasse si calcolano sul suo indirizzo.
-        const watch = 'select, [name^="shipping_"], [name^="billing_"], [name="same_as_shipping"], [name="invoice"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"]';
+        const watch = 'select, [name^="shipping_"], [name^="billing_"], [name="same_as_shipping"], [name="invoice"], [name="fulfillment_type"], [name="location_id"], [name="payment_method_id"], [name="company_id"]';
 
         this.form.addEventListener('change', (event) => {
             if (event.target.hasAttribute('aria-invalid')) this.fieldError(event.target, '');

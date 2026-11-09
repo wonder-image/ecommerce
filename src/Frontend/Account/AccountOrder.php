@@ -23,10 +23,56 @@ final class AccountOrder
     /** Ordini che il cliente non vede: il pagamento non è arrivato (in corso o lasciato a metà). */
     public const HIDDEN_STATUSES = ['awaiting_payment', 'abandoned'];
 
-    /** Gli ordini del cliente nell'area clienti: stage order, la sua scheda, senza quelli nascosti. */
-    public static function condition(int $contactId): string
+    /**
+     * Gli ordini del cliente nell'area clienti: stage order, la sua scheda o
+     * un'azienda di cui è amministratore, senza quelli nascosti.
+     *
+     * @param list<int> $companyIds da `CheckoutCompany::adminIds()`
+     */
+    public static function condition(int $contactId, array $companyIds = []): string
     {
-        return "`stage` = 'order' AND `customer_id` = ".$contactId." AND `status` NOT IN ('".implode("', '", self::HIDDEN_STATUSES)."')";
+        $owner = "`customer_id` = ".$contactId;
+        $companyIds = array_values(array_filter(array_map('intval', $companyIds), static fn (int $id): bool => $id > 0));
+        if ($companyIds !== []) {
+            $owner = "(".$owner." OR `company_id` IN (".implode(', ', $companyIds)."))";
+        }
+
+        return "`stage` = 'order' AND ".$owner." AND `status` NOT IN ('".implode("', '", self::HIDDEN_STATUSES)."')";
+    }
+
+    /**
+     * L'ordine è della persona o di un'azienda di cui è amministratore.
+     *
+     * @param array<string, mixed> $order
+     * @param list<int> $companyIds
+     */
+    public static function visible(array $order, int $contactId, array $companyIds = []): bool
+    {
+        if ($contactId <= 0 || self::hidden($order)) {
+            return false;
+        }
+        $companyId = (int) ($order['company_id'] ?? 0);
+
+        return (int) ($order['customer_id'] ?? 0) === $contactId || ($companyId > 0 && in_array($companyId, array_map('intval', $companyIds), true));
+    }
+
+    /**
+     * Per un ordine di un'azienda: l'azienda e chi l'ha fatto.
+     *
+     * @param array<string, mixed> $order
+     * @return list<array{label: string, value: string}>
+     */
+    public static function buyerColumns(array $order): array
+    {
+        if ((int) ($order['company_id'] ?? 0) <= 0) {
+            return [];
+        }
+        $referent = trim((string) ($order['referent_name'] ?? ''));
+
+        return [
+            ['label' => (string) __t('ecommerce.account.orders.company'), 'value' => trim((string) ($order['billing_business_name'] ?? '')) ?: '—'],
+            ['label' => (string) __t('ecommerce.account.orders.ordered_by'), 'value' => $referent !== '' ? $referent : '—'],
+        ];
     }
 
     public static function hidden(array $order): bool
@@ -50,6 +96,7 @@ final class AccountOrder
                 ['label' => $label !== '' ? $label : (string) __t('ecommerce.account.orders.order'), 'value' => $number],
                 ['label' => (string) __t('ecommerce.account.orders.date'), 'value' => OrderSheet::date((string) ($order['ordered_at'] ?? ''))],
                 ['label' => (string) __t('ecommerce.cart.total'), 'value' => CartPresenter::money($order['total'] ?? 0, (string) (($order['currency'] ?? '') ?: 'EUR'))],
+                ...self::buyerColumns($order),
             ],
             'action' => ['label' => (string) __t('ecommerce.account.orders.view'), 'href' => Route::url('account.orders.show', ['code' => (string) ($order['code'] ?? '')]), 'modal' => '', 'icon' => 'bi bi-eye', 'disabled' => false, 'hint' => ''],
         ];
@@ -105,6 +152,9 @@ final class AccountOrder
         $status = (string) ($order['status'] ?? '');
         $paymentStatus = (string) ($order['payment_status'] ?? '');
         $rows = [$row((string) __t('ecommerce.account.orders.status_label'), in_array($status, Order::LIVE_STATUSES, true) ? (string) __t('ecommerce.account.orders.status.'.$status) : '—')];
+        foreach (self::buyerColumns($order) as $buyer) {
+            $rows[] = $row($buyer['label'], $buyer['value']);
+        }
 
         $type = (string) ($order['fulfillment_type'] ?? '');
         if ($type === 'pickup') {
