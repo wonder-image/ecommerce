@@ -136,7 +136,7 @@ Gli identificativi sono gli stessi ovunque:
 
 - `item_id` è il codice del prezzo (`ppr_…`), come lo `sku` dell'`Offer`;
 - `item_category` vale `abbonamento`;
-- `item_name` è «Piano — Prezzo»;
+- `item_name` è «Piano (Prezzo)», come il nome mostrato al cliente;
 - `price` è il prezzo di un pezzo con i sovrapprezzi delle personalizzazioni,
   `quantity` la quantità del servizio.
 

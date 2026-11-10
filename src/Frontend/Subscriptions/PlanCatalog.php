@@ -90,6 +90,18 @@ final class PlanCatalog
         }
     }
 
+    /** Piano e prezzo in una riga: «Pro (Mensile)»; senza uno dei due resta l'altro. */
+    public static function fullName(string $plan, string $price): string
+    {
+        $plan = trim($plan);
+        $price = trim($price);
+        if ($plan === '' || $price === '') {
+            return $plan !== '' ? $plan : $price;
+        }
+
+        return $plan.' ('.$price.')';
+    }
+
     /**
      * I piani pronti per la vista: un prezzo mostrato (lo scontato se più
      * basso), quello pieno barrato, la frequenza a parole e l'indirizzo per
@@ -118,7 +130,7 @@ final class PlanCatalog
                 $prices[] = [
                     'code' => (string) ($price['code'] ?? ''),
                     'name' => $priceName,
-                    'full_name' => $name.' — '.$priceName,
+                    'full_name' => self::fullName($name, $priceName),
                     'amount' => $shown,
                     'regular' => $shown < $regular ? $regular : null,
                     'unit' => $unit,

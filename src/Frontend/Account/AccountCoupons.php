@@ -41,7 +41,7 @@ final class AccountCoupons
             'amount' => CartPresenter::money($coupon['discount_value'] ?? 0, 'EUR'),
             'free_shipping' => (string) __t('ecommerce.account.coupons.free_shipping'),
             'store_credit' => (string) __t('ecommerce.account.coupons.store_credit'),
-            default => '—',
+            default => (string) __t('ecommerce.account.not_set'),
         };
     }
 }

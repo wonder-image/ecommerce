@@ -96,7 +96,7 @@ final class SubscriptionTracking
             $items[] = self::item([
                 'code' => (string) ($line['price']['code'] ?? ''),
                 'name' => $priceName,
-                'full_name' => $planName.' — '.$priceName,
+                'full_name' => PlanCatalog::fullName($planName, $priceName),
                 'amount' => $shown,
             ], $planName, $shown + $surcharge, (int) round((float) ($line['item']['quantity'] ?? 1)));
         }

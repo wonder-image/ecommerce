@@ -89,7 +89,7 @@ check('view_item_list: un item per prezzo, con il codice del prezzo come item_id
     $items = PlanCatalog::trackingItems($piani);
 
     return count($items) === 3
-        && $items[0]['item_id'] === 'ppr_mese123' && $items[0]['item_name'] === 'Pro & Team — Mensile'
+        && $items[0]['item_id'] === 'ppr_mese123' && $items[0]['item_name'] === 'Pro & Team (Mensile)'
         && $items[0]['price'] === 19.9 && is_float($items[0]['price'])
         && $items[0]['item_category'] === 'abbonamento' && $items[0]['index'] === 0
         && $items[2]['item_id'] === 'ppr_tri1234' && $items[2]['index'] === 2;

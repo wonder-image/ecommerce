@@ -7,6 +7,10 @@ versionamento semantico.
 
 ### Cambiato
 
+- **Niente trattini come testo visibile.** Nell'area cliente (ordine, azienda,
+  coupon) un valore mancante dice «Non indicato» (`ecommerce.account.not_set`)
+  invece di «—»; piano e prezzo di un abbonamento si leggono «Pro (Mensile)»
+  (`PlanCatalog::fullName()`), anche nell'`item_name` di Analytics.
 - **Listino del canale Sito e regola in percentuale (wonder-image/gestionale#162).**
   `CustomerPriceList` risolve i prezzi con `PriceLists::resolve()`: prima il
   listino del cliente, poi quello assegnato al canale `online` (vale anche per

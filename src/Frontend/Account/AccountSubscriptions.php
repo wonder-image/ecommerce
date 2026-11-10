@@ -81,7 +81,7 @@ final class AccountSubscriptions
 
         return [
             'code' => $code,
-            'plan' => trim((is_array($plan) ? (string) $plan['name'].' — ' : '').(is_array($price) ? (string) $price['name'] : '')),
+            'plan' => PlanCatalog::fullName(is_array($plan) ? (string) $plan['name'] : '', is_array($price) ? (string) $price['name'] : ''),
             'status' => $status,
             'status_label' => SubscriptionView::status($status),
             'total' => CartPresenter::money($row['total'] ?? 0, $currency),
