@@ -28,7 +28,7 @@ final class AccountCompany
     public static function billing(array $company, string $modal): array
     {
         $text = static fn (string $key): string => trim((string) ($company[$key] ?? ''));
-        $value = static fn (string $text): string => $text !== '' ? $text : '—';
+        $value = static fn (string $text): string => $text !== '' ? $text : (string) __t('ecommerce.account.not_set');
         $address = implode(', ', array_filter([
             trim($text('street').' '.$text('number')),
             trim($text('cap').' '.$text('city').' '.$text('province')),
@@ -67,8 +67,8 @@ final class AccountCompany
             $out[] = [
                 'key' => 'person-'.(string) ($link['id'] ?? ''),
                 'columns' => [
-                    ['label' => (string) __t('ecommerce.account.company.person'), 'value' => trim((string) ($person['name'] ?? '').' '.(string) ($person['surname'] ?? '')) ?: '—'],
-                    ['label' => (string) __t('ecommerce.account.company.job_title'), 'value' => trim((string) ($link['job_title'] ?? '')) ?: '—'],
+                    ['label' => (string) __t('ecommerce.account.company.person'), 'value' => trim((string) ($person['name'] ?? '').' '.(string) ($person['surname'] ?? '')) ?: (string) __t('ecommerce.account.not_set')],
+                    ['label' => (string) __t('ecommerce.account.company.job_title'), 'value' => trim((string) ($link['job_title'] ?? '')) ?: (string) __t('ecommerce.account.not_set')],
                     ['label' => (string) __t('ecommerce.account.company.access'), 'value' => (string) __t('ecommerce.account.company.access_'.$access)],
                 ],
                 'action' => [],

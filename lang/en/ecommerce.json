@@ -256,6 +256,7 @@
         "back_login": "Back to sign in"
     },
     "account": {
+        "not_set": "Not specified",
         "company": {
             "title": "My company",
             "edit_title": "{{name}} billing details",

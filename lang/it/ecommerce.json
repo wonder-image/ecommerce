@@ -314,6 +314,7 @@
         "back_login": "Torna all’accesso"
     },
     "account": {
+        "not_set": "Non indicato",
         "company": {
             "title": "La mia azienda",
             "edit_title": "Fatturazione di {{name}}",

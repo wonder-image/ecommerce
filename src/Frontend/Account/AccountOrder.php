@@ -70,8 +70,8 @@ final class AccountOrder
         $referent = trim((string) ($order['referent_name'] ?? ''));
 
         return [
-            ['label' => (string) __t('ecommerce.account.orders.company'), 'value' => trim((string) ($order['billing_business_name'] ?? '')) ?: '—'],
-            ['label' => (string) __t('ecommerce.account.orders.ordered_by'), 'value' => $referent !== '' ? $referent : '—'],
+            ['label' => (string) __t('ecommerce.account.orders.company'), 'value' => trim((string) ($order['billing_business_name'] ?? '')) ?: (string) __t('ecommerce.account.not_set')],
+            ['label' => (string) __t('ecommerce.account.orders.ordered_by'), 'value' => $referent !== '' ? $referent : (string) __t('ecommerce.account.not_set')],
         ];
     }
 
@@ -151,7 +151,7 @@ final class AccountOrder
         $row = static fn (string $label, string $value, array $icons = [], string $href = ''): array => ['label' => $label, 'value' => $value, 'icons' => $icons, 'href' => $href];
         $status = (string) ($order['status'] ?? '');
         $paymentStatus = (string) ($order['payment_status'] ?? '');
-        $rows = [$row((string) __t('ecommerce.account.orders.status_label'), in_array($status, Order::LIVE_STATUSES, true) ? (string) __t('ecommerce.account.orders.status.'.$status) : '—')];
+        $rows = [$row((string) __t('ecommerce.account.orders.status_label'), in_array($status, Order::LIVE_STATUSES, true) ? (string) __t('ecommerce.account.orders.status.'.$status) : (string) __t('ecommerce.account.not_set'))];
         foreach (self::buyerColumns($order) as $buyer) {
             $rows[] = $row($buyer['label'], $buyer['value']);
         }
@@ -167,13 +167,13 @@ final class AccountOrder
         // L'evasione solo quando c'è qualcosa da consegnare; un ordine annullato non si evade più.
         $fulfillment = (string) ($order['fulfillment_status'] ?? '');
         if ($type !== 'none' && $type !== '' && $status !== 'cancelled') {
-            $rows[] = $row((string) __t('ecommerce.account.orders.fulfillment_label'), in_array($fulfillment, Order::FULFILLMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.fulfillment.'.$fulfillment) : '—');
+            $rows[] = $row((string) __t('ecommerce.account.orders.fulfillment_label'), in_array($fulfillment, Order::FULFILLMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.fulfillment.'.$fulfillment) : (string) __t('ecommerce.account.not_set'));
         }
 
         // Il metodo di pagamento col suo nome, senza le icone delle carte.
         $payment = self::byId(PaymentMethod::class, (int) ($order['payment_method_id'] ?? 0));
-        $rows[] = $row((string) __t('ecommerce.account.orders.payment'), $payment !== [] ? (string) $payment['name'] : '—');
-        $rows[] = $row((string) __t('ecommerce.account.orders.payment_status_label'), in_array($paymentStatus, Order::PAYMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.payment_status.'.$paymentStatus) : '—');
+        $rows[] = $row((string) __t('ecommerce.account.orders.payment'), $payment !== [] ? (string) $payment['name'] : (string) __t('ecommerce.account.not_set'));
+        $rows[] = $row((string) __t('ecommerce.account.orders.payment_status_label'), in_array($paymentStatus, Order::PAYMENT_STATUSES, true) ? (string) __t('ecommerce.account.orders.payment_status.'.$paymentStatus) : (string) __t('ecommerce.account.not_set'));
 
         foreach (EcommerceAccountController::rows(Shipment::find(['order_id' => (int) $order['id'], 'type' => 'delivery'], null, 'id', 'ASC')) as $shipment) {
             $tracking = trim((string) ($shipment['tracking_number'] ?? ''));
@@ -185,7 +185,7 @@ final class AccountOrder
             // Il modello del corriere e l'indirizzo salvato sono testo libero e `e()` non spegne `javascript:` o `data:`: si linka solo http(s), come il backend.
             $href = preg_match('#^https?://#i', $href) === 1 ? $href : '';
             $rows[] = $row((string) __t('ecommerce.account.orders.tracking'), $tracking);
-            $rows[] = $row((string) __t('ecommerce.account.orders.carrier'), (string) ($carrier['name'] ?? '—'), [], $href);
+            $rows[] = $row((string) __t('ecommerce.account.orders.carrier'), trim((string) ($carrier['name'] ?? '')) ?: (string) __t('ecommerce.account.not_set'), [], $href);
         }
 
         return $rows;
