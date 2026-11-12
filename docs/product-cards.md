@@ -195,6 +195,15 @@ use Wonder\Plugin\Ecommerce\Frontend\Catalog\SelectionBlock;
   della selezione (o dell'articolo) in 1:1 sul lato di `image_side` e la card
   dall'altro, sopra l'immagine `background` se c'è.
 
+Le immagini della selezione sono media della libreria del core:
+`ProductLists::selection()` restituisce `image_media` e `background_media`
+(`MediaFile`, null se mancano o sono stati eliminati) accanto agli indirizzi
+`image` e `background`. La vetrina stampa il media con `Image::fromMedia()`
+e il suo testo alternativo; se è vuoto usa il nome dell'articolo. Lo sfondo
+è decorativo e ha l'alt vuoto. Una selezione non ancora migrata (colonna
+`image` piena, senza `image_id`) usa ancora il file di prima; con il media
+eliminato o senza foto resta la foto dell'articolo.
+
 Titolo, sottotitolo e testo della selezione fanno da intestazione. Il blocco
 manda `view_item_list` (con lo slug come `item_list_id`) e `select_item` al
 clic su una card; senza articoli non stampa niente. Un blocco che il modulo

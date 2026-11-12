@@ -263,6 +263,41 @@ check('la selezione in primo piano: foto 1:1 dal lato scelto, card sopra lo sfon
         && str_contains($right, 'data-wi-image-name="sfondo.jpg"');
 });
 
+check('la selezione in primo piano legge i media del core: alt del media, ripieghi su riga non migrata e media eliminato', function () use ($products) {
+    $spotlight = static fn (array $selection): string => \Wonder\View\View::component(
+        \Wonder\Plugin\Ecommerce\Ecommerce::viewPath('components/catalog/selection/spotlight.php'),
+        ['selection' => $selection + ['title' => 'Alba', 'subtitle' => '', 'text' => '', 'image' => '', 'background' => '', 'meta' => [], 'products' => [$products[0]]], 'card' => '<article class="product-card">x</article>']
+    );
+    $media = static fn (int $id, string $file, string $alt): \Wonder\App\Media\MediaFile => new \Wonder\App\Media\MediaFile($id, \Wonder\App\Media\MediaTypes::IMAGE, 'selezione-alba', 'Alba', $alt, $file);
+
+    // Media con alt: l'alt è quello del media, lo sfondo resta decorativo.
+    $migrated = $spotlight([
+        'image' => '/assets/upload/images/alba.jpg', 'image_media' => $media(7, 'alba.jpg', "Alba d'estate"),
+        'background' => '/assets/upload/images/alba-sfondo.jpg', 'background_media' => $media(8, 'alba-sfondo.jpg', 'Non usato'),
+    ]);
+    // Media senza alt: il nome dell'articolo.
+    $noAlt = $spotlight(['image_media' => $media(7, 'alba.jpg', '')]);
+    // Riga non migrata: l'indirizzo del file di prima.
+    $legacy = $spotlight(['image' => '/assets/upload/app/gestionale/selezioni/catalogo/selezioni/vecchia.jpg']);
+    // Media eliminato: ProductLists dà media null e indirizzo vuoto, resta la foto dell'articolo.
+    $deleted = $spotlight(['image' => '', 'image_media' => null, 'background_media' => null]);
+    // Media che non è un'immagine (nessun file): la foto dell'articolo, niente sfondo.
+    $noFile = $spotlight(['image_media' => $media(9, '', 'x'), 'background' => '/vecchio.jpg', 'background_media' => $media(10, '', '')]);
+
+    return str_contains($migrated, 'data-wi-image-name="alba.jpg"')
+        && str_contains($migrated, 'alt="Alba d&#039;estate"')
+        && str_contains($migrated, 'loading="lazy"')
+        && str_contains($migrated, 'data-wi-image-name="alba-sfondo.jpg"')
+        && !str_contains($migrated, 'Non usato')
+        && !str_contains($migrated, 't-shirt.jpg')
+        && str_contains($noAlt, 'data-wi-image-name="alba.jpg"')
+        && str_contains($noAlt, 'alt="'.htmlspecialchars((string) $products[0]['name']).'"')
+        && str_contains($legacy, 'data-wi-image-name="vecchia.jpg"')
+        && str_contains($deleted, 'data-wi-image-name="t-shirt.jpg"')
+        && str_contains($noFile, 'data-wi-image-name="t-shirt.jpg"')
+        && !str_contains($noFile, 'vecchio');
+});
+
 check('il blocco della selezione manda view_item_list e prepara select_item', function () {
     $event = ['event' => 'view_item_list', 'ecommerce' => ['item_list_id' => 'home-articoli', 'item_list_name' => 'A </script>', 'items' => []]];
     $html = \Wonder\View\View::component(
