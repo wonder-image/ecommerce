@@ -3,6 +3,7 @@
 namespace Wonder\Plugin\Ecommerce\Frontend\Catalog;
 
 use Throwable;
+use Wonder\App\Media\MediaFile;
 use Wonder\Plugin\Gestionale\Gestionale;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductPlacement;
 use Wonder\Plugin\Gestionale\Models\Catalog\ProductModel;
@@ -49,10 +50,14 @@ final class ProductLists
      *
      * `block` è la chiave del blocco ({@see SelectionBlocks}), `meta` i suoi
      * campi in più già decodificati, una chiave per campo ('' se vuoto).
+     * `image_media` e `background_media` sono i media del core (per
+     * `Image::fromMedia()`), null se mancano o sono stati eliminati;
+     * `image` e `background` i loro indirizzi, col file di prima per le
+     * righe non ancora migrate.
      *
      * @param int|null $limit null: tutti quelli della selezione (fino a `max_items` o {@see MANUAL_LIMIT})
      * @param array<string, mixed>|null $priceList i listini del cliente e del canale online (CustomerPriceList::current())
-     * @return array{name:string,slug:string,block:string,meta:array<string, string>,source:string,sort_mode:string,title:string,subtitle:string,text:string,image:string,background:string,products:list<array<string, mixed>>}|null
+     * @return array{name:string,slug:string,block:string,meta:array<string, string>,source:string,sort_mode:string,title:string,subtitle:string,text:string,image:string,image_media:?MediaFile,background:string,background_media:?MediaFile,products:list<array<string, mixed>>}|null
      */
     public static function selection(string $slug, ?int $limit = null, ?array $priceList = null): ?array
     {
@@ -91,6 +96,9 @@ final class ProductLists
             $cards = array_slice(self::sorted($cards, $mode), 0, $limit);
         }
         $block = SelectionBlocks::normalize($selection['block'] ?? null);
+        // Le immagini sono media del core: null se mancano o sono state eliminate.
+        $image = ProductSelection::media($selection, 'image');
+        $background = ProductSelection::media($selection, 'background');
 
         return [
             'name' => self::text($selection['name'] ?? ''),
@@ -102,8 +110,10 @@ final class ProductLists
             'title' => self::text($selection['title'] ?? ''),
             'subtitle' => self::text($selection['subtitle'] ?? ''),
             'text' => trim((string) ($selection['text'] ?? '')),
-            'image' => ProductSelection::imageUrl($selection),
-            'background' => ProductSelection::imageUrl($selection, 'background'),
+            'image' => ProductSelection::mediaUrl($selection, 'image', $image),
+            'image_media' => $image,
+            'background' => ProductSelection::mediaUrl($selection, 'background', $background),
+            'background_media' => $background,
             'products' => $cards,
         ];
     }

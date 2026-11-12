@@ -7,6 +7,14 @@ versionamento semantico.
 
 ### Cambiato
 
+- **Immagini delle selezioni dalla libreria Media (wonder-image/gestionale#191).**
+  La vetrina «Articolo in primo piano» legge foto e sfondo della selezione
+  come media del core (`image_media`/`background_media` in
+  `ProductLists::selection()`, stampati con `Image::fromMedia()`): l'alt è
+  quello del media, con il nome dell'articolo come ripiego; lo sfondo resta
+  decorativo. Le selezioni non migrate usano ancora il file di prima, un
+  media eliminato lascia la foto dell'articolo. Richiede il gestionale con
+  `HasCatalogMedia` e il core con `MediaFile` (wonder-image/app#214).
 - **Niente trattini come testo visibile.** Nell'area cliente (ordine, azienda,
   coupon) un valore mancante dice «Non indicato» (`ecommerce.account.not_set`)
   invece di «—»; piano e prezzo di un abbonamento si leggono «Pro (Mensile)»
